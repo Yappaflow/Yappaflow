@@ -1,0 +1,19 @@
+{
+  "name": "yappaflow",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "web",
+    "server",
+    "shared"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev -w web",
+    "dev:server": "npm run dev -w server",
+    "build:web": "npm run build -w web",
+    "build:shared": "npm run build -w shared"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
