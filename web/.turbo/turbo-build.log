@@ -1,0 +1,32 @@
+
+> @yappaflow/web@0.1.0 build
+> next build
+
+   ▲ Next.js 15.5.14
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 1930ms
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/3) ...
+ ✓ Generating static pages (3/3)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                 Size  First Load JS
+┌ ○ /_not-found                            995 B         102 kB
+├ ƒ /[locale]                            8.33 kB         178 kB
+├ ƒ /[locale]/auth                       3.74 kB         173 kB
+├ ƒ /[locale]/auth/instagram/success       705 B         120 kB
+└ ƒ /[locale]/dashboard                  1.23 kB         168 kB
++ First Load JS shared by all             101 kB
+  ├ chunks/131-9adfd5e592b6c1c6.js       45.1 kB
+  ├ chunks/c7879cf7-b5ab1053c1d9a2e7.js  54.2 kB
+  └ other shared chunks (total)          1.92 kB
+
+
+ƒ Middleware                             45.8 kB
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

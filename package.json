@@ -8,12 +8,22 @@
     "shared"
   ],
   "scripts": {
-    "dev:web": "npm run dev -w web",
-    "dev:server": "npm run dev -w server",
-    "build:web": "npm run build -w web",
-    "build:shared": "npm run build -w shared"
+    "dev": "turbo dev",
+    "dev:web": "turbo dev --filter=@yappaflow/web",
+    "dev:server": "turbo dev --filter=@yappaflow/server",
+    "build": "turbo build",
+    "build:web": "turbo build --filter=@yappaflow/web",
+    "build:server": "turbo build --filter=@yappaflow/server",
+    "build:shared": "turbo build --filter=@yappaflow/shared",
+    "start": "turbo start",
+    "lint": "turbo lint",
+    "clean": "turbo clean"
   },
+  "packageManager": "npm@11.11.0",
   "engines": {
     "node": ">=20.0.0"
+  },
+  "devDependencies": {
+    "turbo": "^2.9.5"
   }
 }

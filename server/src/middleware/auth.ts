@@ -1,25 +1,27 @@
-import { Request } from "express";
+import type { ExpressContextFunctionArgument } from "@as-integrations/express5";
 import { verifyToken } from "../services/jwt.service";
 
 export interface AuthContext {
   userId?: string;
-  req: Request;
 }
 
-export function buildAuthContext({ req }: { req: Request }): AuthContext {
-  // Token can come from Authorization header or cookie
+export async function buildAuthContext({
+  req,
+}: ExpressContextFunctionArgument): Promise<AuthContext> {
   const authHeader = req.headers.authorization;
-  const cookieToken = req.cookies?.token;
+  // cookie-parser attaches cookies to req but typings differ between versions
+  const cookieToken = (req as unknown as { cookies?: Record<string, string> })
+    .cookies?.token;
   const token = authHeader?.startsWith("Bearer ")
     ? authHeader.slice(7)
     : cookieToken;
 
-  if (!token) return { req };
+  if (!token) return {};
 
   try {
     const payload = verifyToken(token);
-    return { userId: payload.userId, req };
+    return { userId: payload.userId };
   } catch {
-    return { req };
+    return {};
   }
 }

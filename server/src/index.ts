@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
-import { expressMiddleware } from "@apollo/server/express4";
+import { expressMiddleware } from "@as-integrations/express5";
 import { createApolloServer } from "./graphql";
 import { connectDatabase } from "./config/db";
 import { env } from "./config/env";
@@ -12,24 +12,21 @@ import instagramRouter from "./routes/instagram.route";
 async function main() {
   const app = express();
 
-  app.use(cors({ origin: env.frontendUrl, credentials: true }));
-  app.use(express.json());
   app.use(cookieParser());
 
   await connectDatabase();
 
-  // Instagram OAuth routes (REST)
-  app.use("/auth", instagramRouter);
+  app.use("/auth", cors({ origin: env.frontendUrl, credentials: true }), express.json(), instagramRouter);
 
-  // Apollo GraphQL
   const apolloServer = createApolloServer();
   await apolloServer.start();
 
+  // Apollo Server v4 with Express 4/5 — cors + json must be inline per route
   app.use(
     "/graphql",
-    expressMiddleware(apolloServer, {
-      context: buildAuthContext,
-    })
+    cors({ origin: env.frontendUrl, credentials: true }),
+    express.json(),
+    expressMiddleware(apolloServer, { context: buildAuthContext }) as unknown as express.RequestHandler
   );
 
   app.get("/health", (_req, res) => {
