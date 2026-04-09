@@ -127,6 +127,64 @@ export const platformResolvers = {
       return serializeConn(doc);
     },
 
+    /** Send an outbound message via WhatsApp Business Cloud API */
+    sendMessage: async (
+      _: unknown,
+      { signalId, text }: { signalId: string; text: string },
+      ctx: AuthContext
+    ) => {
+      if (!ctx.userId) throw new GraphQLError("Unauthorized", { extensions: { code: "UNAUTHORIZED" } });
+
+      const signal = await Signal.findOne({ _id: signalId, agencyId: ctx.userId });
+      if (!signal) throw new GraphQLError("Signal not found", { extensions: { code: "NOT_FOUND" } });
+
+      const conn = await PlatformConnection.findOne({
+        userId: ctx.userId,
+        platform: "whatsapp_business",
+        isActive: true,
+      });
+      if (!conn?.accessToken || !conn.phoneNumberId) {
+        throw new GraphQLError("WhatsApp Business not connected — add your API token in Settings → Platforms", {
+          extensions: { code: "NOT_CONNECTED" },
+        });
+      }
+
+      // Send via Meta Cloud API
+      let externalId: string;
+      try {
+        const { data } = await axios.post(
+          `https://graph.facebook.com/v19.0/${conn.phoneNumberId}/messages`,
+          {
+            messaging_product: "whatsapp",
+            to:      signal.sender,
+            type:    "text",
+            text:    { body: text },
+          },
+          { headers: { Authorization: `Bearer ${conn.accessToken}`, "Content-Type": "application/json" } }
+        );
+        externalId = data.messages?.[0]?.id ?? `local_${Date.now()}`;
+      } catch (err: unknown) {
+        const msg = (err as { response?: { data?: { error?: { message?: string } } } })
+          ?.response?.data?.error?.message ?? "Failed to send message";
+        throw new GraphQLError(msg, { extensions: { code: "SEND_FAILED" } });
+      }
+
+      const doc = await ChatMessage.create({
+        agencyId:     ctx.userId,
+        signalId:     signal._id,
+        platform:     "whatsapp",
+        direction:    "outbound",
+        senderName:   "Agency",
+        senderHandle: conn.displayPhone ?? "agency",
+        text,
+        messageType:  "text",
+        externalId,
+        timestamp:    new Date(),
+      });
+
+      return serializeMsg(doc);
+    },
+
     /** Disconnect a platform */
     disconnectPlatform: async (
       _: unknown,

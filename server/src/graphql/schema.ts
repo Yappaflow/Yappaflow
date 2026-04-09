@@ -46,6 +46,9 @@ export const typeDefs = `#graphql
     connectWhatsApp(input: ConnectWhatsAppInput!): PlatformConnection!
     connectInstagram(accessToken: String!): PlatformConnection!
     disconnectPlatform(platform: String!): Boolean!
+
+    # ── Messaging ─────────────────────────────────────────
+    sendMessage(signalId: ID!, text: String!): ChatMessage!
   }
 
   # ── Auth types ────────────────────────────────────────────────

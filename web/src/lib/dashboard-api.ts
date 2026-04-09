@@ -7,14 +7,19 @@ function getToken() {
 
 async function gql<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
   const token = getToken();
-  const res = await fetch(`${API_URL}/graphql`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify({ query, variables }),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}/graphql`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ query, variables }),
+    });
+  } catch {
+    throw new Error("Server offline – please start the API server.");
+  }
   const json = await res.json();
   if (json.errors?.length) throw new Error(json.errors[0].message);
   return json.data as T;
@@ -148,4 +153,71 @@ export async function getDashboardStats() {
     `query { dashboardStats { totalSignals newSignals activeProjects liveProjects completedThisWeek } }`
   );
   return data.dashboardStats;
+}
+
+// ── Platform connections ────────────────────────────────────────────────────────
+
+export interface PlatformConnection {
+  id:           string;
+  platform:     "whatsapp" | "instagram";
+  displayPhone: string | null;
+  igUsername:   string | null;
+  createdAt:  string;
+}
+
+export interface ChatMessage {
+  id:         string;
+  signalId:   string;
+  direction:  "inbound" | "outbound";
+  text:       string;
+  externalId: string;
+  createdAt:  string;
+}
+
+const PLATFORM_FIELDS = `id platform displayPhone igUsername createdAt`;
+const CHAT_MSG_FIELDS = `id signalId direction text externalId createdAt`;
+
+export async function getPlatformConnections() {
+  const data = await gql<{ platformConnections: PlatformConnection[] }>(
+    `query { platformConnections { ${PLATFORM_FIELDS} } }`
+  );
+  return data.platformConnections;
+}
+
+export async function connectWhatsApp(input: { accessToken: string }) {
+  const data = await gql<{ connectWhatsApp: PlatformConnection }>(
+    `mutation ConnectWhatsApp($input: ConnectWhatsAppInput!) {
+      connectWhatsApp(input: $input) { ${PLATFORM_FIELDS} }
+    }`,
+    { input }
+  );
+  return data.connectWhatsApp;
+}
+
+export async function connectInstagram(accessToken: string) {
+  const data = await gql<{ connectInstagram: PlatformConnection }>(
+    `mutation ConnectInstagram($accessToken: String!) {
+      connectInstagram(accessToken: $accessToken) { ${PLATFORM_FIELDS} }
+    }`,
+    { accessToken }
+  );
+  return data.connectInstagram;
+}
+
+export async function disconnectPlatform(platform: string) {
+  const data = await gql<{ disconnectPlatform: boolean }>(
+    `mutation DisconnectPlatform($platform: String!) { disconnectPlatform(platform: $platform) }`,
+    { platform }
+  );
+  return data.disconnectPlatform;
+}
+
+export async function getChatMessages(signalId: string, limit = 50) {
+  const data = await gql<{ chatMessages: ChatMessage[] }>(
+    `query ChatMessages($signalId: ID!, $limit: Int) {
+      chatMessages(signalId: $signalId, limit: $limit) { ${CHAT_MSG_FIELDS} }
+    }`,
+    { signalId, limit }
+  );
+  return data.chatMessages;
 }
