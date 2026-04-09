@@ -48,7 +48,7 @@ export function Navbar() {
           >
             TR / EN
           </Link>
-          <Button href="#cta" size="sm">
+          <Button href={pathname === "/" ? "/en/auth" : "/tr/auth"} size="sm">
             {t("getStarted")}
           </Button>
         </div>
@@ -58,7 +58,11 @@ export function Navbar() {
           className="md:hidden p-2"
           onClick={() => setMobileOpen(!mobileOpen)}
         >
-          {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          {mobileOpen ? (
+            <X className="h-5 w-5" />
+          ) : (
+            <Menu className="h-5 w-5" />
+          )}
         </button>
       </Container>
 

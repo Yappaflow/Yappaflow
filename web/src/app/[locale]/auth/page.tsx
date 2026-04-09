@@ -4,7 +4,14 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mail, MessageCircle, Instagram, ArrowLeft, Eye, EyeOff } from "lucide-react";
+import {
+  Mail,
+  MessageCircle,
+  Instagram,
+  ArrowLeft,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 import { Container } from "@/components/ui/Container";
 import { Button } from "@/components/ui/Button";
 import {
@@ -46,7 +53,9 @@ export default function AuthPage() {
   const [authToken, setAuthToken] = useState("");
   const [needsPhone, setNeedsPhone] = useState(false);
 
-  function clearError() { setError(""); }
+  function clearError() {
+    setError("");
+  }
 
   async function handleEmailSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -146,14 +155,16 @@ export default function AuthPage() {
     <div className="min-h-screen bg-brand-gray-50 flex items-center justify-center p-4">
       <Container className="max-w-md w-full">
         {/* Logo */}
-        <div className="flex justify-center mb-8">
-          <div className="flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-black">
-              <span className="text-lg font-bold text-white">Y</span>
+        <a href="/">
+          <div className="flex justify-center mb-8">
+            <div className="flex items-center gap-2">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-black">
+                <span className="text-lg font-bold text-white">Y</span>
+              </div>
+              <span className="text-xl font-bold">Yappaflow</span>
             </div>
-            <span className="text-xl font-bold">Yappaflow</span>
           </div>
-        </div>
+        </a>
 
         <AnimatePresence mode="wait">
           {/* ── CHOOSE ── */}
@@ -165,8 +176,12 @@ export default function AuthPage() {
               exit={{ opacity: 0, y: -20 }}
               className="bg-white rounded-2xl shadow-card p-8"
             >
-              <h1 className="text-2xl font-bold text-center">{t("loginTitle")}</h1>
-              <p className="mt-2 text-center text-gray-500 text-sm">{t("loginSubtitle")}</p>
+              <h1 className="text-2xl font-bold text-center">
+                {t("loginTitle")}
+              </h1>
+              <p className="mt-2 text-center text-gray-500 text-sm">
+                {t("loginSubtitle")}
+              </p>
 
               <div className="mt-8 space-y-3">
                 <button
@@ -217,7 +232,13 @@ export default function AuthPage() {
               exit={{ opacity: 0, y: -20 }}
               className="bg-white rounded-2xl shadow-card p-8"
             >
-              <button onClick={() => { setStep("choose"); clearError(); }} className="flex items-center gap-1 text-sm text-gray-500 hover:text-brand-black mb-6">
+              <button
+                onClick={() => {
+                  setStep("choose");
+                  clearError();
+                }}
+                className="flex items-center gap-1 text-sm text-gray-500 hover:text-brand-black mb-6"
+              >
                 <ArrowLeft className="h-4 w-4" /> {t("back")}
               </button>
 
@@ -228,7 +249,9 @@ export default function AuthPage() {
               <form onSubmit={handleEmailSubmit} className="mt-6 space-y-4">
                 {emailMode === "register" && (
                   <div>
-                    <label className="block text-sm font-medium mb-1">{t("nameLabel")}</label>
+                    <label className="block text-sm font-medium mb-1">
+                      {t("nameLabel")}
+                    </label>
                     <input
                       type="text"
                       required
@@ -240,7 +263,9 @@ export default function AuthPage() {
                   </div>
                 )}
                 <div>
-                  <label className="block text-sm font-medium mb-1">{t("emailLabel")}</label>
+                  <label className="block text-sm font-medium mb-1">
+                    {t("emailLabel")}
+                  </label>
                   <input
                     type="email"
                     required
@@ -251,7 +276,9 @@ export default function AuthPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">{t("passwordLabel")}</label>
+                  <label className="block text-sm font-medium mb-1">
+                    {t("passwordLabel")}
+                  </label>
                   <div className="relative">
                     <input
                       type={showPassword ? "text" : "password"}
@@ -267,7 +294,11 @@ export default function AuthPage() {
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400"
                     >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
                     </button>
                   </div>
                 </div>
@@ -275,17 +306,26 @@ export default function AuthPage() {
                 {error && <p className="text-sm text-red-500">{error}</p>}
 
                 <Button className="w-full" size="lg" onClick={() => {}}>
-                  {loading ? "..." : emailMode === "login" ? t("signIn") : t("createAccount")}
+                  {loading
+                    ? "..."
+                    : emailMode === "login"
+                      ? t("signIn")
+                      : t("createAccount")}
                 </Button>
               </form>
 
               <p className="mt-4 text-center text-sm text-gray-500">
                 {emailMode === "login" ? t("noAccount") : t("hasAccount")}{" "}
                 <button
-                  onClick={() => { setEmailMode(emailMode === "login" ? "register" : "login"); clearError(); }}
+                  onClick={() => {
+                    setEmailMode(emailMode === "login" ? "register" : "login");
+                    clearError();
+                  }}
                   className="font-semibold text-brand-black hover:underline"
                 >
-                  {emailMode === "login" ? t("switchToRegister") : t("switchToLogin")}
+                  {emailMode === "login"
+                    ? t("switchToRegister")
+                    : t("switchToLogin")}
                 </button>
               </p>
             </motion.div>
@@ -300,7 +340,13 @@ export default function AuthPage() {
               exit={{ opacity: 0, y: -20 }}
               className="bg-white rounded-2xl shadow-card p-8"
             >
-              <button onClick={() => { setStep("choose"); clearError(); }} className="flex items-center gap-1 text-sm text-gray-500 hover:text-brand-black mb-6">
+              <button
+                onClick={() => {
+                  setStep("choose");
+                  clearError();
+                }}
+                className="flex items-center gap-1 text-sm text-gray-500 hover:text-brand-black mb-6"
+              >
                 <ArrowLeft className="h-4 w-4" /> {t("back")}
               </button>
 
@@ -308,11 +354,15 @@ export default function AuthPage() {
                 <MessageCircle className="h-6 w-6" />
               </div>
               <h2 className="text-2xl font-bold">{t("whatsappTitle")}</h2>
-              <p className="mt-1 text-sm text-gray-500">{t("whatsappSubtitle")}</p>
+              <p className="mt-1 text-sm text-gray-500">
+                {t("whatsappSubtitle")}
+              </p>
 
               <form onSubmit={handleSendWhatsappOtp} className="mt-6 space-y-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">{t("phoneLabel")}</label>
+                  <label className="block text-sm font-medium mb-1">
+                    {t("phoneLabel")}
+                  </label>
                   <input
                     type="tel"
                     required
@@ -340,7 +390,11 @@ export default function AuthPage() {
               error={error}
               loading={loading}
               onSubmit={handleVerifyWhatsappOtp}
-              onBack={() => { setStep("whatsapp_phone"); setOtp(""); clearError(); }}
+              onBack={() => {
+                setStep("whatsapp_phone");
+                setOtp("");
+                clearError();
+              }}
               onResend={() => requestWhatsappOtp(phone)}
               t={t}
             />
@@ -356,12 +410,16 @@ export default function AuthPage() {
               className="bg-white rounded-2xl shadow-card p-8"
             >
               <h2 className="text-2xl font-bold">{t("phoneVerifyTitle")}</h2>
-              <p className="mt-1 text-sm text-gray-500">{t("phoneVerifySubtitle")}</p>
+              <p className="mt-1 text-sm text-gray-500">
+                {t("phoneVerifySubtitle")}
+              </p>
               <p className="mt-1 text-xs text-gray-400">{t("phoneSmsNote")}</p>
 
               <form onSubmit={handleSendPhoneOtp} className="mt-6 space-y-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">{t("phoneLabel")}</label>
+                  <label className="block text-sm font-medium mb-1">
+                    {t("phoneLabel")}
+                  </label>
                   <input
                     type="tel"
                     required
@@ -398,7 +456,11 @@ export default function AuthPage() {
               error={error}
               loading={loading}
               onSubmit={handleVerifyPhone}
-              onBack={() => { setStep("phone_verify"); setOtp(""); clearError(); }}
+              onBack={() => {
+                setStep("phone_verify");
+                setOtp("");
+                clearError();
+              }}
               onResend={() => requestPhoneVerification(phone, authToken)}
               t={t}
             />
@@ -411,13 +473,26 @@ export default function AuthPage() {
 
 // Shared OTP input step
 function OtpStep({
-  title, subtitle, otp, setOtp, error, loading,
-  onSubmit, onBack, onResend, t,
+  title,
+  subtitle,
+  otp,
+  setOtp,
+  error,
+  loading,
+  onSubmit,
+  onBack,
+  onResend,
+  t,
 }: {
-  title: string; subtitle: string; otp: string;
-  setOtp: (v: string) => void; error: string; loading: boolean;
+  title: string;
+  subtitle: string;
+  otp: string;
+  setOtp: (v: string) => void;
+  error: string;
+  loading: boolean;
   onSubmit: (e: React.FormEvent) => void;
-  onBack: () => void; onResend: () => void;
+  onBack: () => void;
+  onResend: () => void;
   t: ReturnType<typeof useTranslations>;
 }) {
   return (
@@ -428,7 +503,10 @@ function OtpStep({
       exit={{ opacity: 0, y: -20 }}
       className="bg-white rounded-2xl shadow-card p-8"
     >
-      <button onClick={onBack} className="flex items-center gap-1 text-sm text-gray-500 hover:text-brand-black mb-6">
+      <button
+        onClick={onBack}
+        className="flex items-center gap-1 text-sm text-gray-500 hover:text-brand-black mb-6"
+      >
         <ArrowLeft className="h-4 w-4" /> {t("back")}
       </button>
       <h2 className="text-2xl font-bold">{title}</h2>
@@ -436,7 +514,9 @@ function OtpStep({
 
       <form onSubmit={onSubmit} className="mt-6 space-y-4">
         <div>
-          <label className="block text-sm font-medium mb-1">{t("otpLabel")}</label>
+          <label className="block text-sm font-medium mb-1">
+            {t("otpLabel")}
+          </label>
           <input
             type="text"
             inputMode="numeric"
