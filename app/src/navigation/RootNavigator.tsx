@@ -2,47 +2,74 @@ import { useEffect, useState } from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { View, ActivityIndicator } from "react-native";
-import { HomeScreen } from "../screens/HomeScreen";
-import { ProjectScreen } from "../screens/ProjectScreen";
-import { SettingsScreen } from "../screens/SettingsScreen";
-import { AuthNavigator } from "./AuthNavigator";
+import { View, ActivityIndicator, Text } from "react-native";
+import { Home, Settings } from "lucide-react-native";
+
+import { CommandCenterScreen } from "../screens/CommandCenterScreen";
+import { EngineRoomScreen }    from "../screens/EngineRoomScreen";
+import { DeploymentHubScreen } from "../screens/DeploymentHubScreen";
+import { IntegrationsScreen }  from "../screens/IntegrationsScreen";
+import { AuthNavigator }       from "./AuthNavigator";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
-import { setToken, setUser } from "../store/slices/authSlice";
+import { setToken, setUser }   from "../store/slices/authSlice";
+import { Colors }              from "../design/tokens";
 
 export type RootStackParamList = {
-  Auth: undefined;
-  Main: undefined;
-  Project: { projectId: string };
+  Auth:          undefined;
+  Main:          undefined;
+  EngineRoom:    { signalId: string | null };
+  DeploymentHub: { projectId: string };
+  CommandCenter: undefined;
 };
 
 export type MainTabParamList = {
-  Home: undefined;
-  Settings: undefined;
+  CommandCenter: undefined;
+  Integrations:  undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
-const Tab = createBottomTabNavigator<MainTabParamList>();
+const Tab   = createBottomTabNavigator<MainTabParamList>();
 
 function MainTabs() {
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: "#111827",
-        tabBarInactiveTintColor: "#9CA3AF",
-        tabBarStyle: { backgroundColor: "#fff", borderTopColor: "#F3F4F6" },
-        tabBarLabelStyle: { fontSize: 12, fontWeight: "600" },
+        tabBarStyle: {
+          backgroundColor: Colors.surface,
+          borderTopColor:  Colors.border,
+          borderTopWidth:  1,
+          height: 80,
+          paddingBottom: 20,
+          paddingTop: 10,
+        },
+        tabBarActiveTintColor:   Colors.accent,
+        tabBarInactiveTintColor: Colors.textMuted,
+        tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
       }}
     >
-      <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarLabel: "Projects" }} />
-      <Tab.Screen name="Settings" component={SettingsScreen} options={{ tabBarLabel: "Settings" }} />
+      <Tab.Screen
+        name="CommandCenter"
+        component={CommandCenterScreen}
+        options={{
+          tabBarLabel: "Command",
+          tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
+        }}
+      />
+      <Tab.Screen
+        name="Integrations"
+        component={IntegrationsScreen}
+        options={{
+          tabBarLabel: "Settings",
+          tabBarIcon: ({ color, size }) => <Settings size={size} color={color} />,
+        }}
+      />
     </Tab.Navigator>
   );
 }
 
 export function RootNavigator() {
-  const dispatch = useAppDispatch();
+  const dispatch        = useAppDispatch();
   const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated);
   const [bootstrapping, setBootstrapping] = useState(true);
 
@@ -52,7 +79,6 @@ export function RootNavigator() {
         const token = await AsyncStorage.getItem("yappaflow_token");
         if (token) {
           dispatch(setToken(token));
-          // Restore minimal user state from token (full hydration would call /me)
           dispatch(setUser({ id: "restored", email: "", name: "User" }));
         }
       } finally {
@@ -64,8 +90,9 @@ export function RootNavigator() {
 
   if (bootstrapping) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-        <ActivityIndicator size="large" color="#111827" />
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: Colors.bg }}>
+        <ActivityIndicator size="large" color={Colors.accent} />
+        <Text style={{ color: Colors.textMuted, marginTop: 12, fontSize: 13 }}>Loading...</Text>
       </View>
     );
   }
@@ -76,14 +103,19 @@ export function RootNavigator() {
         <>
           <Stack.Screen name="Main" component={MainTabs} />
           <Stack.Screen
-            name="Project"
-            component={ProjectScreen}
-            options={{
-              headerShown: true,
-              title: "Project",
-              headerStyle: { backgroundColor: "#fff" },
-              headerShadowVisible: false,
-            }}
+            name="EngineRoom"
+            component={EngineRoomScreen}
+            options={{ animation: "slide_from_bottom" }}
+          />
+          <Stack.Screen
+            name="DeploymentHub"
+            component={DeploymentHubScreen}
+            options={{ animation: "slide_from_right" }}
+          />
+          <Stack.Screen
+            name="CommandCenter"
+            component={MainTabs}
+            options={{ animation: "slide_from_left" }}
           />
         </>
       ) : (

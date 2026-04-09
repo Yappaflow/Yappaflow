@@ -5,3 +5,6 @@ node_modules/
 dist/
 .next/
 *.tsbuildinfo
+
+/server/.env
+/server/dist/

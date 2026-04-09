@@ -384,7 +384,7 @@ export default function AuthPage() {
           {step === "whatsapp_otp" && (
             <OtpStep
               title={t("otpTitle")}
-              subtitle={t("otpSubtitle").replace("{phone}", phone)}
+              subtitle={t("otpSubtitle", { phone })}
               otp={otp}
               setOtp={setOtp}
               error={error}
@@ -450,7 +450,7 @@ export default function AuthPage() {
           {step === "phone_otp" && (
             <OtpStep
               title={t("otpTitle")}
-              subtitle={t("otpSubtitle").replace("{phone}", phone)}
+              subtitle={t("otpSubtitle", { phone })}
               otp={otp}
               setOtp={setOtp}
               error={error}
