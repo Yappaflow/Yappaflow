@@ -5,12 +5,15 @@
   "workspaces": [
     "web",
     "server",
-    "shared"
+    "shared",
+    "tunnel"
   ],
   "scripts": {
-    "dev": "turbo dev",
+    "dev": "turbo dev --filter=@yappaflow/web --filter=@yappaflow/server",
+    "dev:all": "turbo dev",
     "dev:web": "turbo dev --filter=@yappaflow/web",
     "dev:server": "turbo dev --filter=@yappaflow/server",
+    "dev:tunnel": "turbo dev --filter=@yappaflow/tunnel",
     "build": "turbo build",
     "build:web": "turbo build --filter=@yappaflow/web",
     "build:server": "turbo build --filter=@yappaflow/server",

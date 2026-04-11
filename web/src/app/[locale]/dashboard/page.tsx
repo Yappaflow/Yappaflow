@@ -19,17 +19,17 @@ export default function DashboardPage() {
   }, [router]);
 
   if (!ready) return (
-    <div className="flex h-screen items-center justify-center bg-[#0A0A0B]">
-      <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/10 border-t-orange-500" />
+    <div className="flex h-screen items-center justify-center bg-[#F5F5F5]">
+      <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#EFEFEF] border-t-[#F97316]" />
     </div>
   );
 
   return (
     <DashboardShell>
-      {(view, setView) => {
-        if (view === "command")      return <CommandCenter        setView={setView} />;
-        if (view === "engine")       return <EngineRoom           setView={setView} />;
-        if (view === "deploy")       return <DeploymentHub        setView={setView} />;
+      {(view, setView, signalId, setSignalId) => {
+        if (view === "command")      return <CommandCenter setView={setView} setSignalId={setSignalId} />;
+        if (view === "engine")       return <EngineRoom    setView={setView} signalId={signalId} />;
+        if (view === "deploy")       return <DeploymentHub setView={setView} />;
         if (view === "integrations") return <IntegrationsSettings />;
         return null;
       }}

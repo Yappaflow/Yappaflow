@@ -1,220 +1,277 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mic, MicOff, Zap, ChevronRight, X, Clock } from "lucide-react";
+import {
+  MessageCircle, Instagram, Send, X, Loader2, Lock, ChevronRight, Zap,
+} from "lucide-react";
 import type { DashboardView } from "./DashboardShell";
+import { getChatMessages, sendMessage, type ChatMessage, type Signal } from "@/lib/dashboard-api";
+import { useRealtimeSignals, type RealtimeSignalEvent } from "@/lib/hooks/useRealtimeSignals";
 
-const TRANSCRIPT = [
-  { role: "client", text: "Merhaba, bir e-ticaret sitesi istiyorum." },
-  { role: "agent",  text: "Hangi ürünleri satıyorsunuz?" },
-  { role: "client", text: "Kadın giyim. Shopify üzerinden gitmek istiyoruz." },
-  { role: "agent",  text: "Kaç ürün var yaklaşık olarak?" },
-  { role: "client", text: "Şu an 80 ürün, ama büyüyecek." },
-  { role: "agent",  text: "Tema tercihiniz var mı?" },
-  { role: "client", text: "Minimalist, beyaz ağırlıklı bir şey olsun." },
-  { role: "agent",  text: "Harika. Renk paleti ve logo var mı?" },
-  { role: "client", text: "Evet, logo PNG olarak gönderebilirim." },
-];
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
-const CODE_LINES = [
-  { text: "// Generating Shopify theme scaffold...", type: "comment" },
-  { text: "theme.json → { name: 'butikmode', version: '1.0' }", type: "code" },
-  { text: "sections/header.liquid → created", type: "code" },
-  { text: "sections/hero-banner.liquid → created", type: "code" },
-  { text: "sections/product-grid.liquid → created", type: "code" },
-  { text: "snippets/product-card.liquid → created", type: "code" },
-  { text: "assets/style.css → injecting brand tokens...", type: "code" },
-  { text: "config/settings_schema.json → 42 fields mapped", type: "code" },
-  { text: "layout/theme.liquid → SEO meta injected", type: "code" },
-  { text: "// Running Shopify CLI validation...", type: "comment" },
-  { text: "✓ Theme validated — 0 errors, 0 warnings", type: "success" },
-  { text: "// Pushing to Shopify store...", type: "comment" },
-  { text: "✓ Deployed → https://butikmode.myshopify.com/", type: "success" },
-];
+interface Props {
+  setView:  (v: DashboardView) => void;
+  signalId: string | null;
+}
 
-function AudioBars({ active }: { active: boolean }) {
+function formatTime(ts: string) {
+  return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+// ── No signal selected ────────────────────────────────────────────────────────
+function EmptyState({ setView }: { setView: (v: DashboardView) => void }) {
   return (
-    <div className="flex items-center gap-0.5 h-3.5">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <motion.div
-          key={i}
-          className="w-0.5 rounded-full bg-white"
-          animate={active ? {
-            scaleY: [0.3, 1, 0.4, 0.9, 0.3],
-            transition: { duration: 0.8 + i * 0.1, repeat: Infinity, ease: "easeInOut", delay: i * 0.1 },
-          } : { scaleY: 0.2 }}
-          style={{ height: 14, originY: "center" }}
-        />
-      ))}
+    <div className="flex h-full flex-col items-center justify-center gap-4 text-center p-8 bg-[#F5F5F5]">
+      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white border border-[#EFEFEF]">
+        <MessageCircle size={22} className="text-[#C0C0C0]" />
+      </div>
+      <div>
+        <p className="text-[15px] font-bold text-[#0A0A0A]">No conversation selected</p>
+        <p className="mt-1 text-[13px] text-[#737373]">Click a signal on the dashboard to open its chat thread</p>
+      </div>
+      <button onClick={() => setView("command")}
+        className="rounded-xl border border-[#EFEFEF] bg-white px-5 py-2 text-[13px] font-semibold text-[#737373] hover:bg-[#F8F8F8]">
+        ← Back to Dashboard
+      </button>
     </div>
   );
 }
 
-interface Props { setView: (v: DashboardView) => void; }
+// ── Consent notice ────────────────────────────────────────────────────────────
+function ConsentNotice() {
+  return (
+    <div className="flex items-start gap-2.5 rounded-xl border border-[#E8F0FF] bg-[#F0F5FF] px-4 py-3 mx-4 mt-3">
+      <Lock size={13} className="text-blue-500 flex-shrink-0 mt-0.5" />
+      <p className="text-[11px] text-blue-700 leading-relaxed">
+        <strong>Data with your permission.</strong> These messages are fetched from your connected
+        WhatsApp / Instagram account. You authorized Yappaflow to access them during login.
+        You can disconnect at any time in <strong>Settings → Platforms</strong>.
+      </p>
+    </div>
+  );
+}
 
-export function EngineRoom({ setView }: Props) {
-  const [micOn, setMicOn] = useState(true);
-  const [visibleLines, setVisibleLines] = useState(0);
-  const [visibleTranscript, setVisibleTranscript] = useState(0);
-  const [elapsed, setElapsed] = useState(0);
-  const codeRef = useRef<HTMLDivElement>(null);
-  const chatRef = useRef<HTMLDivElement>(null);
+// ── Main component ────────────────────────────────────────────────────────────
+export function EngineRoom({ setView, signalId }: Props) {
+  const [messages,  setMessages]  = useState<ChatMessage[]>([]);
+  const [signal,    setSignal]    = useState<Signal | null>(null);
+  const [loading,   setLoading]   = useState(false);
+  const [serverErr, setServerErr] = useState(false);
+  const [reply,     setReply]     = useState("");
+  const [sending,   setSending]   = useState(false);
+  const [sendErr,   setSendErr]   = useState("");
+  const chatRef  = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    const iv = setInterval(() => setElapsed((e) => e + 1), 1000);
-    return () => clearInterval(iv);
+  const scrollBottom = useCallback(() => {
+    setTimeout(() => chatRef.current?.scrollTo({ top: 99999, behavior: "smooth" }), 50);
   }, []);
 
+  // Load history
+  const loadMessages = useCallback(async () => {
+    if (!signalId) return;
+    setLoading(true); setServerErr(false);
+    try {
+      const msgs = await getChatMessages(signalId);
+      setMessages(msgs);
+      scrollBottom();
+    } catch {
+      setServerErr(true);
+    } finally { setLoading(false); }
+  }, [signalId, scrollBottom]);
+
+  useEffect(() => { loadMessages(); }, [loadMessages]);
+
+  // Fetch signal info for header
   useEffect(() => {
-    if (visibleTranscript >= TRANSCRIPT.length) return;
-    const t = setTimeout(() => setVisibleTranscript((v) => v + 1), 950);
-    return () => clearTimeout(t);
-  }, [visibleTranscript]);
+    if (!signalId) return;
+    const token = localStorage.getItem("yappaflow_token");
+    if (!token) return;
+    fetch(`${API_URL}/graphql`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ query: `query { signals { id platform senderName sender preview status } }` }),
+    })
+      .then((r) => r.json())
+      .then((json) => {
+        const found = (json.data?.signals ?? []).find((s: Signal) => s.id === signalId);
+        if (found) setSignal(found);
+      })
+      .catch(() => null);
+  }, [signalId]);
 
-  useEffect(() => {
-    if (visibleLines >= CODE_LINES.length) return;
-    const t = setTimeout(() => setVisibleLines((v) => v + 1), 680);
-    return () => clearTimeout(t);
-  }, [visibleLines]);
+  // Real-time new messages via SSE
+  const handleRealtimeMessage = useCallback((evt: RealtimeSignalEvent) => {
+    if (evt.signalId !== signalId) return;
+    const newMsg: ChatMessage = {
+      id:          `rt_${Date.now()}`,
+      signalId:    evt.signalId,
+      platform:    evt.platform,
+      direction:   "inbound",
+      senderName:  evt.senderName,
+      text:        evt.text,
+      messageType: "text",
+      timestamp:   evt.timestamp,
+    };
+    setMessages((prev) => [...prev, newMsg]);
+    scrollBottom();
+  }, [signalId, scrollBottom]);
 
-  useEffect(() => { codeRef.current?.scrollTo({ top: 9999, behavior: "smooth" }); }, [visibleLines]);
-  useEffect(() => { chatRef.current?.scrollTo({ top: 9999, behavior: "smooth" }); }, [visibleTranscript]);
+  useRealtimeSignals({ onMessage: handleRealtimeMessage });
 
-  const done = visibleLines >= CODE_LINES.length;
-  const mm = String(Math.floor(elapsed / 60)).padStart(2, "0");
-  const ss = String(elapsed % 60).padStart(2, "0");
+  // Send reply
+  const handleSend = async () => {
+    if (!reply.trim() || !signalId || sending) return;
+    const text = reply.trim();
+    setReply(""); setSendErr(""); setSending(true);
+    const optimistic: ChatMessage = {
+      id:          `opt_${Date.now()}`,
+      signalId,
+      platform:    signal?.platform ?? "whatsapp",
+      direction:   "outbound",
+      senderName:  "Agency",
+      text,
+      messageType: "text",
+      timestamp:   new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, optimistic]);
+    scrollBottom();
+    try {
+      const sent = await sendMessage(signalId, text);
+      // Replace optimistic with real
+      setMessages((prev) => prev.map((m) => m.id === optimistic.id ? sent : m));
+    } catch (e: unknown) {
+      setSendErr(e instanceof Error ? e.message : "Failed to send");
+      // Remove optimistic on error
+      setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
+    } finally { setSending(false); inputRef.current?.focus(); }
+  };
+
+  if (!signalId) return <EmptyState setView={setView} />;
+
+  const isWA = signal?.platform === "whatsapp";
+  const PlatformIcon = isWA ? MessageCircle : Instagram;
+  const platformColor = isWA ? "#25D366" : "#E1306C";
 
   return (
     <div className="flex flex-col h-full bg-[#F5F5F5]">
 
       {/* Header */}
-      <div className="flex items-center justify-between bg-white border-b border-[#EFEFEF] px-6 py-3">
+      <div className="flex items-center justify-between bg-white border-b border-[#EFEFEF] px-6 py-3 flex-shrink-0">
         <div className="flex items-center gap-3">
-          <div>
-            <h2 className="text-[15px] font-black">Engine Room</h2>
-            <p className="text-[11px] text-[#B5B5B5]">AI intake in progress</p>
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ backgroundColor: platformColor + "15" }}>
+            <PlatformIcon size={17} style={{ color: platformColor }} />
           </div>
-          <span className="flex items-center gap-1.5 rounded-full bg-red-50 border border-red-100 px-2.5 py-1 text-[10px] font-bold text-red-500 uppercase tracking-wide">
-            <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+          <div>
+            <h2 className="text-[15px] font-black leading-none">{signal?.senderName ?? "Loading…"}</h2>
+            <p className="text-[11px] text-[#B5B5B5] mt-0.5">{signal?.sender ?? ""}</p>
+          </div>
+          <span className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold ml-1"
+            style={{ backgroundColor: platformColor + "10", borderColor: platformColor + "30", color: platformColor }}>
+            <span className="h-1.5 w-1.5 rounded-full animate-pulse" style={{ backgroundColor: platformColor }} />
             Live
           </span>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Timer */}
-          <div className="flex items-center gap-1.5 rounded-lg bg-[#F5F5F5] border border-[#EFEFEF] px-3 py-1.5 text-[13px] font-mono font-bold text-[#0A0A0A]">
-            <Clock size={12} className="text-[#B5B5B5]" />
-            {mm}:{ss}
-          </div>
-
-          <button
-            onClick={() => setMicOn((v) => !v)}
-            className={[
-              "flex items-center gap-2 rounded-xl px-3 py-1.5 text-[12px] font-bold transition-all",
-              micOn ? "bg-[#F97316] text-white shadow-sm shadow-orange-200" : "bg-[#F5F5F5] border border-[#EFEFEF] text-[#737373]",
-            ].join(" ")}
-          >
-            {micOn ? <Mic size={13} /> : <MicOff size={13} />}
-            {micOn ? "Listening..." : "Muted"}
-            {micOn && <AudioBars active={micOn} />}
+          <button onClick={() => setView("deploy")}
+            className="flex items-center gap-1.5 rounded-xl bg-[#F97316] px-3.5 py-1.5 text-[12px] font-bold text-white hover:opacity-90 transition-opacity">
+            <Zap size={12} />
+            Deploy
+            <ChevronRight size={12} />
           </button>
-
-          <button
-            onClick={() => setView("command")}
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#EFEFEF] bg-white text-[#737373] hover:text-[#0A0A0A] transition-colors"
-          >
+          <button onClick={() => setView("command")}
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#EFEFEF] bg-white text-[#737373] hover:text-[#0A0A0A] transition-colors">
             <X size={14} />
           </button>
         </div>
       </div>
 
-      {/* Split pane */}
-      <div className="flex flex-1 min-h-0 gap-4 p-4">
+      {/* Consent notice */}
+      <ConsentNotice />
 
-        {/* Left — Transcript */}
-        <div className="flex w-1/2 flex-col rounded-2xl bg-white border border-[#EFEFEF] overflow-hidden">
-          <div className="flex items-center gap-2 border-b border-[#EFEFEF] px-4 py-3">
-            <span className="h-2 w-2 rounded-full bg-green-400" />
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#B5B5B5]">Live Transcript</span>
-            <span className="ml-auto text-[10px] text-[#B5B5B5]">Ahmet Yılmaz</span>
+      {/* Chat area */}
+      <div ref={chatRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3 min-h-0">
+
+        {loading && (
+          <div className="flex items-center justify-center py-10">
+            <Loader2 size={20} className="animate-spin text-[#B5B5B5]" />
           </div>
+        )}
 
-          <div ref={chatRef} className="flex-1 overflow-y-auto p-4 space-y-3">
-            <AnimatePresence>
-              {TRANSCRIPT.slice(0, visibleTranscript).map((line, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className={`flex ${line.role === "agent" ? "justify-end" : "justify-start"}`}
-                >
-                  <div className={[
-                    "max-w-[80%] rounded-xl px-3.5 py-2.5 text-[13px] leading-relaxed",
-                    line.role === "agent"
-                      ? "bg-[#F97316] text-white rounded-br-sm"
-                      : "bg-[#F5F5F5] text-[#0A0A0A] rounded-bl-sm",
-                  ].join(" ")}>
-                    {line.text}
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-
-            {visibleTranscript < TRANSCRIPT.length && (
-              <div className="flex gap-1 px-1">
-                {[0, 1, 2].map((i) => (
-                  <motion.span key={i} className="h-1.5 w-1.5 rounded-full bg-[#DEDEDE]"
-                    animate={{ opacity: [0.3, 1, 0.3] }}
-                    transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }} />
-                ))}
-              </div>
-            )}
+        {serverErr && (
+          <div className="flex flex-col items-center justify-center py-10 gap-3 text-center">
+            <p className="text-[13px] text-[#737373]">Could not load messages — server offline</p>
+            <button onClick={loadMessages}
+              className="rounded-lg border border-[#EFEFEF] bg-white px-4 py-1.5 text-[12px] font-semibold text-[#737373] hover:bg-[#F8F8F8]">
+              Retry
+            </button>
           </div>
-        </div>
+        )}
 
-        {/* Right — Code stream */}
-        <div className="flex w-1/2 flex-col rounded-2xl overflow-hidden border border-[#E0E0E0]">
-          <div className="flex items-center gap-2 bg-[#0A0A0A] px-4 py-3">
-            <div className="flex gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-red-400" />
-              <span className="h-2.5 w-2.5 rounded-full bg-yellow-400" />
-              <span className="h-2.5 w-2.5 rounded-full bg-green-400" />
-            </div>
-            <Zap size={12} className="ml-2 text-[#F97316]" />
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#737373]">AI Output</span>
+        {!loading && !serverErr && messages.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-10 gap-2 text-center">
+            <p className="text-[13px] text-[#737373]">No messages yet</p>
+            <p className="text-[11px] text-[#B5B5B5]">
+              Messages will appear here when {signal?.senderName ?? "the customer"} writes to you
+            </p>
           </div>
+        )}
 
-          <div ref={codeRef} className="flex-1 overflow-y-auto bg-[#0D0D0E] p-5 font-mono">
-            <p className="mb-3 text-xs text-[#F97316]">yappaflow@engine:~$</p>
-            <AnimatePresence>
-              {CODE_LINES.slice(0, visibleLines).map((line, i) => (
-                <motion.p key={i} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                  className={[
-                    "text-[12px] leading-5 mb-0.5",
-                    line.type === "comment" ? "text-[#4A4A4A]" :
-                    line.type === "success" ? "text-green-400" : "text-[#C9C9C9]",
-                  ].join(" ")}
-                >
-                  {line.text}
-                </motion.p>
-              ))}
-            </AnimatePresence>
-            {!done && <span className="inline-block h-3 w-1.5 bg-[#F97316] animate-pulse" />}
-          </div>
-
-          {done && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-[#0A0A0A] border-t border-[#1A1A1A] p-4">
-              <button
-                onClick={() => setView("deploy")}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-green-500 py-2.5 text-[13px] font-bold text-white hover:bg-green-400 transition-colors"
+        <AnimatePresence>
+          {messages.map((msg) => {
+            const isOut = msg.direction === "outbound";
+            return (
+              <motion.div key={msg.id}
+                initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                className={`flex ${isOut ? "justify-end" : "justify-start"}`}
               >
-                Review & Deploy
-                <ChevronRight size={15} />
-              </button>
-            </motion.div>
-          )}
+                <div className="max-w-[72%] space-y-0.5">
+                  {!isOut && (
+                    <p className="text-[10px] font-semibold text-[#B5B5B5] px-1">{msg.senderName}</p>
+                  )}
+                  <div className={[
+                    "rounded-2xl px-4 py-2.5 text-[13px] leading-relaxed",
+                    isOut
+                      ? "bg-[#F97316] text-white rounded-br-sm"
+                      : "bg-white border border-[#EFEFEF] text-[#0A0A0A] rounded-bl-sm",
+                  ].join(" ")}>
+                    {msg.text}
+                  </div>
+                  <p className={`text-[10px] text-[#B5B5B5] px-1 ${isOut ? "text-right" : "text-left"}`}>
+                    {formatTime(msg.timestamp)}
+                  </p>
+                </div>
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
+      </div>
+
+      {/* Reply box */}
+      <div className="flex-shrink-0 border-t border-[#EFEFEF] bg-white p-4">
+        {sendErr && (
+          <p className="mb-2 text-[11px] text-red-500">{sendErr}</p>
+        )}
+        <div className="flex items-center gap-2 rounded-xl border border-[#EFEFEF] bg-[#F8F8F8] px-4 py-2">
+          <input
+            ref={inputRef}
+            value={reply}
+            onChange={(e) => setReply(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+            placeholder={`Reply to ${signal?.senderName ?? "customer"}…`}
+            className="flex-1 bg-transparent text-[13px] text-[#0A0A0A] placeholder-[#B5B5B5] outline-none"
+          />
+          <button onClick={handleSend} disabled={!reply.trim() || sending}
+            className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#F97316] text-white disabled:opacity-40 hover:opacity-90 transition-opacity flex-shrink-0">
+            {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+          </button>
         </div>
+        <p className="mt-1.5 text-center text-[10px] text-[#C0C0C0]">
+          Requires WhatsApp Business API token in Settings → Platforms
+        </p>
       </div>
     </div>
   );

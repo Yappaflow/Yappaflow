@@ -13,7 +13,7 @@ export function getInstagramAuthUrl(state: string): string {
   const params = new URLSearchParams({
     client_id: env.instagramClientId,
     redirect_uri: env.instagramRedirectUri,
-    scope: "instagram_business_basic",
+    scope: "instagram_business_basic,instagram_manage_messages",
     response_type: "code",
     state,
   });

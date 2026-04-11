@@ -28,18 +28,52 @@ export async function handleWhatsAppWebhook(entry: unknown[]): Promise<void> {
     for (const change of e.changes as Array<{ field: string; value: unknown }>) {
       if (change.field !== "messages") continue;
       const val = change.value as {
-        metadata:  { phone_number_id: string };
+        metadata:  { phone_number_id: string; display_phone_number?: string };
         messages?: WAMessage[];
         contacts?: WAContact[];
       };
 
       const messages = val.messages ?? [];
       const contacts  = val.contacts ?? [];
-      const phoneNumberId = val.metadata?.phone_number_id;
+      const phoneNumberId    = val.metadata?.phone_number_id;
+      const displayPhoneRaw  = val.metadata?.display_phone_number; // e.g. "905455876255"
+      const displayPhone     = displayPhoneRaw?.startsWith("+") ? displayPhoneRaw : `+${displayPhoneRaw ?? ""}`;
 
-      // Find which agency owns this phone number
-      const conn = await PlatformConnection.findOne({ phoneNumberId, isActive: true });
-      if (!conn) { log(`WA webhook: no connection for phoneNumberId ${phoneNumberId}`); continue; }
+      log(`📨 WA Cloud API: phoneNumberId=${phoneNumberId}, displayPhone=${displayPhone}, messages=${messages.length}`);
+
+      // 1) Exact match by phoneNumberId (ideal — set during WABA onboarding)
+      let conn = await PlatformConnection.findOne({ phoneNumberId, isActive: true });
+
+      // 2) Fallback: match by displayPhone (set during WhatsApp OTP login)
+      if (!conn && displayPhoneRaw) {
+        conn = await PlatformConnection.findOne({
+          displayPhone: { $in: [displayPhone, displayPhoneRaw] },
+          platform: { $in: ["whatsapp", "whatsapp_business"] },
+          isActive: true,
+        });
+        if (conn) {
+          log(`⚠️  Matched by displayPhone ${displayPhone} (no phoneNumberId stored). Saving phoneNumberId for future lookups.`);
+          // Persist the phoneNumberId so future lookups are instant
+          await PlatformConnection.findByIdAndUpdate(conn._id, { phoneNumberId });
+        }
+      }
+
+      // 3) Last resort: if only one WA connection exists, use it
+      if (!conn) {
+        const all = await PlatformConnection.find({
+          platform: { $in: ["whatsapp", "whatsapp_business"] },
+          isActive: true,
+        });
+        if (all.length === 1) {
+          conn = all[0];
+          log(`⚠️  No phoneNumberId/displayPhone match — using single active WA connection (${conn.displayPhone}). Saving phoneNumberId.`);
+          await PlatformConnection.findByIdAndUpdate(conn._id, { phoneNumberId });
+        } else {
+          log(`❌ WA webhook: no connection for phoneNumberId ${phoneNumberId} or displayPhone ${displayPhone}. ${all.length} WA connections exist.`);
+          continue;
+        }
+      }
+
       const agencyId = conn.userId.toString();
 
       for (const msg of messages) {

@@ -1,14 +1,39 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+let _apiBase: string | null = null;
+function getApiBase(): string {
+  if (_apiBase !== null) return _apiBase;
+  const direct = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+  if (typeof window === "undefined") return direct;
+  const host = window.location.hostname;
+  _apiBase = (host === "localhost" || host === "127.0.0.1") ? direct : "/api";
+  return _apiBase;
+}
 
 async function gql(query: string, variables?: Record<string, unknown>, token?: string) {
-  const res = await fetch(`${API_URL}/graphql`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify({ query, variables }),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15_000); // 15 s — Twilio can be slow
+
+  let res: Response;
+  try {
+    res = await fetch(`${getApiBase()}/graphql`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ query, variables }),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    const isTimeout = err instanceof DOMException && err.name === "AbortError";
+    throw new Error(
+      isTimeout
+        ? "Request timed out — check your internet connection and that the API server is running."
+        : "Cannot reach the server. Make sure the API server is running on port 4000."
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
+
   const json = await res.json();
   if (json.errors?.length) throw new Error(json.errors[0].message);
   return json.data;
@@ -71,5 +96,8 @@ export async function verifyPhone(phone: string, code: string, token: string) {
 }
 
 export function getInstagramAuthUrl() {
-  return `${API_URL}/auth/instagram/authorize`;
+  // Always return a stable string for SSR consistency.
+  // On ngrok/deployed, the Next.js rewrite proxies /api/* to the API server.
+  // On localhost, /api/* also works via rewrites, so this is safe everywhere.
+  return "/api/auth/instagram/authorize";
 }

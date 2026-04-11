@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard,
@@ -12,8 +12,47 @@ import {
   Search,
   Bell,
   HelpCircle,
+  Shield,
+  X,
 } from "lucide-react";
 import { useRouter } from "@/i18n/navigation";
+
+function ConsentBanner() {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const dismissed = localStorage.getItem("yappaflow_consent_dismissed");
+    if (!dismissed) setVisible(true);
+  }, []);
+
+  const dismiss = () => {
+    localStorage.setItem("yappaflow_consent_dismissed", "1");
+    setVisible(false);
+  };
+
+  if (!visible) return null;
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -8 }}
+        className="flex items-center gap-3 bg-[#0A0A0A] px-6 py-2.5 text-white"
+      >
+        <Shield size={13} className="text-[#F97316] flex-shrink-0" />
+        <p className="flex-1 text-[11px] leading-relaxed">
+          <strong>Your data, your control.</strong> Yappaflow accesses your WhatsApp and Instagram messages
+          only with the permissions you granted during login. You can revoke access anytime in{" "}
+          <strong>Settings → Platforms</strong>.
+        </p>
+        <button onClick={dismiss} className="flex-shrink-0 text-[#737373] hover:text-white transition-colors ml-2">
+          <X size={13} />
+        </button>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
 
 export type DashboardView = "command" | "engine" | "deploy" | "integrations";
 
@@ -28,11 +67,17 @@ const NAV_GENERAL = [
 ];
 
 interface Props {
-  children: (view: DashboardView, setView: (v: DashboardView) => void) => React.ReactNode;
+  children: (
+    view: DashboardView,
+    setView: (v: DashboardView) => void,
+    signalId: string | null,
+    setSignalId: (id: string | null) => void,
+  ) => React.ReactNode;
 }
 
 export function DashboardShell({ children }: Props) {
-  const [view, setView] = useState<DashboardView>("command");
+  const [view,     setView]     = useState<DashboardView>("command");
+  const [signalId, setSignalId] = useState<string | null>(null);
   const router = useRouter();
 
   const signOut = () => {
@@ -149,6 +194,9 @@ export function DashboardShell({ children }: Props) {
       {/* ── Main ── */}
       <div className="flex flex-1 flex-col overflow-hidden">
 
+        {/* Consent banner */}
+        <ConsentBanner />
+
         {/* Top bar */}
         <header className="flex items-center gap-4 bg-white border-b border-[#EFEFEF] px-6 py-3">
           <div className="flex flex-1 items-center gap-2 rounded-xl bg-[#F5F5F5] border border-[#EFEFEF] px-3.5 py-2 max-w-sm">
@@ -197,7 +245,7 @@ export function DashboardShell({ children }: Props) {
               transition={{ duration: 0.18, ease: "easeOut" }}
               className="h-full overflow-y-auto"
             >
-              {children(view, setView)}
+              {children(view, setView, signalId, setSignalId)}
             </motion.div>
           </AnimatePresence>
         </main>

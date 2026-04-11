@@ -1,6 +1,6 @@
 import mongoose, { Schema, Document, Types } from "mongoose";
 
-export type ConnectedPlatform = "whatsapp_business" | "instagram_dm";
+export type ConnectedPlatform = "whatsapp" | "whatsapp_business" | "instagram" | "instagram_dm";
 
 export interface IPlatformConnection extends Document {
   userId:        Types.ObjectId;
@@ -26,7 +26,7 @@ export interface IPlatformConnection extends Document {
 const PlatformConnectionSchema = new Schema<IPlatformConnection>(
   {
     userId:       { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
-    platform:     { type: String, enum: ["whatsapp_business", "instagram_dm"], required: true },
+    platform:     { type: String, enum: ["whatsapp", "whatsapp_business", "instagram", "instagram_dm"], required: true },
     wabaId:       { type: String },
     phoneNumberId:{ type: String },
     displayPhone: { type: String },

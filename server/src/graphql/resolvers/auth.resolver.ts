@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import { User } from "../../models/User.model";
+import { PlatformConnection } from "../../models/PlatformConnection.model";
 import { signToken } from "../../services/jwt.service";
 import {
   sendWhatsappOtp,
@@ -106,6 +107,20 @@ export const authResolvers = {
           phoneVerified: true, // WhatsApp OTP = phone is verified
         });
       }
+
+      // Auto-connect WhatsApp platform — track phone without WABA credentials
+      await PlatformConnection.findOneAndUpdate(
+        { userId: user.id, platform: "whatsapp" },
+        {
+          $set: {
+            userId:       user.id,
+            platform:     "whatsapp",
+            displayPhone: normalized,
+            isActive:     true,
+          },
+        },
+        { upsert: true, new: true }
+      );
 
       const token = signToken({ userId: user.id, phone: user.phone });
       return { token, user: formatUser(user) };

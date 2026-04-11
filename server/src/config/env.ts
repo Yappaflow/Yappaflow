@@ -28,4 +28,9 @@ export const env = {
 
   // Meta webhook verification token (set in Meta Developer Console)
   metaWebhookVerifyToken: process.env.META_WEBHOOK_VERIFY_TOKEN || "yappaflow_webhook_verify",
+
+  // Meta WhatsApp Embedded Signup (reuses Instagram app if same Meta app)
+  metaAppId:        process.env.META_APP_ID     || process.env.INSTAGRAM_CLIENT_ID     || "",
+  metaAppSecret:    process.env.META_APP_SECRET  || process.env.INSTAGRAM_CLIENT_SECRET || "",
+  whatsappConfigId: process.env.WHATSAPP_CONFIG_ID || "",
 } as const;

@@ -24,6 +24,10 @@ const corsOptions: cors.CorsOptions = {
     // Allow requests with no origin (mobile apps, curl, Postman)
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) return callback(null, true);
+    // Allow ngrok tunnels (*.ngrok-free.dev, *.ngrok.io) in dev
+    if (env.nodeEnv !== "production" && origin && (origin.includes(".ngrok-free.dev") || origin.includes(".ngrok.io"))) {
+      return callback(null, true);
+    }
     callback(new Error(`CORS: origin ${origin} not allowed`));
   },
   credentials: true,
@@ -56,9 +60,24 @@ async function main() {
   });
 
   app.listen(env.port, () => {
-    log(`Server running at http://localhost:${env.port}`);
-    log(`GraphQL at http://localhost:${env.port}/graphql`);
-    log(`Instagram OAuth at http://localhost:${env.port}/auth/instagram/authorize`);
+    const base = `http://localhost:${env.port}`;
+    log(`\n🚀 Server running at ${base}`);
+    log(`   GraphQL        → ${base}/graphql`);
+    log(`   Instagram OAuth→ ${base}/auth/instagram/authorize`);
+    log(`\n📡 Webhook endpoints:`);
+    log(`   Meta Cloud API → POST ${base}/webhook`);
+    log(`      Verify token: ${env.metaWebhookVerifyToken}`);
+    log(`      Register at: https://developers.facebook.com/apps → Webhooks`);
+    log(`   Twilio WA      → POST ${base}/webhook/twilio`);
+    log(`      Register at: https://console.twilio.com → Messaging → WhatsApp → Sandbox Settings`);
+    log(`      "When a message comes in" → <your-ngrok-url>/webhook/twilio`);
+    log(`   Debug (dev)    → POST ${base}/webhook/debug`);
+    log(`      curl -X POST ${base}/webhook/debug \\`);
+    log(`           -H "Content-Type: application/json" \\`);
+    log(`           -d '{"phone":"+905551234567","name":"Test","message":"Hello"}'`);
+    log(`\n💡 For local testing, expose this server with:`);
+    log(`   npx ngrok http ${env.port}`);
+    log(`   Then use the ngrok URL for webhook registration.\n`);
   });
 }
 

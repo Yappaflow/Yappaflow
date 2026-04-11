@@ -44,16 +44,23 @@ export const typeDefs = `#graphql
 
     # ── Platforms ─────────────────────────────────────────
     connectWhatsApp(input: ConnectWhatsAppInput!): PlatformConnection!
+    connectWhatsAppEmbedded(input: ConnectWhatsAppEmbeddedInput!): PlatformConnection!
     connectInstagram(accessToken: String!): PlatformConnection!
     disconnectPlatform(platform: String!): Boolean!
+
+    # ── Messaging ─────────────────────────────────────────
+    sendMessage(signalId: ID!, text: String!): ChatMessage!
+
+    # ── Import platform conversations ─────────────────────
+    importPlatformMessages(platform: String!): ImportResult!
   }
 
   # ── Auth types ────────────────────────────────────────────────
-  input EmailRegisterInput { email: String!; password: String!; name: String! }
-  input EmailLoginInput    { email: String!; password: String! }
+  input EmailRegisterInput { email: String! password: String! name: String! }
+  input EmailLoginInput    { email: String! password: String! }
 
-  type AuthResult    { token: String!; user: User! }
-  type OtpSentResult { success: Boolean!; message: String! }
+  type AuthResult    { token: String! user: User! }
+  type OtpSentResult { success: Boolean! message: String! }
 
   type User {
     id:            ID!
@@ -67,7 +74,7 @@ export const typeDefs = `#graphql
     createdAt:     String!
   }
 
-  type HealthStatus { status: String!; timestamp: String!; dbConnected: Boolean! }
+  type HealthStatus { status: String! timestamp: String! dbConnected: Boolean! }
 
   # ── Project types ─────────────────────────────────────────────
   type Project {
@@ -138,10 +145,13 @@ export const typeDefs = `#graphql
   }
 
   input ConnectWhatsAppInput {
-    wabaId:        String!
+    accessToken: String!
+  }
+
+  input ConnectWhatsAppEmbeddedInput {
+    code: String!
+    wabaId: String!
     phoneNumberId: String!
-    accessToken:   String!
-    displayPhone:  String!
   }
 
   # ── Chat messages ──────────────────────────────────────────────
@@ -156,6 +166,13 @@ export const typeDefs = `#graphql
     messageType:  String!
     mediaUrl:     String
     timestamp:    String!
+  }
+
+  # ── Import result ─────────────────────────────────────────────
+  type ImportResult {
+    platform:        String!
+    signalsCreated:  Int!
+    messagesCreated: Int!
   }
 
   # ── Stats ─────────────────────────────────────────────────────

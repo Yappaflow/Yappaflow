@@ -2,7 +2,15 @@
 
 import { useEffect, useRef, useCallback } from "react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+let _apiBase: string | null = null;
+function getApiBase(): string {
+  if (_apiBase !== null) return _apiBase;
+  const direct = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+  if (typeof window === "undefined") return direct;
+  const host = window.location.hostname;
+  _apiBase = (host === "localhost" || host === "127.0.0.1") ? direct : "/api";
+  return _apiBase;
+}
 
 export interface RealtimeSignalEvent {
   signalId:   string;
@@ -28,7 +36,7 @@ export function useRealtimeSignals({ onMessage, onConnected }: Options) {
     const token = localStorage.getItem("yappaflow_token");
     if (!token) return;
 
-    const es = new EventSource(`${API_URL}/events?token=${encodeURIComponent(token)}`);
+    const es = new EventSource(`${getApiBase()}/events?token=${encodeURIComponent(token)}`);
     esRef.current = es;
 
     es.addEventListener("connected", () => {

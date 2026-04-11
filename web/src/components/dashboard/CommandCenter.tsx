@@ -4,13 +4,13 @@ import { useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   MessageCircle, Instagram, ArrowUpRight, Clock, Rocket, CheckCircle2,
-  Radio, Plus, TrendingUp, Pin, PinOff, Trash2, X, Loader2, Zap,
+  Radio, Plus, TrendingUp, Pin, PinOff, Trash2, X, Loader2, Zap, BookUser,
 } from "lucide-react";
 import type { DashboardView } from "./DashboardShell";
 import {
-  getSignals, getProjects, getDashboardStats,
-  createSignal, createProject, toggleSignalDashboard, deleteSignal, deleteProject,
-  type Signal, type Project, type DashboardStats,
+  getSignals, getProjects, getDashboardStats, getPlatformConnections,
+  createSignal, createProject, toggleSignalDashboard, deleteSignal, deleteProject, sendMessage,
+  type Signal, type Project, type DashboardStats, type PlatformConnection,
 } from "@/lib/dashboard-api";
 import { useRealtimeSignals, type RealtimeSignalEvent } from "@/lib/hooks/useRealtimeSignals";
 
@@ -181,27 +181,263 @@ function AddProjectModal({ signals, onClose, onAdd }: { signals: Signal[]; onClo
   );
 }
 
-// ── Main component ─────────────────────────────────────────────────────────────
-interface Props { setView: (v: DashboardView) => void; }
+// ── Contact Picker API (mobile/modern browsers) ────────────────────────────────
+async function pickFromDeviceContacts(): Promise<{ name: string; phone: string } | null> {
+  try {
+    // @ts-expect-error — Contact Picker API not in all TS libs yet
+    if (!("contacts" in navigator && "ContactsManager" in window)) return null;
+    // @ts-expect-error
+    const results = await navigator.contacts.select(["name", "tel"], { multiple: false });
+    if (!results || results.length === 0) return null;
+    const c = results[0];
+    return {
+      name:  c.name?.[0]  ?? "",
+      phone: c.tel?.[0]   ?? "",
+    };
+  } catch {
+    return null;
+  }
+}
 
-export function CommandCenter({ setView }: Props) {
-  const [signals,  setSignals]  = useState<Signal[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [stats,    setStats]    = useState<DashboardStats | null>(null);
-  const [loading,  setLoading]  = useState(true);
-  const [showAddSignal,  setShowAddSignal]  = useState(false);
-  const [showAddProject, setShowAddProject] = useState(false);
-  const [liveFlash, setLiveFlash] = useState<string | null>(null); // sender name of newest realtime signal
+// ── Start Conversation modal ───────────────────────────────────────────────────
+function StartConversationModal({
+  onClose, onStarted, knownContacts,
+}: {
+  onClose: () => void;
+  onStarted: (sig: Signal) => void;
+  knownContacts: Signal[];
+}) {
+  const [search,       setSearch]       = useState("");
+  const [phone,        setPhone]        = useState("");
+  const [name,         setName]         = useState("");
+  const [message,      setMessage]      = useState("Hi! I wanted to reach out about our services. Are you available for a quick chat?");
+  const [loading,      setLoading]      = useState(false);
+  const [err,          setErr]          = useState("");
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [hasContactApi, setHasContactApi] = useState(false);
+
+  useEffect(() => {
+    // @ts-expect-error
+    setHasContactApi("contacts" in navigator && "ContactsManager" in window);
+  }, []);
+
+  // Real contacts = WA signals from DB, auto-updated via SSE
+  const waContacts = knownContacts.filter((s) => s.platform === "whatsapp");
+
+  const filtered = search.trim()
+    ? waContacts.filter((c) =>
+        c.senderName.toLowerCase().includes(search.toLowerCase()) ||
+        c.sender.includes(search)
+      )
+    : waContacts;
+
+  const pickContact = (c: Signal) => {
+    setName(c.senderName);
+    setPhone(c.sender);
+    setSearch("");
+    setShowDropdown(false);
+  };
+
+  const handleDevicePick = async () => {
+    const result = await pickFromDeviceContacts();
+    if (result?.name) setName(result.name);
+    if (result?.phone) setPhone(result.phone.replace(/\s/g, ""));
+  };
+
+  const submit = async () => {
+    if (!phone.trim() || !name.trim() || !message.trim()) { setErr("All fields are required"); return; }
+    const normalized = phone.startsWith("+") ? phone.replace(/\s/g, "") : "+" + phone.replace(/\s/g, "");
+    setLoading(true); setErr("");
+    try {
+      // Reuse existing signal if this number already exists
+      const existing = knownContacts.find(
+        (s) => s.sender === normalized || s.sender === phone.trim()
+      );
+      const sig = existing ?? await createSignal({
+        platform:   "whatsapp",
+        sender:     normalized,
+        senderName: name.trim(),
+        preview:    message,
+      });
+      await sendMessage(sig.id, message);
+      onStarted(sig);
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Failed to start session");
+    } finally { setLoading(false); }
+  };
+
+  const hasContact = !!(name && phone);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+        className="w-full max-w-sm rounded-2xl bg-white border border-[#EFEFEF] p-6 shadow-xl">
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h2 className="text-[15px] font-bold">Start WhatsApp Session</h2>
+            <p className="text-[11px] text-[#B5B5B5] mt-0.5">Pick a contact or enter a number</p>
+          </div>
+          <button onClick={onClose}><X size={16} className="text-[#737373]" /></button>
+        </div>
+        <div className="space-y-3">
+
+          {/* ── Contact picker ── */}
+          {!hasContact ? (
+            <>
+              {/* Search existing (real signals from DB, live via SSE) */}
+              <div className="relative">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[11px] font-semibold text-[#737373] uppercase tracking-wide">
+                    Recent Customers
+                  </label>
+                  {hasContactApi && (
+                    <button onClick={handleDevicePick}
+                      className="flex items-center gap-1 text-[10px] font-semibold text-[#F97316] hover:underline">
+                      <BookUser size={11} /> Pick from device
+                    </button>
+                  )}
+                </div>
+                <div className="relative">
+                  <input
+                    value={search}
+                    onChange={(e) => { setSearch(e.target.value); setShowDropdown(true); }}
+                    onFocus={() => setShowDropdown(true)}
+                    onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
+                    placeholder="Search by name or number…"
+                    className="w-full rounded-lg border border-[#EFEFEF] bg-[#F8F8F8] pl-9 pr-3 py-2.5 text-[13px] outline-none focus:border-[#25D366] transition-colors"
+                  />
+                  <MessageCircle size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#25D366]" />
+                </div>
+
+                {/* Dropdown with real contacts */}
+                {showDropdown && (
+                  <div className="absolute z-10 mt-1 w-full rounded-xl border border-[#EFEFEF] bg-white shadow-lg overflow-hidden">
+                    {filtered.length > 0 ? (
+                      <div className="max-h-48 overflow-y-auto">
+                        {filtered.map((c) => (
+                          <button key={c.id} onMouseDown={() => pickContact(c)}
+                            className="flex w-full items-center gap-3 px-3 py-2.5 hover:bg-[#F8F8F8] transition-colors text-left">
+                            <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-green-50 border border-green-100">
+                              <span className="text-[12px] font-bold text-green-600">
+                                {c.senderName[0]?.toUpperCase()}
+                              </span>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[12px] font-semibold text-[#0A0A0A] truncate">{c.senderName}</p>
+                              <p className="text-[11px] text-[#B5B5B5]">{c.sender}</p>
+                            </div>
+                            {c.status === "new" && (
+                              <span className="h-1.5 w-1.5 rounded-full bg-[#F97316] flex-shrink-0" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="px-4 py-4 text-center">
+                        <p className="text-[12px] font-semibold text-[#737373]">
+                          {waContacts.length === 0
+                            ? "No customers yet"
+                            : "No match found"}
+                        </p>
+                        <p className="mt-0.5 text-[10px] text-[#B5B5B5] leading-relaxed">
+                          {waContacts.length === 0
+                            ? "Customers appear here as they message your WhatsApp Business number"
+                            : "Enter name and number below to add a new contact"}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Manual entry */}
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { key: "name",  label: "Name",   value: name,  set: setName,  placeholder: "Ahmet Yılmaz"  },
+                  { key: "phone", label: "Number", value: phone, set: setPhone, placeholder: "+905551234567" },
+                ].map(({ key, label, value, set, placeholder }) => (
+                  <div key={key}>
+                    <label className="text-[11px] font-semibold text-[#737373] uppercase tracking-wide">{label}</label>
+                    <input value={value} onChange={(e) => set(e.target.value)} placeholder={placeholder}
+                      className="mt-1.5 w-full rounded-lg border border-[#EFEFEF] bg-[#F8F8F8] px-3 py-2 text-[12px] outline-none focus:border-[#25D366]" />
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            /* ── Selected contact card ── */
+            <div className="rounded-xl border border-green-100 bg-green-50 px-4 py-3 flex items-center gap-3">
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-green-100">
+                <span className="text-[14px] font-bold text-green-700">{name[0]?.toUpperCase()}</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-bold text-[#0A0A0A]">{name}</p>
+                <p className="text-[11px] text-[#737373] font-mono">{phone}</p>
+              </div>
+              <button onClick={() => { setName(""); setPhone(""); setSearch(""); }}
+                className="rounded-lg p-1 text-[#B5B5B5] hover:bg-green-100 hover:text-[#737373] transition-colors">
+                <X size={13} />
+              </button>
+            </div>
+          )}
+
+          {/* Opening message */}
+          <div>
+            <label className="text-[11px] font-semibold text-[#737373] uppercase tracking-wide">Opening Message</label>
+            <textarea rows={3} value={message} onChange={(e) => setMessage(e.target.value)}
+              className="mt-1.5 w-full rounded-lg border border-[#EFEFEF] bg-[#F8F8F8] px-3 py-2 text-[13px] outline-none focus:border-[#25D366] resize-none" />
+          </div>
+
+          <p className="text-[10px] text-[#B5B5B5] leading-relaxed">
+            The recipient must have messaged your business in the last 24 hours, or you must use an approved WhatsApp template message.
+          </p>
+
+          {err && <p className="text-[11px] text-red-500">{err}</p>}
+
+          <button onClick={submit} disabled={loading || !hasContact}
+            className="w-full rounded-xl py-2.5 text-[13px] font-bold text-white hover:opacity-90 disabled:opacity-40 transition-opacity flex items-center justify-center gap-2"
+            style={{ background: "#25D366" }}>
+            {loading ? <Loader2 size={14} className="animate-spin" /> : <MessageCircle size={14} />}
+            {loading ? "Starting session…" : "Start Session"}
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// ── Main component ─────────────────────────────────────────────────────────────
+interface Props {
+  setView:    (v: DashboardView) => void;
+  setSignalId: (id: string | null) => void;
+}
+
+export function CommandCenter({ setView, setSignalId }: Props) {
+  const [signals,     setSignals]     = useState<Signal[]>([]);
+  const [projects,    setProjects]    = useState<Project[]>([]);
+  const [stats,       setStats]       = useState<DashboardStats | null>(null);
+  const [platforms,   setPlatforms]   = useState<PlatformConnection[]>([]);
+  const [loading,     setLoading]     = useState(true);
+  const [serverError, setServerError] = useState(false);
+  const [showAddSignal,        setShowAddSignal]        = useState(false);
+  const [showAddProject,       setShowAddProject]       = useState(false);
+  const [showStartConversation, setShowStartConversation] = useState(false);
+  const [liveFlash, setLiveFlash] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setServerError(false);
     try {
-      const [sigs, projs, st] = await Promise.all([getSignals(), getProjects(), getDashboardStats()]);
+      const [sigs, projs, st, conns] = await Promise.all([
+        getSignals(), getProjects(), getDashboardStats(), getPlatformConnections(),
+      ]);
       setSignals(sigs);
       setProjects(projs);
       setStats(st);
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
+      setPlatforms(conns);
+    } catch {
+      setServerError(true);
+    } finally { setLoading(false); }
   }, []);
 
   // Realtime: incoming messages from Meta webhooks via SSE
@@ -264,6 +500,8 @@ export function CommandCenter({ setView }: Props) {
   };
 
   const dashboardSignals = signals.filter((s) => s.isOnDashboard);
+  const waConnected = platforms.some((p) => p.platform === "whatsapp_business" || p.platform === "whatsapp");
+  const igConnected = platforms.some((p) => p.platform === "instagram_dm"      || p.platform === "instagram");
 
   const STAT_CARDS = [
     { label: "Total Signals",    value: stats?.totalSignals      ?? "—", sub: "All incoming",       dark: true  },
@@ -275,6 +513,22 @@ export function CommandCenter({ setView }: Props) {
   if (loading) return (
     <div className="flex h-full items-center justify-center">
       <Loader2 size={24} className="animate-spin text-[#B5B5B5]" />
+    </div>
+  );
+
+  if (serverError) return (
+    <div className="flex h-full flex-col items-center justify-center gap-4 text-center p-8">
+      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#FFF3EE]">
+        <Radio size={22} className="text-[#F97316]" />
+      </div>
+      <div>
+        <p className="text-[15px] font-bold text-[#0A0A0A]">API server is offline</p>
+        <p className="mt-1 text-[13px] text-[#737373]">Start the server with <code className="rounded bg-[#F5F5F5] px-1.5 py-0.5 text-[11px] font-mono">npm run dev</code> in the <code className="rounded bg-[#F5F5F5] px-1.5 py-0.5 text-[11px] font-mono">server</code> package</p>
+      </div>
+      <button onClick={load}
+        className="rounded-xl border border-[#EFEFEF] bg-white px-5 py-2 text-[13px] font-semibold text-[#737373] hover:bg-[#F8F8F8]">
+        Retry
+      </button>
     </div>
   );
 
@@ -312,9 +566,9 @@ export function CommandCenter({ setView }: Props) {
               className="flex items-center gap-2 rounded-xl bg-[#0A0A0A] px-4 py-2 text-[13px] font-bold text-white hover:opacity-80 transition-opacity">
               <Plus size={14} />New Project
             </button>
-            <button onClick={() => setView("engine")}
+            <button onClick={() => { setSignalId(null); setView("engine"); }}
               className="flex items-center gap-2 rounded-xl border border-[#EFEFEF] bg-white px-4 py-2 text-[13px] font-medium text-[#737373] hover:bg-[#F8F8F8] transition-colors">
-              Import Data
+              Open Engine Room
             </button>
           </div>
         </div>
@@ -338,57 +592,102 @@ export function CommandCenter({ setView }: Props) {
         </div>
 
         <div className="grid grid-cols-3 gap-4">
-          {/* Active Signals — pinned only */}
-          <div className="col-span-1 rounded-2xl bg-white border border-[#EFEFEF] p-5">
-            <div className="flex items-center justify-between mb-4">
+          {/* Signals panel */}
+          <div className="col-span-1 rounded-2xl bg-white border border-[#EFEFEF] p-5 flex flex-col">
+            <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <h2 className="text-[14px] font-bold">Active Signals</h2>
-                {dashboardSignals.length > 0 && (
+                <h2 className="text-[14px] font-bold">Conversations</h2>
+                {signals.filter((s) => s.status === "new").length > 0 && (
                   <span className="rounded-full bg-[#FFF3EE] px-2 py-0.5 text-[10px] font-bold text-[#F97316]">
-                    {dashboardSignals.filter((s) => s.status === "new").length} new
+                    {signals.filter((s) => s.status === "new").length} new
                   </span>
                 )}
               </div>
-              <button onClick={() => setShowAddSignal(true)}
-                className="flex items-center gap-1 rounded-lg border border-[#EFEFEF] px-2.5 py-1 text-[11px] font-semibold text-[#737373] hover:bg-[#F8F8F8]">
-                <Plus size={11} />Add
-              </button>
+              {waConnected && (
+                <button onClick={() => setShowStartConversation(true)}
+                  className="flex items-center gap-1 rounded-lg border border-[#EFEFEF] px-2.5 py-1 text-[11px] font-semibold text-[#25D366] border-green-100 bg-green-50 hover:bg-green-100 transition-colors">
+                  <MessageCircle size={11} />Start
+                </button>
+              )}
             </div>
 
-            {dashboardSignals.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 text-center">
-                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-[#F5F5F5]">
-                  <MessageCircle size={18} className="text-[#C0C0C0]" />
-                </div>
-                <p className="text-[13px] font-semibold text-[#737373]">No pinned signals</p>
-                <p className="mt-1 text-[11px] text-[#B5B5B5]">Add a signal and pin it to see it here</p>
-                <button onClick={() => setShowAddSignal(true)}
-                  className="mt-3 rounded-lg bg-[#F5F5F5] px-3 py-1.5 text-[11px] font-semibold text-[#737373] hover:bg-[#EFEFEF]">
-                  + Add Signal
-                </button>
+            {/* Connected platform badges */}
+            {(waConnected || igConnected) && (
+              <div className="flex gap-1.5 mb-3">
+                {waConnected && (
+                  <span className="flex items-center gap-1 rounded-full bg-green-50 border border-green-100 px-2 py-0.5 text-[10px] font-bold text-green-600">
+                    <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />WA Live
+                  </span>
+                )}
+                {igConnected && (
+                  <span className="flex items-center gap-1 rounded-full bg-pink-50 border border-pink-100 px-2 py-0.5 text-[10px] font-bold text-pink-600">
+                    <span className="h-1.5 w-1.5 rounded-full bg-pink-500 animate-pulse" />IG Live
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Signal list */}
+            {signals.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center flex-1">
+                {waConnected ? (
+                  <>
+                    <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-green-50 border border-green-100">
+                      <MessageCircle size={20} className="text-green-500" />
+                    </div>
+                    <p className="text-[13px] font-bold text-[#0A0A0A]">WhatsApp is live</p>
+                    <p className="mt-1 text-[11px] text-[#B5B5B5] leading-relaxed max-w-[160px]">
+                      Waiting for customers to message your WhatsApp Business number
+                    </p>
+                    <button onClick={() => setShowStartConversation(true)}
+                      className="mt-4 flex items-center gap-1.5 rounded-xl px-4 py-2 text-[12px] font-bold text-white hover:opacity-90 transition-opacity"
+                      style={{ background: "#25D366" }}>
+                      <MessageCircle size={13} />Start a Session
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-[#F5F5F5]">
+                      <MessageCircle size={18} className="text-[#C0C0C0]" />
+                    </div>
+                    <p className="text-[13px] font-semibold text-[#737373]">No conversations yet</p>
+                    <p className="mt-1 text-[11px] text-[#B5B5B5]">
+                      Connect WhatsApp or Instagram in{" "}
+                      <button onClick={() => setView("integrations")} className="text-[#F97316] underline underline-offset-2">
+                        Settings → Platforms
+                      </button>
+                    </p>
+                  </>
+                )}
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-1.5 overflow-y-auto flex-1">
                 <AnimatePresence>
-                  {dashboardSignals.map((sig) => (
+                  {signals.map((sig) => (
                     <motion.div key={sig.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -8 }}
-                      className="group flex items-center gap-3">
-                      <button onClick={() => setView("engine")}
-                        className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full ${sig.platform === "whatsapp" ? "bg-green-50" : "bg-pink-50"}`}>
+                      className="group flex items-center gap-3 rounded-xl p-2 hover:bg-[#F8F8F8] transition-colors cursor-pointer"
+                      onClick={() => { setSignalId(sig.id); setView("engine"); }}
+                    >
+                      <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${sig.platform === "whatsapp" ? "bg-green-50" : "bg-pink-50"}`}>
                         {sig.platform === "whatsapp"
-                          ? <MessageCircle size={13} className="text-green-500" />
-                          : <Instagram     size={13} className="text-pink-500" />}
-                      </button>
-                      <button onClick={() => setView("engine")} className="flex-1 min-w-0 text-left">
-                        <p className="text-[12px] font-semibold truncate">{sig.senderName}</p>
+                          ? <MessageCircle size={14} className="text-green-500" />
+                          : <Instagram     size={14} className="text-pink-500" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-[12px] font-semibold truncate">{sig.senderName}</p>
+                          {sig.status === "new" && (
+                            <span className="flex-shrink-0 h-1.5 w-1.5 rounded-full bg-[#F97316]" />
+                          )}
+                        </div>
                         <p className="text-[11px] text-[#B5B5B5] truncate">{sig.preview}</p>
-                      </button>
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => handleTogglePin(sig)} title="Unpin"
-                          className="flex h-6 w-6 items-center justify-center rounded hover:bg-[#F5F5F5]">
-                          <PinOff size={11} className="text-[#B5B5B5]" />
+                      </div>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                        <button onClick={(e) => { e.stopPropagation(); handleTogglePin(sig); }} title={sig.isOnDashboard ? "Unpin" : "Pin"}
+                          className="flex h-6 w-6 items-center justify-center rounded hover:bg-[#EFEFEF]">
+                          {sig.isOnDashboard ? <PinOff size={11} className="text-[#F97316]" /> : <Pin size={11} className="text-[#B5B5B5]" />}
                         </button>
-                        <button onClick={() => handleDeleteSignal(sig.id)} title="Delete"
+                        <button onClick={(e) => { e.stopPropagation(); handleDeleteSignal(sig.id); }} title="Delete"
                           className="flex h-6 w-6 items-center justify-center rounded hover:bg-red-50">
                           <Trash2 size={11} className="text-red-400" />
                         </button>
@@ -396,29 +695,6 @@ export function CommandCenter({ setView }: Props) {
                     </motion.div>
                   ))}
                 </AnimatePresence>
-              </div>
-            )}
-
-            {/* All unPinned signals below */}
-            {signals.filter((s) => !s.isOnDashboard).length > 0 && (
-              <div className="mt-4 pt-3 border-t border-[#F5F5F5]">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-[#B5B5B5] mb-2">All Signals</p>
-                <div className="space-y-2">
-                  {signals.filter((s) => !s.isOnDashboard).map((sig) => (
-                    <div key={sig.id} className="group flex items-center gap-2">
-                      <div className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full ${sig.platform === "whatsapp" ? "bg-green-50" : "bg-pink-50"}`}>
-                        {sig.platform === "whatsapp"
-                          ? <MessageCircle size={10} className="text-green-400" />
-                          : <Instagram     size={10} className="text-pink-400" />}
-                      </div>
-                      <p className="flex-1 text-[11px] text-[#737373] truncate">{sig.senderName}</p>
-                      <button onClick={() => handleTogglePin(sig)} title="Pin to dashboard"
-                        className="opacity-0 group-hover:opacity-100 flex h-5 w-5 items-center justify-center rounded hover:bg-[#F5F5F5] transition-opacity">
-                        <Pin size={10} className="text-[#B5B5B5]" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
               </div>
             )}
           </div>
@@ -525,6 +801,18 @@ export function CommandCenter({ setView }: Props) {
             signals={signals}
             onClose={() => setShowAddProject(false)}
             onAdd={(proj) => { setProjects((prev) => [proj, ...prev]); setShowAddProject(false); }}
+          />
+        )}
+        {showStartConversation && (
+          <StartConversationModal
+            knownContacts={signals}
+            onClose={() => setShowStartConversation(false)}
+            onStarted={(sig) => {
+              setSignals((prev) => prev.find((s) => s.id === sig.id) ? prev : [sig, ...prev]);
+              setShowStartConversation(false);
+              setSignalId(sig.id);
+              setView("engine");
+            }}
           />
         )}
       </AnimatePresence>

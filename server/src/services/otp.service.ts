@@ -16,16 +16,35 @@ export async function sendWhatsappOtp(phone: string): Promise<void> {
 
   // Invalidate any existing OTPs for this recipient
   await OtpCode.deleteMany({ recipient: phone, purpose: "whatsapp_login" });
-
   await OtpCode.create({ recipient: phone, code, purpose: "whatsapp_login", expiresAt });
+
+  // Log the OTP for dev use regardless of Twilio status
+  log(`[OTP] Code for ${phone}: ${code}`);
 
   if (env.twilioAccountSid && env.twilioAuthToken) {
     const client = twilio(env.twilioAccountSid, env.twilioAuthToken);
-    await client.messages.create({
+
+    // Fire-and-forget — OTP is already saved in DB, don't block the HTTP response
+    // waiting for Twilio (sandbox can take 20-30 s or hang indefinitely).
+    const sendPromise = client.messages.create({
       from: env.twilioWhatsappFrom,
-      to: `whatsapp:${phone}`,
-      body: `Your Yappaflow verification code is: *${code}*\n\nThis code expires in ${OTP_EXPIRY_MINUTES} minutes. Do not share it.`,
+      to:   `whatsapp:${phone}`,
+      body: `Your Yappaflow verification code is: *${code}*\n\nExpires in ${OTP_EXPIRY_MINUTES} minutes. Do not share it.`,
     });
+
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Twilio delivery timed out after 25 s")), 25_000)
+    );
+
+    Promise.race([sendPromise, timeoutPromise])
+      .then((msg) => log(`WhatsApp OTP delivered — SID: ${msg.sid}`))
+      .catch((err: unknown) => {
+        const message = err instanceof Error ? err.message : String(err);
+        log(`Twilio WhatsApp error (non-blocking): ${message}`);
+        log(`[OTP FALLBACK] The code for ${phone} is: ${code} — verify it manually if needed.`);
+      });
+
+    // Return immediately — don't await Twilio
   } else {
     // Dev fallback — log to console
     log(`[DEV] WhatsApp OTP for ${phone}: ${code}`);
