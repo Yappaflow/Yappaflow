@@ -34,3 +34,28 @@ export function broadcast(event: string, data: unknown): void {
     }
   }
 }
+
+// ── Session-scoped SSE (for AI streaming) ─────────────────────────────
+
+const sessionClients = new Map<string, Set<Response>>();
+
+export function addSessionSSEClient(sessionId: string, res: Response): () => void {
+  if (!sessionClients.has(sessionId)) sessionClients.set(sessionId, new Set());
+  sessionClients.get(sessionId)!.add(res);
+
+  return () => {
+    sessionClients.get(sessionId)?.delete(res);
+    if (sessionClients.get(sessionId)?.size === 0) sessionClients.delete(sessionId);
+  };
+}
+
+export function emitToSession(sessionId: string, event: string, data: unknown): void {
+  const clients = sessionClients.get(sessionId);
+  if (!clients || clients.size === 0) return;
+
+  const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+  for (const res of clients) {
+    try { res.write(payload); }
+    catch { /* client disconnected */ }
+  }
+}

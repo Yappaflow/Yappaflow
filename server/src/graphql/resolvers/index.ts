@@ -3,6 +3,7 @@ import { authResolvers }     from "./auth.resolver";
 import { projectResolvers }  from "./project.resolver";
 import { signalResolvers }   from "./signal.resolver";
 import { platformResolvers } from "./platform.resolver";
+import { aiResolvers }       from "./ai.resolver";
 
 export const resolvers = {
   Query: {
@@ -15,11 +16,13 @@ export const resolvers = {
     ...projectResolvers.Query,
     ...signalResolvers.Query,
     ...platformResolvers.Query,
+    ...aiResolvers.Query,
   },
   Mutation: {
     ...authResolvers.Mutation,
     ...projectResolvers.Mutation,
     ...signalResolvers.Mutation,
     ...platformResolvers.Mutation,
+    ...aiResolvers.Mutation,
   },
 };
