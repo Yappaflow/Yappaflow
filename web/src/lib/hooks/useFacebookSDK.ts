@@ -15,7 +15,8 @@ interface FBLoginResponse {
 }
 
 interface FBLoginOptions {
-  config_id: string;
+  config_id?: string;
+  scope?: string;
   response_type: string;
   override_default_response_type: boolean;
   extras?: { setup?: Record<string, unknown>; featureType?: string; sessionInfoVersion?: number };

@@ -363,32 +363,21 @@ function WhatsAppConnectStep({ token, onDone }: { token: string; onDone: () => v
   }, []);
 
   const handleContinueWithMeta = () => {
-    const configId = process.env.NEXT_PUBLIC_WHATSAPP_CONFIG_ID;
-    if (!configId || !window.FB) {
-      setErr("Meta integration is being set up. Please use the developer option below or try again later.");
-      setShowAdvanced(true);
+    if (!window.FB) {
+      setErr("Meta SDK not loaded. Please disable your ad blocker and refresh.");
       return;
     }
     setErr(""); setLoading(true);
-    embeddedDataRef.current = null;
 
     window.FB.login(
       (response) => {
-        const code = response.authResponse?.code;
-        if (!code) { setLoading(false); setErr("Authorization cancelled. Please try again."); return; }
+        const accessToken = response.authResponse?.accessToken;
+        if (!accessToken) { setLoading(false); setErr("Authorization cancelled. Please try again."); return; }
 
         // FB.login requires a sync callback — run async work inside an IIFE
         (async () => {
-          const embedded = embeddedDataRef.current;
           try {
-            await connectWhatsAppEmbedded(
-              {
-                code,
-                ...(embedded?.waba_id ? { wabaId: embedded.waba_id } : {}),
-                ...(embedded?.phone_number_id ? { phoneNumberId: embedded.phone_number_id } : {}),
-              },
-              token
-            );
+            await connectWhatsApp({ accessToken }, token);
             setConnected(true);
             setTimeout(onDone, 1500);
           } catch (e: unknown) {
@@ -397,10 +386,9 @@ function WhatsAppConnectStep({ token, onDone }: { token: string; onDone: () => v
         })();
       },
       {
-        config_id: configId,
-        response_type: "code",
+        scope: "whatsapp_business_management,whatsapp_business_messaging,business_management",
+        response_type: "token",
         override_default_response_type: true,
-        extras: { setup: {}, featureType: "", sessionInfoVersion: 2 },
       }
     );
   };
