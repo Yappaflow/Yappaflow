@@ -47,18 +47,26 @@ export const platformResolvers = {
 
       let wabaId: string, phoneNumberId: string, displayPhone: string;
       try {
-        // 1. Get WABA accounts linked to this token
-        const { data: wabaRes } = await axios.get(
-          "https://graph.facebook.com/v19.0/me/whatsapp_business_accounts",
-          { params: { access_token: input.accessToken } }
+        // 1. Discover WABA via debug_token
+        const appToken = `${env.metaAppId}|${env.metaAppSecret}`;
+        const { data: debugData } = await axios.get(
+          "https://graph.facebook.com/v21.0/debug_token",
+          { params: { input_token: input.accessToken, access_token: appToken } }
         );
-        const waba = wabaRes.data?.[0];
-        if (!waba?.id) throw new Error("No WhatsApp Business Account found on this token");
-        wabaId = waba.id;
+        const granularScopes = debugData.data?.granular_scopes ?? [];
+        const wabaScope = granularScopes.find(
+          (s: { scope: string; target_ids?: string[] }) => s.scope === "whatsapp_business_management"
+        );
+        wabaId = wabaScope?.target_ids?.[0];
+        if (!wabaId) {
+          log("debug_token granular_scopes: " + JSON.stringify(granularScopes));
+          throw new Error("No WhatsApp Business Account found on this token. Make sure the token has whatsapp_business_management permission with a WABA assigned.");
+        }
+        log(`WA: discovered WABA ${wabaId} via debug_token`);
 
         // 2. Get phone numbers under the WABA
         const { data: phoneRes } = await axios.get(
-          `https://graph.facebook.com/v19.0/${wabaId}/phone_numbers`,
+          `https://graph.facebook.com/v21.0/${wabaId}/phone_numbers`,
           { params: { fields: "id,display_phone_number", access_token: input.accessToken } }
         );
         const phone = phoneRes.data?.[0];
@@ -92,7 +100,7 @@ export const platformResolvers = {
       // Subscribe this WABA to receive webhook events
       try {
         await axios.post(
-          `https://graph.facebook.com/v19.0/${wabaId}/subscribed_apps`,
+          `https://graph.facebook.com/v21.0/${wabaId}/subscribed_apps`,
           {},
           { headers: { Authorization: `Bearer ${input.accessToken}` } }
         );
