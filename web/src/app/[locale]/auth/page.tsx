@@ -373,33 +373,36 @@ function WhatsAppConnectStep({ token, onDone }: { token: string; onDone: () => v
     embeddedDataRef.current = null;
 
     window.FB.login(
-      async (response) => {
+      (response) => {
         const code = response.authResponse?.code;
         if (!code) { setLoading(false); setErr("Authorization cancelled. Please try again."); return; }
 
-        let retries = 0;
-        while (!embeddedDataRef.current && retries < 10) {
-          await new Promise((r) => setTimeout(r, 200));
-          retries++;
-        }
+        // FB.login requires a sync callback — run async work inside an IIFE
+        (async () => {
+          let retries = 0;
+          while (!embeddedDataRef.current && retries < 10) {
+            await new Promise((r) => setTimeout(r, 200));
+            retries++;
+          }
 
-        const embedded = embeddedDataRef.current;
-        if (!embedded?.waba_id || !embedded?.phone_number_id) {
-          setLoading(false);
-          setErr("Could not complete setup. Please try again.");
-          return;
-        }
+          const embedded = embeddedDataRef.current;
+          if (!embedded?.waba_id || !embedded?.phone_number_id) {
+            setLoading(false);
+            setErr("Could not complete setup. Please try again.");
+            return;
+          }
 
-        try {
-          await connectWhatsAppEmbedded(
-            { code, wabaId: embedded.waba_id, phoneNumberId: embedded.phone_number_id },
-            token
-          );
-          setConnected(true);
-          setTimeout(onDone, 1500);
-        } catch (e: unknown) {
-          setErr(e instanceof Error ? e.message : "Connection failed. Please try again.");
-        } finally { setLoading(false); }
+          try {
+            await connectWhatsAppEmbedded(
+              { code, wabaId: embedded.waba_id, phoneNumberId: embedded.phone_number_id },
+              token
+            );
+            setConnected(true);
+            setTimeout(onDone, 1500);
+          } catch (e: unknown) {
+            setErr(e instanceof Error ? e.message : "Connection failed. Please try again.");
+          } finally { setLoading(false); }
+        })();
       },
       {
         config_id: configId,

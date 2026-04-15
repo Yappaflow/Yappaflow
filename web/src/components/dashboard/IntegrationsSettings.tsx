@@ -190,7 +190,7 @@ function WhatsAppEmbeddedSignup({ onSuccess }: { onSuccess: () => void }) {
     embeddedDataRef.current = null;
 
     window.FB.login(
-      async (response) => {
+      (response) => {
         const code = response.authResponse?.code;
         if (!code) {
           setLoading(false);
@@ -198,32 +198,35 @@ function WhatsAppEmbeddedSignup({ onSuccess }: { onSuccess: () => void }) {
           return;
         }
 
-        // Wait briefly for postMessage data if not yet received
-        let retries = 0;
-        while (!embeddedDataRef.current && retries < 10) {
-          await new Promise((r) => setTimeout(r, 200));
-          retries++;
-        }
+        // FB.login requires a sync callback — run async work inside an IIFE
+        (async () => {
+          // Wait briefly for postMessage data if not yet received
+          let retries = 0;
+          while (!embeddedDataRef.current && retries < 10) {
+            await new Promise((r) => setTimeout(r, 200));
+            retries++;
+          }
 
-        const embedded = embeddedDataRef.current;
-        if (!embedded?.waba_id || !embedded?.phone_number_id) {
-          setLoading(false);
-          setErr("WhatsApp Business Account data not received. Please try again.");
-          return;
-        }
+          const embedded = embeddedDataRef.current;
+          if (!embedded?.waba_id || !embedded?.phone_number_id) {
+            setLoading(false);
+            setErr("WhatsApp Business Account data not received. Please try again.");
+            return;
+          }
 
-        try {
-          await connectWhatsAppEmbedded({
-            code,
-            wabaId:        embedded.waba_id,
-            phoneNumberId: embedded.phone_number_id,
-          });
-          onSuccess();
-        } catch (e: unknown) {
-          setErr(e instanceof Error ? e.message : "Connection failed");
-        } finally {
-          setLoading(false);
-        }
+          try {
+            await connectWhatsAppEmbedded({
+              code,
+              wabaId:        embedded.waba_id,
+              phoneNumberId: embedded.phone_number_id,
+            });
+            onSuccess();
+          } catch (e: unknown) {
+            setErr(e instanceof Error ? e.message : "Connection failed");
+          } finally {
+            setLoading(false);
+          }
+        })();
       },
       {
         config_id: configId,
