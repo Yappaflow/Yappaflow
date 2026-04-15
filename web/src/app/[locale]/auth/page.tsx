@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -27,7 +27,6 @@ import {
   connectWhatsApp,
   connectWhatsAppEmbedded,
 } from "@/lib/auth-api";
-import { useFacebookSDK } from "@/lib/hooks/useFacebookSDK";
 
 type Step =
   | "choose"
@@ -48,7 +47,11 @@ export default function AuthPage() {
   const t = useTranslations("auth");
   const router = useRouter();
 
-  const [step, setStep] = useState<Step>("choose");
+  // If returning from Meta OAuth redirect, jump straight to whatsapp_connect step
+  const hasMetaCode = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("code");
+  const savedMetaToken = typeof window !== "undefined" ? sessionStorage.getItem("yappaflow_meta_token") ?? "" : "";
+
+  const [step, setStep] = useState<Step>(hasMetaCode && savedMetaToken ? "whatsapp_connect" : "choose");
   const [emailMode, setEmailMode] = useState<"login" | "register">("login");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -60,7 +63,7 @@ export default function AuthPage() {
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
 
-  const [authToken, setAuthToken] = useState("");
+  const [authToken, setAuthToken] = useState(savedMetaToken);
   const [needsPhone, setNeedsPhone] = useState(false);
 
   function clearError() { setError(""); }
@@ -333,64 +336,65 @@ export default function AuthPage() {
 // ── WhatsApp Business Connect Step (shown after OTP verification) ────────────
 
 function WhatsAppConnectStep({ token, onDone }: { token: string; onDone: () => void }) {
-  const { ready } = useFacebookSDK(process.env.NEXT_PUBLIC_META_APP_ID);
   const [loading, setLoading]      = useState(false);
   const [err, setErr]              = useState("");
   const [connected, setConnected]  = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [manualToken, setManualToken] = useState("");
   const [showToken, setShowToken]  = useState(false);
+  const ready = true; // No FB SDK needed — we use redirect flow
 
-  const embeddedDataRef = useRef<{ waba_id?: string; phone_number_id?: string } | null>(null);
-
+  // On mount: check if we're returning from Meta OAuth redirect
   useEffect(() => {
-    const handler = (event: MessageEvent) => {
-      if (
-        event.origin !== "https://www.facebook.com" &&
-        event.origin !== "https://web.facebook.com"
-      ) return;
-      if (event.data?.type === "WA_EMBEDDED_SIGNUP") {
-        if (event.data.event === "FINISH" || event.data.event === "FINISH_ONLY_WABA") {
-          embeddedDataRef.current = event.data.data;
-        } else if (event.data.event === "CANCEL") {
-          setLoading(false);
-          setErr("Setup was cancelled — you can try again.");
-        }
-      }
-    };
-    window.addEventListener("message", handler);
-    return () => window.removeEventListener("message", handler);
-  }, []);
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+    if (!code) return;
 
-  const handleContinueWithMeta = () => {
-    if (!window.FB) {
-      setErr("Meta SDK not loaded. Please disable your ad blocker and refresh.");
+    // Clean the URL immediately (remove ?code=... from address bar)
+    window.history.replaceState({}, "", window.location.pathname);
+
+    const savedToken = sessionStorage.getItem("yappaflow_meta_token");
+    if (!savedToken) {
+      setErr("Session expired. Please try again.");
       return;
     }
-    setErr(""); setLoading(true);
+    sessionStorage.removeItem("yappaflow_meta_token");
 
-    window.FB.login(
-      (response) => {
-        const accessToken = response.authResponse?.accessToken;
-        if (!accessToken) { setLoading(false); setErr("Authorization cancelled. Please try again."); return; }
+    // Exchange the code server-side
+    setLoading(true);
+    const redirectUri = `${window.location.origin}${window.location.pathname}`;
+    connectWhatsAppEmbedded({ code, redirectUri }, savedToken)
+      .then(() => {
+        setConnected(true);
+        setTimeout(onDone, 1500);
+      })
+      .catch((e: unknown) => {
+        setErr(e instanceof Error ? e.message : "Connection failed. Please try again.");
+      })
+      .finally(() => setLoading(false));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-        // FB.login requires a sync callback — run async work inside an IIFE
-        (async () => {
-          try {
-            await connectWhatsApp({ accessToken }, token);
-            setConnected(true);
-            setTimeout(onDone, 1500);
-          } catch (e: unknown) {
-            setErr(e instanceof Error ? e.message : "Connection failed. Please try again.");
-          } finally { setLoading(false); }
-        })();
-      },
-      {
-        scope: "whatsapp_business_management,whatsapp_business_messaging",
-        response_type: "token",
-        override_default_response_type: true,
-      }
-    );
+  const handleContinueWithMeta = () => {
+    const appId = process.env.NEXT_PUBLIC_META_APP_ID;
+    const configId = process.env.NEXT_PUBLIC_WHATSAPP_CONFIG_ID;
+    if (!appId || !configId) {
+      setErr("Meta integration is being set up. Please use the developer option below.");
+      setShowAdvanced(true);
+      return;
+    }
+
+    // Save auth token so we can retrieve it after redirect
+    sessionStorage.setItem("yappaflow_meta_token", token);
+
+    // Redirect to Facebook OAuth with Embedded Signup config
+    const redirectUri = encodeURIComponent(`${window.location.origin}${window.location.pathname}`);
+    window.location.href =
+      `https://www.facebook.com/v21.0/dialog/oauth` +
+      `?client_id=${appId}` +
+      `&config_id=${configId}` +
+      `&response_type=code` +
+      `&override_default_response_type=true` +
+      `&redirect_uri=${redirectUri}`;
   };
 
   const handleManualConnect = async () => {
@@ -435,7 +439,7 @@ function WhatsAppConnectStep({ token, onDone }: { token: string; onDone: () => v
       <h2 className="text-xl font-bold text-white">Connect WhatsApp Business</h2>
       <p className="mt-2 text-sm text-white/30 leading-relaxed">
         Allow Yappaflow to receive messages from your WhatsApp Business account.
-        A Meta popup will open — just select your business and confirm.
+        You&apos;ll be redirected to Meta to select your business and confirm.
       </p>
 
       {/* What happens */}
@@ -454,19 +458,11 @@ function WhatsAppConnectStep({ token, onDone }: { token: string; onDone: () => v
         ))}
       </div>
 
-      {/* Browser requirements notice */}
+      {/* Info notice */}
       <div className="mt-5 rounded-lg bg-amber-500/5 border border-amber-500/10 px-4 py-3">
-        <p className="text-[11px] text-amber-400/80 font-semibold mb-1">Before you continue:</p>
-        <ul className="text-[11px] text-amber-400/60 space-y-1 list-none">
-          <li className="flex items-start gap-2">
-            <span className="mt-0.5">1.</span>
-            <span><strong>Allow pop-ups</strong> for this site — Meta opens a login window</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="mt-0.5">2.</span>
-            <span><strong>Disable ad blocker</strong> if you have one — it blocks Meta&apos;s login</span>
-          </li>
-        </ul>
+        <p className="text-[11px] text-amber-400/60">
+          You&apos;ll be redirected to Facebook to authorize. After confirming, you&apos;ll return here automatically.
+        </p>
       </div>
 
       {/* Primary CTA: Continue with Meta */}
