@@ -101,3 +101,30 @@ export function getInstagramAuthUrl() {
   // On localhost, /api/* also works via rewrites, so this is safe everywhere.
   return "/api/auth/instagram/authorize";
 }
+
+// ── WhatsApp Business API connection (used during onboarding) ─────────────────
+
+const PLATFORM_FIELDS = `id platform displayPhone igUsername createdAt`;
+
+export async function connectWhatsApp(input: { accessToken: string }, token: string) {
+  return gql(
+    `mutation ConnectWhatsApp($input: ConnectWhatsAppInput!) {
+      connectWhatsApp(input: $input) { ${PLATFORM_FIELDS} }
+    }`,
+    { input },
+    token
+  );
+}
+
+export async function connectWhatsAppEmbedded(
+  input: { code: string; wabaId: string; phoneNumberId: string },
+  token: string
+) {
+  return gql(
+    `mutation ConnectWhatsAppEmbedded($input: ConnectWhatsAppEmbeddedInput!) {
+      connectWhatsAppEmbedded(input: $input) { ${PLATFORM_FIELDS} }
+    }`,
+    { input },
+    token
+  );
+}

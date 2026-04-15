@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -11,6 +11,10 @@ import {
   ArrowLeft,
   Eye,
   EyeOff,
+  Loader2,
+  Check,
+  ChevronDown,
+  Zap,
 } from "lucide-react";
 import {
   loginWithEmail,
@@ -20,13 +24,17 @@ import {
   requestPhoneVerification,
   verifyPhone,
   getInstagramAuthUrl,
+  connectWhatsApp,
+  connectWhatsAppEmbedded,
 } from "@/lib/auth-api";
+import { useFacebookSDK } from "@/lib/hooks/useFacebookSDK";
 
 type Step =
   | "choose"
   | "email"
   | "whatsapp_phone"
   | "whatsapp_otp"
+  | "whatsapp_connect"
   | "phone_verify"
   | "phone_otp";
 
@@ -88,7 +96,10 @@ export default function AuthPage() {
     try {
       const data = await verifyWhatsappOtp(phone, otp);
       const result = data.verifyWhatsappOtp;
-      setAuthToken(result.token); storeTokenAndRedirect(result.token);
+      setAuthToken(result.token);
+      // After OTP: go to WhatsApp Business connect step instead of dashboard
+      localStorage.setItem("yappaflow_token", result.token);
+      setStep("whatsapp_connect");
     } catch (err: unknown) { setError(err instanceof Error ? err.message : t("errorInvalid")); }
     finally { setLoading(false); }
   }
@@ -272,6 +283,14 @@ export default function AuthPage() {
                 onResend={() => requestWhatsappOtp(phone)} t={t} />
             )}
 
+            {/* ── WHATSAPP BUSINESS CONNECT ── */}
+            {step === "whatsapp_connect" && (
+              <WhatsAppConnectStep
+                token={authToken}
+                onDone={() => router.push("/dashboard")}
+              />
+            )}
+
             {/* ── PHONE VERIFY ── */}
             {step === "phone_verify" && (
               <motion.div key="phone_verify" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className={cardCls}>
@@ -308,6 +327,208 @@ export default function AuthPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// ── WhatsApp Business Connect Step (shown after OTP verification) ────────────
+
+function WhatsAppConnectStep({ token, onDone }: { token: string; onDone: () => void }) {
+  const { ready, error: sdkError } = useFacebookSDK(process.env.NEXT_PUBLIC_META_APP_ID);
+  const [loading, setLoading]      = useState(false);
+  const [err, setErr]              = useState("");
+  const [connected, setConnected]  = useState(false);
+  const [showManual, setShowManual] = useState(false);
+  const [manualToken, setManualToken] = useState("");
+  const [showToken, setShowToken]  = useState(false);
+
+  const embeddedDataRef = useRef<{ waba_id?: string; phone_number_id?: string } | null>(null);
+
+  useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      if (
+        event.origin !== "https://www.facebook.com" &&
+        event.origin !== "https://web.facebook.com"
+      ) return;
+      if (event.data?.type === "WA_EMBEDDED_SIGNUP") {
+        if (event.data.event === "FINISH" || event.data.event === "FINISH_ONLY_WABA") {
+          embeddedDataRef.current = event.data.data;
+        } else if (event.data.event === "CANCEL") {
+          setLoading(false);
+          setErr("Setup was cancelled — you can try again.");
+        }
+      }
+    };
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, []);
+
+  const handleEmbeddedSignup = () => {
+    const configId = process.env.NEXT_PUBLIC_WHATSAPP_CONFIG_ID;
+    if (!configId || !window.FB) {
+      setShowManual(true);
+      return;
+    }
+    setErr(""); setLoading(true);
+    embeddedDataRef.current = null;
+
+    window.FB.login(
+      async (response) => {
+        const code = response.authResponse?.code;
+        if (!code) { setLoading(false); setErr("Authorization cancelled."); return; }
+
+        let retries = 0;
+        while (!embeddedDataRef.current && retries < 10) {
+          await new Promise((r) => setTimeout(r, 200));
+          retries++;
+        }
+
+        const embedded = embeddedDataRef.current;
+        if (!embedded?.waba_id || !embedded?.phone_number_id) {
+          setLoading(false);
+          setErr("WhatsApp data not received. Try the manual method below.");
+          setShowManual(true);
+          return;
+        }
+
+        try {
+          await connectWhatsAppEmbedded(
+            { code, wabaId: embedded.waba_id, phoneNumberId: embedded.phone_number_id },
+            token
+          );
+          setConnected(true);
+          setTimeout(onDone, 1500);
+        } catch (e: unknown) {
+          setErr(e instanceof Error ? e.message : "Connection failed");
+          setShowManual(true);
+        } finally { setLoading(false); }
+      },
+      {
+        config_id: configId,
+        response_type: "code",
+        override_default_response_type: true,
+        extras: { setup: {}, featureType: "", sessionInfoVersion: 2 },
+      }
+    );
+  };
+
+  const handleManualConnect = async () => {
+    if (!manualToken) { setErr("Paste your WhatsApp Business System User token"); return; }
+    setLoading(true); setErr("");
+    try {
+      await connectWhatsApp({ accessToken: manualToken }, token);
+      setConnected(true);
+      setTimeout(onDone, 1500);
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Connection failed — check the token");
+    } finally { setLoading(false); }
+  };
+
+  const hasConfigId = !!process.env.NEXT_PUBLIC_WHATSAPP_CONFIG_ID;
+
+  return (
+    <motion.div key="wa_connect" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
+      className="bg-[#0c0c0f] border border-white/[0.06] rounded-xl p-8">
+
+      {connected ? (
+        <div className="flex flex-col items-center text-center py-4">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366]/10 border border-[#25D366]/30 mb-4">
+            <Check size={28} className="text-[#25D366]" />
+          </div>
+          <h2 className="text-xl font-bold text-white">WhatsApp Connected!</h2>
+          <p className="mt-2 text-sm text-white/30">Redirecting to your dashboard...</p>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#25D366] text-white">
+              <Zap size={20} />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-white">Connect your business</h2>
+              <p className="text-sm text-white/30">Receive customer messages in your dashboard</p>
+            </div>
+          </div>
+
+          <div className="mt-5 rounded-xl bg-white/[0.02] border border-white/[0.06] p-4">
+            <div className="flex items-start gap-3">
+              <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-[#25D366]/10 mt-0.5">
+                <MessageCircle size={15} className="text-[#25D366]" />
+              </div>
+              <div>
+                <p className="text-[13px] font-semibold text-white">WhatsApp Business API</p>
+                <p className="text-[11px] text-white/30 mt-0.5 leading-relaxed">
+                  This connects your WhatsApp Business number so customers can message you and you&apos;ll see everything in your dashboard.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-5 space-y-3">
+            {/* One-click Embedded Signup */}
+            {hasConfigId && (
+              <button
+                onClick={handleEmbeddedSignup}
+                disabled={loading || !ready}
+                className="w-full bg-[#25D366] text-white py-3 rounded-lg font-medium hover:opacity-90 disabled:opacity-50 transition-all text-sm flex items-center justify-center gap-2"
+              >
+                {loading ? (
+                  <><Loader2 size={14} className="animate-spin" /> Connecting...</>
+                ) : (
+                  <><MessageCircle size={16} /> Connect WhatsApp Business</>
+                )}
+              </button>
+            )}
+
+            {sdkError && !hasConfigId && null}
+
+            {/* Manual token fallback */}
+            {(showManual || !hasConfigId) ? (
+              <div className="space-y-3 rounded-xl border border-white/[0.05] bg-white/[0.02] p-4">
+                <p className="text-[11px] text-white/30 leading-relaxed">
+                  Paste your <strong>System User Access Token</strong> from Meta Business Manager.
+                </p>
+                <div className="flex items-center gap-2 rounded-lg border border-white/[0.05] bg-[#111114] px-3">
+                  <input
+                    type={showToken ? "text" : "password"}
+                    value={manualToken}
+                    onChange={(e) => setManualToken(e.target.value)}
+                    placeholder="EAAxxxxxxxxxxxxxx"
+                    className="flex-1 bg-transparent py-2.5 text-[12px] font-mono text-white outline-none"
+                    autoComplete="off"
+                  />
+                  <button onClick={() => setShowToken((v) => !v)} className="text-white/15 hover:text-white/30">
+                    {showToken ? <EyeOff size={13} /> : <Eye size={13} />}
+                  </button>
+                </div>
+                <button onClick={handleManualConnect} disabled={loading}
+                  className="w-full rounded-lg bg-[#25D366] py-2.5 text-[12px] font-bold text-white hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center justify-center gap-2">
+                  {loading && <Loader2 size={13} className="animate-spin" />}
+                  {loading ? "Connecting..." : "Connect with Token"}
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowManual(true)}
+                className="flex items-center gap-1 text-[11px] text-white/20 hover:text-white/30 transition-colors mx-auto"
+              >
+                <ChevronDown size={10} />
+                Use token manually instead
+              </button>
+            )}
+
+            {err && <p className="text-sm text-red-400">{err}</p>}
+          </div>
+
+          {/* Skip option */}
+          <button
+            onClick={onDone}
+            className="mt-5 w-full text-center text-sm text-white/20 hover:text-white/40 transition-colors"
+          >
+            Skip for now — I&apos;ll connect later
+          </button>
+        </>
+      )}
+    </motion.div>
   );
 }
 
