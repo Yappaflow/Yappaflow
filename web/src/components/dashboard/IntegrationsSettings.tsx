@@ -88,8 +88,7 @@ function getApiBase(): string {
   if (_settingsApiBase !== null) return _settingsApiBase;
   const direct = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
   if (typeof window === "undefined") return direct;
-  const host = window.location.hostname;
-  _settingsApiBase = (host === "localhost" || host === "127.0.0.1") ? direct : "/api";
+  _settingsApiBase = direct;
   return _settingsApiBase;
 }
 

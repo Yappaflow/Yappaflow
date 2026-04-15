@@ -1,13 +1,9 @@
-// When accessed via ngrok (not localhost), use the Next.js rewrite proxy (/api/*)
-// so API calls go through the same origin. Direct localhost URLs won't work from a phone.
-// This is computed lazily on first call (never during SSR) to avoid hydration mismatches.
 let _apiBase: string | null = null;
 function getApiBase(): string {
   if (_apiBase !== null) return _apiBase;
   const direct = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-  if (typeof window === "undefined") return direct; // SSR — don't cache
-  const host = window.location.hostname;
-  _apiBase = (host === "localhost" || host === "127.0.0.1") ? direct : "/api";
+  if (typeof window === "undefined") return direct;
+  _apiBase = direct;
   return _apiBase;
 }
 
