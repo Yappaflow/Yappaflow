@@ -390,6 +390,8 @@ function WhatsAppConnectStep({ token, onDone }: { token: string; onDone: () => v
       },
       {
         config_id: configId,
+        response_type: "token",
+        override_default_response_type: true,
         extras: { setup: {}, featureType: "", sessionInfoVersion: 2 },
       }
     );
