@@ -8,3 +8,6 @@ dist/
 
 /server/.env
 /server/dist/
+
+# Claude Code worktrees — local dev only, not for deployment
+.claude/worktrees/
