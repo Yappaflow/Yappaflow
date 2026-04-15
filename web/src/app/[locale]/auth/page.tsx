@@ -374,24 +374,13 @@ function WhatsAppConnectStep({ token, onDone }: { token: string; onDone: () => v
 
     window.FB.login(
       (response) => {
-        const code = response.authResponse?.code;
-        if (!code) { setLoading(false); setErr("Authorization cancelled. Please try again."); return; }
+        const accessToken = response.authResponse?.access_token;
+        if (!accessToken) { setLoading(false); setErr("Authorization cancelled. Please try again."); return; }
 
         // FB.login requires a sync callback — run async work inside an IIFE
         (async () => {
-          // Use postMessage data if available (best case), otherwise server auto-discovers
-          const embedded = embeddedDataRef.current;
-
           try {
-            await connectWhatsAppEmbedded(
-              {
-                code,
-                redirectUri: "",
-                ...(embedded?.waba_id ? { wabaId: embedded.waba_id } : {}),
-                ...(embedded?.phone_number_id ? { phoneNumberId: embedded.phone_number_id } : {}),
-              },
-              token
-            );
+            await connectWhatsApp({ accessToken }, token);
             setConnected(true);
             setTimeout(onDone, 1500);
           } catch (e: unknown) {
@@ -401,8 +390,6 @@ function WhatsAppConnectStep({ token, onDone }: { token: string; onDone: () => v
       },
       {
         config_id: configId,
-        response_type: "code",
-        override_default_response_type: true,
         extras: { setup: {}, featureType: "", sessionInfoVersion: 2 },
       }
     );
