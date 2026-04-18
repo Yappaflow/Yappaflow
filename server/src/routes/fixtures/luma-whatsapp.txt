@@ -1,0 +1,76 @@
+LUMA — WhatsApp Chat (Dogal Cilt Bakim E-ticaret Projesi)
+===========================================================
+
+[Zeynep] Merhaba, LUMA adinda yeni bir dogal cilt bakim markasi kuruyoruz. E-ticaret sitemize ihtiyacimiz var.
+
+[Agency] Merhaba Zeynep! LUMA kulaga cok guzel geliyor. Biraz markanizdan bahseder misiniz — ne tur urunler, hangi hikaye?
+
+[Zeynep] Ege bolgesinden organik bitkilerle uretilen dogal cilt bakim urunleri. Serum, tonik, nemlendirici, yuz maskesi, temizleme yagi — 14 urun ile basliyoruz.
+
+[Zeynep] Felsefemiz "cilt bir ritueldir". Yavas, bilincli, temiz guzellik. Yapay koku yok, paraben yok, vegan formuller.
+
+[Agency] Harika bir positioning. Hedef kitleniz kim?
+
+[Zeynep] 25-40 yas arasi, kaliteli icerige onem veren kadinlar. Instagram'da saglikli yasam, yoga, mindfulness takip edenler. Istanbul, Izmir, Ankara agirlikli.
+
+[Agency] Ilham aldiginiz markalar, siteler?
+
+[Zeynep] Aesop.com bizim kuzey yildizimiz — o editorial, yazi agirlikli tarz cok hosumuza gidiyor. Bir de glossier.com'un sicakligi, rainbowwave'in yumusak tonlari. Turk markalardan Zade Vital begeniyoruz.
+
+[Agency] Estetik olarak ne dusunuyorsunuz — minimal mi, organik mi, editorial mi?
+
+[Zeynep] Yumusak minimalizm. Cok fazla beyaz alan, bol nefes. Toprak tonlari — kil, sutlu bej, adacayi yesili, cok soluk pembe. Luks ama "ulasilmaz degil", sicak ve davetkar.
+
+[Zeynep] Fotograflar cok onemli — urunler dogal isikta, tas ve ahsap yuzeylerde. Flat lay'ler, makro cekimler. Site buna yer verecek bir galeri gibi hissettirmeli.
+
+[Agency] Hangi sayfalar gerekiyor?
+
+[Zeynep] Ana sayfa, urun listesi, urun detay, "Ritual" (hikayemiz), "Gunluk" (blog/makaleler), SSS, iletisim, sepet ve odeme. Bir de cilt tipine gore urun oneren kisa bir quiz olsa harika olur.
+
+[Agency] Quiz harika fikir, conversion'u ciddi artirir. Urun detayda neler olmali?
+
+[Zeynep] Icerik listesi (INCI), kullanim talimati, hangi cilt tipine uygun, kisa bir ritual videosu, inceleme ve yildizlar, urunu tamamlayan 2-3 oneri. Bir de "neden boyle kokuyor" gibi kucuk egitici kutular olsun istiyoruz.
+
+[Agency] Platform olarak ne dusunuyorsunuz?
+
+[Zeynep] Shopify'a biraz mesafeliyiz — cok templatemsi duruyor. Custom React/Next.js tercih ederiz. Headless Shopify ya da direkt custom backend — size guveniyoruz.
+
+[Agency] Headless Shopify iyi bir orta yol olabilir — envanter kolay, tasarim ozgur. Odeme?
+
+[Zeynep] Iyzico sart, Turk kartlari icin en stabil. Papara ve havale/EFT de olsun. Taksit secenegi cok onemli — en az 9 taksit.
+
+[Agency] Kargo entegrasyonu?
+
+[Zeynep] Yurtici Kargo ve MNG entegrasyonu lazim. 500 TL uzeri ucretsiz kargo kurali. Kargo takip linki otomatik SMS ve e-posta ile gitsin.
+
+[Agency] Etkilesim ve animasyon beklentiniz?
+
+[Zeynep] Cok yumusak, sakin. Saldirgan animasyon istemiyoruz. Scroll'da urunler yavasca belirsin, hover'da hafif bir buyume. Hero'da urun ambalajinin yavasca donmesi gibi bir detay olabilir — sessiz ama premium.
+
+[Zeynep] Smooth scroll mutlaka olsun (lenis tarzi). Sayfa gecisleri fade-through olsun, ani degil. Ama performans cok onemli — mobilde 60fps tutmali.
+
+[Agency] Tipografi?
+
+[Zeynep] Display icin zarif bir serif — belki "Canela" ya da "PP Editorial New" tarzinda. Body icin temiz humanist bir sans-serif, "Inter" fazla teknik duruyor — "Söhne" ya da "General Sans" gibi sicak bir sey.
+
+[Agency] Mobil onceliginiz nedir?
+
+[Zeynep] Musterilerimizin %80'i mobilden. Mobil mutlaka birincil — masaustu sonra dusunulsun. Sticky "sepete ekle" butonu urun detayda, bottom sheet'li filtreler, kaydirmali galeri.
+
+[Agency] Ek entegrasyonlar — pazarlama, analytics?
+
+[Zeynep] Klaviyo e-posta pazarlama icin, GA4 ve Meta Pixel analytics icin. Bir de terk edilmis sepet akisi lazim — 1 saat sonra hatirlatma, 24 saat sonra indirim.
+
+[Zeynep] SEO cok onemli — "dogal cilt bakim", "organik serum" gibi anahtar kelimelerde ust siralara cikmak istiyoruz. Blog icerikleri icin altyapi gereksin, editor kolay kullansin.
+
+[Agency] Cok dil destegi olsun mu?
+
+[Zeynep] Basta sadece Turkce. 6 ay sonra Ingilizce ekleyecegiz, altyapida hazir olsun ama simdi gostermeyelim.
+
+[Agency] Zaman cizelgesi ve butce?
+
+[Zeynep] Lansmani 6 hafta sonra yapmak istiyoruz, 15 Kasim'da. Butce 180-220 bin TL arasi, premium bir is bekliyoruz. Kalite her seyden once.
+
+[Zeynep] Son bir sey — erisilebilirlik (WCAG AA) onemli, renk kontrastlari ve klavye navigasyonu duzgun olsun. Bu hem etik hem SEO icin iyi.
+
+[Agency] Mukemmel brief Zeynep, hepsini notaladik. Moodboard ve ilk tasarim yonunu 3 gun icinde sunariz.
