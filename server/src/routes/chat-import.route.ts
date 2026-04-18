@@ -109,6 +109,48 @@ function getUserId(authHeader?: string): string | null {
   }
 }
 
+/**
+ * POST /import/chat/preview — Parse a chat file and return participant info
+ * WITHOUT writing anything to the database. Used by the UI to show a
+ * "which participant is you?" picker before the actual import.
+ */
+router.post("/chat/preview", upload.single("file"), async (req, res) => {
+  try {
+    const userId = getUserId(req.headers.authorization);
+    if (!userId) return res.status(401).json({ error: "Authentication required" });
+    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+
+    const { text: content } = decodeBuffer(req.file.buffer);
+    let parsed;
+    try {
+      parsed = parseFile(req.file.originalname, content);
+    } catch (err) {
+      return res.status(400).json({
+        error: err instanceof Error ? err.message : "Failed to parse file",
+      });
+    }
+
+    // Count messages per participant
+    const counts: Record<string, number> = {};
+    for (const msg of parsed.messages) {
+      counts[msg.sender] = (counts[msg.sender] ?? 0) + 1;
+    }
+    const participants = parsed.participants
+      .map((name) => ({ name, messageCount: counts[name] ?? 0 }))
+      .sort((a, b) => b.messageCount - a.messageCount);
+
+    return res.json({
+      platform:      parsed.platform,
+      chatTitle:     parsed.chatTitle,
+      messageCount:  parsed.messages.length,
+      participants,
+    });
+  } catch (err) {
+    logError("Chat preview failed", err);
+    return res.status(500).json({ error: "Preview failed" });
+  }
+});
+
 router.post("/chat", upload.single("file"), async (req, res) => {
   try {
     // Auth check

@@ -4,9 +4,12 @@ import { useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Upload, FileText, MessageCircle, Instagram, Send, X, Check, Loader2,
-  Shield, AlertCircle,
+  Shield, AlertCircle, User, Users,
 } from "lucide-react";
-import { uploadChatFile, type ChatImportResult } from "@/lib/dashboard-api";
+import {
+  uploadChatFile, previewChatFile,
+  type ChatImportResult, type ChatPreview,
+} from "@/lib/dashboard-api";
 
 const ACCEPTED_TYPES = ".txt,.json,.csv";
 
@@ -43,17 +46,32 @@ interface Props {
 
 export default function ChatImport({ onImportComplete }: Props) {
   const [file, setFile]           = useState<File | null>(null);
-  const [ownerName, setOwnerName] = useState("");
+  const [preview, setPreview]     = useState<ChatPreview | null>(null);
+  const [ownerName, setOwnerName] = useState<string | null>(null); // null = not chosen yet; "" = "none" (group view)
+  const [previewing, setPreviewing] = useState(false);
   const [loading, setLoading]     = useState(false);
   const [error, setError]         = useState("");
   const [result, setResult]       = useState<ChatImportResult | null>(null);
   const [dragOver, setDragOver]   = useState(false);
   const inputRef                  = useRef<HTMLInputElement>(null);
 
-  const handleFile = useCallback((f: File) => {
+  const handleFile = useCallback(async (f: File) => {
     setFile(f);
     setError("");
     setResult(null);
+    setPreview(null);
+    setOwnerName(null);
+    setPreviewing(true);
+    try {
+      const p = await previewChatFile(f);
+      setPreview(p);
+      // Auto-default for 1-participant files (nothing to pick)
+      if (p.participants.length <= 1) setOwnerName("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't read the file");
+    } finally {
+      setPreviewing(false);
+    }
   }, []);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -64,7 +82,7 @@ export default function ChatImport({ onImportComplete }: Props) {
   }, [handleFile]);
 
   const handleSubmit = async () => {
-    if (!file) return;
+    if (!file || ownerName === null) return;
     setLoading(true);
     setError("");
     try {
@@ -80,7 +98,8 @@ export default function ChatImport({ onImportComplete }: Props) {
 
   const reset = () => {
     setFile(null);
-    setOwnerName("");
+    setPreview(null);
+    setOwnerName(null);
     setError("");
     setResult(null);
   };
@@ -207,21 +226,74 @@ export default function ChatImport({ onImportComplete }: Props) {
         </AnimatePresence>
       </div>
 
-      {/* Owner name (optional) */}
-      {file && (
-        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="mt-4">
-          <label className="text-[11px] font-semibold text-white/30 uppercase tracking-wide mb-1.5 block">
-            Your name in the chat <span className="font-normal text-white/15">(optional)</span>
+      {/* Preview loading */}
+      {previewing && (
+        <div className="mt-4 flex items-center gap-2 text-[12px] text-white/40">
+          <Loader2 size={12} className="animate-spin" /> Reading file…
+        </div>
+      )}
+
+      {/* Participant picker — appears once preview is ready and has 2+ participants */}
+      {preview && preview.participants.length >= 2 && !result && (
+        <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="mt-5">
+          <label className="text-[11px] font-semibold text-white/30 uppercase tracking-wide mb-2 block">
+            Which side is you?
           </label>
-          <input
-            type="text"
-            value={ownerName}
-            onChange={(e) => setOwnerName(e.target.value)}
-            placeholder="e.g. Yuri, Agency Team"
-            className="w-full rounded-lg bg-white/[0.03] border border-white/[0.06] px-3 py-2.5 text-[13px] text-white placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-[#FF6B35]/30"
-          />
-          <p className="mt-1 text-[10px] text-white/15">
-            Helps us mark your messages as outbound and client messages as inbound
+          <div className="space-y-1.5">
+            {preview.participants.map((p) => {
+              const active = ownerName === p.name;
+              return (
+                <button
+                  key={p.name}
+                  type="button"
+                  onClick={() => setOwnerName(p.name)}
+                  className={`w-full flex items-center justify-between rounded-lg border px-3 py-2.5 text-left transition-all ${
+                    active
+                      ? "border-[#FF6B35]/40 bg-[#FF6B35]/10"
+                      : "border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04]"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className={`flex h-7 w-7 items-center justify-center rounded-full ${
+                      active ? "bg-[#FF6B35]/20 text-[#FF6B35]" : "bg-white/[0.05] text-white/40"
+                    }`}>
+                      <User size={13} />
+                    </div>
+                    <div>
+                      <p className={`text-[13px] font-medium ${active ? "text-white" : "text-white/70"}`}>{p.name}</p>
+                      <p className="text-[10px] text-white/25">{p.messageCount} message{p.messageCount !== 1 ? "s" : ""}</p>
+                    </div>
+                  </div>
+                  {active && <Check size={14} className="text-[#FF6B35]" />}
+                </button>
+              );
+            })}
+            {/* Group-view option — import without marking any side as "you" */}
+            <button
+              type="button"
+              onClick={() => setOwnerName("")}
+              className={`w-full flex items-center justify-between rounded-lg border px-3 py-2.5 text-left transition-all ${
+                ownerName === ""
+                  ? "border-white/20 bg-white/[0.06]"
+                  : "border-white/[0.04] bg-transparent hover:bg-white/[0.02]"
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <div className={`flex h-7 w-7 items-center justify-center rounded-full ${
+                  ownerName === "" ? "bg-white/10 text-white/70" : "bg-white/[0.03] text-white/25"
+                }`}>
+                  <Users size={13} />
+                </div>
+                <div>
+                  <p className={`text-[13px] font-medium ${ownerName === "" ? "text-white" : "text-white/50"}`}>I'm not in this chat</p>
+                  <p className="text-[10px] text-white/25">Keep each person as a separate conversation</p>
+                </div>
+              </div>
+              {ownerName === "" && <Check size={14} className="text-white/70" />}
+            </button>
+          </div>
+          <p className="mt-2 text-[10px] text-white/20">
+            Your messages will appear as outbound; the other side&apos;s will appear as inbound — like a normal chat app.
           </p>
         </motion.div>
       )}
@@ -235,14 +307,16 @@ export default function ChatImport({ onImportComplete }: Props) {
       )}
 
       {/* Submit */}
-      {file && (
+      {file && !previewing && (
         <button
           onClick={handleSubmit}
-          disabled={loading}
-          className="mt-4 w-full flex items-center justify-center gap-2 rounded-lg bg-[#FF6B35] py-3 text-[13px] font-semibold text-white hover:bg-[#FF6B35]/90 disabled:opacity-50 transition-all"
+          disabled={loading || ownerName === null}
+          className="mt-4 w-full flex items-center justify-center gap-2 rounded-lg bg-[#FF6B35] py-3 text-[13px] font-semibold text-white hover:bg-[#FF6B35]/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
         >
           {loading ? (
-            <><Loader2 size={14} className="animate-spin" /> Importing...</>
+            <><Loader2 size={14} className="animate-spin" /> Importing…</>
+          ) : ownerName === null && preview && preview.participants.length >= 2 ? (
+            <>Pick which side is you to continue</>
           ) : (
             <><Upload size={14} /> Import Messages</>
           )}

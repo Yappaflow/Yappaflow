@@ -641,21 +641,6 @@ export function CommandCenter({ setView, setSignalId }: Props) {
               </div>
             </div>
 
-            {/* Connected platform badges */}
-            {(waConnected || igConnected) && (
-              <div className="flex gap-1.5 mb-3">
-                {waConnected && (
-                  <span className="flex items-center gap-1 rounded-full bg-green-500/10 border border-green-500/20 px-2 py-0.5 text-[10px] font-bold text-green-400">
-                    <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />WA Live
-                  </span>
-                )}
-                {igConnected && (
-                  <span className="flex items-center gap-1 rounded-full bg-pink-500/10 border border-pink-500/20 px-2 py-0.5 text-[10px] font-bold text-pink-400">
-                    <span className="h-1.5 w-1.5 rounded-full bg-pink-500 animate-pulse" />IG Live
-                  </span>
-                )}
-              </div>
-            )}
 
             {/* Signal list */}
             {signals.length === 0 ? (

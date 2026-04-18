@@ -318,3 +318,32 @@ export async function uploadChatFile(
   if (!res.ok) throw new Error(json.error ?? "Import failed");
   return json;
 }
+
+// ── Chat file preview (parse without writing to DB) ───────────────────────────
+
+export interface ChatPreview {
+  platform:     string;
+  chatTitle:    string;
+  messageCount: number;
+  participants: Array<{ name: string; messageCount: number }>;
+}
+
+/** Parse the chat file on the server and return participants + metadata so
+ *  the UI can show a "which side is you?" picker before the real import. */
+export async function previewChatFile(file: File): Promise<ChatPreview> {
+  const token = getToken();
+  if (!token) throw new Error("Not authenticated");
+
+  const form = new FormData();
+  form.append("file", file);
+
+  const res = await fetch(`${getApiBase()}/import/chat/preview`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error ?? "Preview failed");
+  return json;
+}
