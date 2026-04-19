@@ -3,9 +3,39 @@ function getApiBase(): string {
   if (_apiBase !== null) return _apiBase;
   const direct = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
   if (typeof window === "undefined") return direct;
-  const host = window.location.hostname;
   _apiBase = direct;
   return _apiBase;
+}
+
+/**
+ * Exchange a freshly-minted JWT for an httpOnly session cookie.
+ * The cookie is what Next.js middleware checks to guard /dashboard — without
+ * it, anyone could paste the URL and see the dashboard shell.
+ */
+export async function establishSession(token: string): Promise<void> {
+  if (!token) return;
+  try {
+    await fetch(`${getApiBase()}/auth/session`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ token }),
+    });
+  } catch {
+    // If the cookie call fails the middleware will just bounce the user
+    // back to /auth — better than silently ignoring a token mismatch.
+  }
+}
+
+export async function destroySession(): Promise<void> {
+  try {
+    await fetch(`${getApiBase()}/auth/session`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+  } catch {
+    /* ignore */
+  }
 }
 
 async function gql(query: string, variables?: Record<string, unknown>, token?: string) {

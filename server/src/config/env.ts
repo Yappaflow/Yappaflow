@@ -43,4 +43,8 @@ export const env = {
   anthropicModel:    process.env.ANTHROPIC_MODEL || "claude-sonnet-4-20250514",
   anthropicMaxTokens: parseInt(process.env.ANTHROPIC_MAX_TOKENS || "4096", 10),
   aiMockMode:        process.env.AI_MOCK_MODE === "true" || !process.env.ANTHROPIC_API_KEY,
+
+  // Deploy Hub — registrar + host affiliate deep-links (no API integration)
+  namecheapAffiliateId: process.env.NAMECHEAP_AFFILIATE_ID || "",
+  hostingerAffiliateUrl: process.env.HOSTINGER_AFFILIATE_URL || "https://www.hostinger.com/web-hosting",
 } as const;

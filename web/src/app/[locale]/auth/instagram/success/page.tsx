@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { useSearchParams } from "next/navigation";
+import { establishSession } from "@/lib/auth-api";
 
 export default function InstagramSuccessPage() {
   const router = useRouter();
@@ -19,11 +20,14 @@ export default function InstagramSuccessPage() {
 
     localStorage.setItem("yappaflow_token", token);
 
-    if (needsPhone) {
-      router.replace("/auth?step=phone_verify&provider=instagram");
-    } else {
-      router.replace("/dashboard");
-    }
+    (async () => {
+      await establishSession(token);
+      if (needsPhone) {
+        router.replace("/auth?step=phone_verify&provider=instagram");
+      } else {
+        router.replace("/dashboard");
+      }
+    })();
   }, [params, router]);
 
   return (

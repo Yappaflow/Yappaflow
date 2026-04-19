@@ -16,9 +16,12 @@ import {
   X,
   Layers,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
+import { destroySession } from "@/lib/auth-api";
 
 function ConsentBanner() {
+  const t = useTranslations("dashboardShell");
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -43,9 +46,8 @@ function ConsentBanner() {
       >
         <Shield size={13} className="text-[#FF6B35] flex-shrink-0" />
         <p className="flex-1 text-[11px] leading-relaxed">
-          <strong>Your data, your control.</strong> Yappaflow accesses your WhatsApp and Instagram messages
-          only with the permissions you granted during login. You can revoke access anytime in{" "}
-          <strong>Settings → Platforms</strong>.
+          <strong>{t("consentLeader")}</strong> {t("consentBody")}{" "}
+          <strong>{t("consentSettingsLink")}</strong>.
         </p>
         <button onClick={dismiss} className="flex-shrink-0 text-white/30 hover:text-white transition-colors ml-2">
           <X size={13} />
@@ -58,14 +60,14 @@ function ConsentBanner() {
 export type DashboardView = "command" | "engine" | "deploy" | "solutions" | "integrations";
 
 const NAV_MAIN = [
-  { id: "command"      as DashboardView, label: "Dashboard",    icon: LayoutDashboard },
-  { id: "engine"       as DashboardView, label: "Engine Room",  icon: Zap             },
-  { id: "deploy"       as DashboardView, label: "Deploy Hub",   icon: Rocket          },
-  { id: "solutions"    as DashboardView, label: "Solutions",    icon: Layers          },
+  { id: "command"      as DashboardView, labelKey: "navDashboard", icon: LayoutDashboard },
+  { id: "engine"       as DashboardView, labelKey: "navEngine",    icon: Zap             },
+  { id: "deploy"       as DashboardView, labelKey: "navDeploy",    icon: Rocket          },
+  { id: "solutions"    as DashboardView, labelKey: "navSolutions", icon: Layers          },
 ];
 
 const NAV_GENERAL = [
-  { id: "integrations" as DashboardView, label: "Settings",    icon: Settings        },
+  { id: "integrations" as DashboardView, labelKey: "navSettings",  icon: Settings        },
 ];
 
 interface Props {
@@ -78,21 +80,15 @@ interface Props {
 }
 
 export function DashboardShell({ children }: Props) {
+  const t = useTranslations("dashboardShell");
   const [view,     setView]     = useState<DashboardView>("command");
   const [signalId, setSignalId] = useState<string | null>(null);
   const router = useRouter();
 
-  const signOut = () => {
+  const signOut = async () => {
     localStorage.removeItem("yappaflow_token");
+    await destroySession();
     router.replace("/auth");
-  };
-
-  const VIEW_LABELS: Record<DashboardView, string> = {
-    command:      "Dashboard",
-    engine:       "Engine Room",
-    deploy:       "Deploy Hub",
-    solutions:    "Solutions",
-    integrations: "Settings",
   };
 
   return (
@@ -111,9 +107,9 @@ export function DashboardShell({ children }: Props) {
 
         {/* Nav — Main */}
         <div className="px-3 mt-2">
-          <p className="px-2 mb-2 text-[10px] font-bold uppercase tracking-widest text-white/20">Menu</p>
+          <p className="px-2 mb-2 text-[10px] font-bold uppercase tracking-widest text-white/20">{t("menuLabel")}</p>
           <nav className="flex flex-col gap-0.5">
-            {NAV_MAIN.map(({ id, label, icon: Icon }) => {
+            {NAV_MAIN.map(({ id, labelKey, icon: Icon }) => {
               const active = view === id;
               return (
                 <button
@@ -130,7 +126,7 @@ export function DashboardShell({ children }: Props) {
                     <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-[3px] rounded-r-full bg-[#FF6B35]" />
                   )}
                   <Icon size={15} className="flex-shrink-0" />
-                  <span>{label}</span>
+                  <span>{t(labelKey)}</span>
                   {id === "engine" && (
                     <span className="ml-auto flex h-4 w-4 items-center justify-center rounded-full bg-[#FF6B35] text-[9px] font-bold text-white">3</span>
                   )}
@@ -142,9 +138,9 @@ export function DashboardShell({ children }: Props) {
 
         {/* Nav — General */}
         <div className="px-3 mt-5">
-          <p className="px-2 mb-2 text-[10px] font-bold uppercase tracking-widest text-white/20">General</p>
+          <p className="px-2 mb-2 text-[10px] font-bold uppercase tracking-widest text-white/20">{t("generalLabel")}</p>
           <nav className="flex flex-col gap-0.5">
-            {NAV_GENERAL.map(({ id, label, icon: Icon }) => {
+            {NAV_GENERAL.map(({ id, labelKey, icon: Icon }) => {
               const active = view === id;
               return (
                 <button
@@ -161,7 +157,7 @@ export function DashboardShell({ children }: Props) {
                     <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-[3px] rounded-r-full bg-[#FF6B35]" />
                   )}
                   <Icon size={15} className="flex-shrink-0" />
-                  <span>{label}</span>
+                  <span>{t(labelKey)}</span>
                 </button>
               );
             })}
@@ -171,12 +167,12 @@ export function DashboardShell({ children }: Props) {
               className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium text-white/30 hover:bg-white/[0.04] hover:text-white transition-all text-left"
             >
               <LogOut size={15} />
-              <span>Logout</span>
+              <span>{t("navLogout")}</span>
             </button>
 
             <button className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium text-white/30 hover:bg-white/[0.04] hover:text-white transition-all text-left">
               <HelpCircle size={15} />
-              <span>Help</span>
+              <span>{t("navHelp")}</span>
             </button>
           </nav>
         </div>
@@ -186,10 +182,10 @@ export function DashboardShell({ children }: Props) {
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#FF6B35] mb-3">
             <Radio size={14} className="text-white" />
           </div>
-          <p className="text-[12px] font-bold leading-tight">Download our Mobile App</p>
-          <p className="text-[10px] text-white/30 mt-1">Get easy in another way</p>
+          <p className="text-[12px] font-bold leading-tight">{t("mobilePromoTitle")}</p>
+          <p className="text-[10px] text-white/30 mt-1">{t("mobilePromoDesc")}</p>
           <button className="mt-3 w-full rounded-lg bg-[#FF6B35] py-1.5 text-[11px] font-bold text-white">
-            Download
+            {t("mobilePromoCta")}
           </button>
         </div>
       </aside>
@@ -206,7 +202,7 @@ export function DashboardShell({ children }: Props) {
             <Search size={14} className="text-white/20 flex-shrink-0" />
             <input
               className="flex-1 bg-transparent text-[13px] text-white placeholder-white/20 outline-none"
-              placeholder="Search..."
+              placeholder={t("searchPlaceholder")}
             />
             <span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-semibold text-white/20">⌘F</span>
           </div>
@@ -217,7 +213,7 @@ export function DashboardShell({ children }: Props) {
               className="flex items-center gap-2 rounded-xl bg-[#FF6B35] px-4 py-2 text-[13px] font-bold text-white hover:opacity-90 transition-opacity shadow-lg shadow-[#FF6B35]/20"
             >
               <Radio size={13} className="animate-pulse" />
-              Start Live Meeting
+              {t("startLiveMeeting")}
             </button>
 
             <button className="relative flex h-8 w-8 items-center justify-center rounded-lg hover:bg-white/[0.04] transition-colors">

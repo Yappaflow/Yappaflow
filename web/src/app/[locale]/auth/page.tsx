@@ -20,6 +20,7 @@ import {
   requestPhoneVerification,
   verifyPhone,
   getInstagramAuthUrl,
+  establishSession,
 } from "@/lib/auth-api";
 
 type Step =
@@ -107,8 +108,11 @@ export default function AuthPage() {
     finally { setLoading(false); }
   }
 
-  function storeTokenAndRedirect(token: string) {
+  async function storeTokenAndRedirect(token: string) {
     localStorage.setItem("yappaflow_token", token);
+    // Set the httpOnly session cookie — Next middleware checks it before
+    // rendering /dashboard, so we must wait before navigating.
+    await establishSession(token);
     router.push("/dashboard");
   }
 

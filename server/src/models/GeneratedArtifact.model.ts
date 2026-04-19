@@ -3,7 +3,7 @@ import mongoose, { Schema, Document, Types } from "mongoose";
 export interface IGeneratedArtifact extends Document {
   agencyId:      Types.ObjectId;
   sessionId:     Types.ObjectId;
-  requirementId: Types.ObjectId;
+  requirementId?: Types.ObjectId;
   projectId?:    Types.ObjectId;
 
   filePath: string;   // e.g. "sections/hero.liquid" or "src/components/Hero.tsx"
@@ -21,7 +21,7 @@ const GeneratedArtifactSchema = new Schema<IGeneratedArtifact>(
   {
     agencyId:      { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
     sessionId:     { type: Schema.Types.ObjectId, ref: "AISession", required: true, index: true },
-    requirementId: { type: Schema.Types.ObjectId, ref: "ProjectRequirement", required: true },
+    requirementId: { type: Schema.Types.ObjectId, ref: "ProjectRequirement" },
     projectId:     { type: Schema.Types.ObjectId, ref: "Project" },
 
     filePath: { type: String, required: true },

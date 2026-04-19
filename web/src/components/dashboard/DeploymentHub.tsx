@@ -1,13 +1,42 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Globe, Server, Check, ExternalLink, Sparkles, ChevronLeft, ArrowRight } from "lucide-react";
+import {
+  Globe,
+  Server,
+  Check,
+  ExternalLink,
+  Sparkles,
+  ChevronLeft,
+  ArrowRight,
+  Loader2,
+  Download,
+  X,
+} from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { DashboardView } from "./DashboardShell";
+import { SignalPicker } from "./deploy/SignalPicker";
+import {
+  startDeploy,
+  extractIdentity,
+  getDeployProject,
+  checkDomain,
+  getNamecheapUrl,
+  getHostingerUrl,
+  startBuild,
+  confirmPurchase,
+  downloadZip,
+  type ProjectIdentity,
+  type DomainAvailability,
+} from "@/lib/deploy-api";
 
 type Route = "cms" | "custom" | null;
 type CMS   = "shopify" | "wordpress" | "webflow" | "ikas";
+type CustomStep = "pick-signal" | "identity" | "domain" | "download";
 
+// CMS labels are proper nouns. Descriptions kept untranslated for now —
+// this route is still a placeholder flow, will be translated when it ships.
 const CMS_OPTIONS: { id: CMS; label: string; color: string; desc: string }[] = [
   { id: "shopify",   label: "Shopify",   color: "#96BF48", desc: "E-commerce stores"      },
   { id: "wordpress", label: "WordPress", color: "#21759B", desc: "Blogs & business sites" },
@@ -15,9 +44,10 @@ const CMS_OPTIONS: { id: CMS; label: string; color: string; desc: string }[] = [
   { id: "ikas",      label: "IKAS",      color: "#F97316", desc: "Turkish e-commerce"     },
 ];
 
-const DEPLOY_STEPS = ["Building assets", "Configuring DNS", "SSL certificate", "Going live"];
+// ═══════════════════════════════════════════════════════════════════════════
 
-function SuccessScreen({ onBack }: { onBack: () => void }) {
+function CmsSuccessScreen({ onBack }: { onBack: () => void }) {
+  const t = useTranslations("deploy");
   return (
     <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }}
       className="flex flex-col items-center justify-center h-full text-center px-12 py-16">
@@ -32,46 +62,545 @@ function SuccessScreen({ onBack }: { onBack: () => void }) {
           <Check size={32} strokeWidth={3} className="text-white" />
         </div>
       </div>
-      <h2 className="text-3xl font-black tracking-tight text-white">Site is Live! 🎉</h2>
-      <p className="mt-2 text-white/30">Your project was deployed successfully</p>
-      <div className="mt-6 flex items-center gap-2 rounded-xl bg-green-500/10 border border-green-500/20 px-5 py-3">
-        <Globe size={14} className="text-green-400" />
-        <span className="text-[13px] font-semibold text-green-400">https://butikmode.com</span>
-      </div>
+      <h2 className="text-3xl font-black tracking-tight text-white">{t("cmsSuccessTitle")}</h2>
+      <p className="mt-2 text-white/30">{t("cmsSuccessSubtitle")}</p>
       <div className="mt-5 flex gap-3">
-        <button className="flex items-center gap-2 rounded-xl bg-[#0A0A0A] px-5 py-2.5 text-[13px] font-bold text-white hover:opacity-80 transition-opacity">
-          <ExternalLink size={14} />
-          Open Live Site
-        </button>
         <button onClick={onBack}
-          className="rounded-xl border border-white/[0.05] px-5 py-2.5 text-[13px] font-semibold text-white/30 hover:bg-white/[0.04] transition-colors">
-          Back to Dashboard
+          className="rounded-xl border border-white/[0.05] px-5 py-2.5 text-[13px] font-semibold text-white/60 hover:bg-white/[0.04] transition-colors">
+          {t("cmsBack")}
         </button>
       </div>
     </motion.div>
   );
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+//  Custom flow wizard
+// ═══════════════════════════════════════════════════════════════════════════
+
+function CustomWizard({ onExitToDashboard }: { onExitToDashboard: () => void }) {
+  const t = useTranslations("deploy");
+  const [step, setStep] = useState<CustomStep>("pick-signal");
+  const [signalId, setSignalId] = useState<string | null>(null);
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [identity, setIdentity] = useState<ProjectIdentity | null>(null);
+  const [identityError, setIdentityError] = useState<string | null>(null);
+
+  const [domainInput, setDomainInput] = useState("");
+  const [checkState, setCheckState] = useState<DomainAvailability | null>(null);
+  const [checking, setChecking] = useState(false);
+  const checkTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [buildStatus, setBuildStatus] = useState<{
+    status: "pending" | "running" | "done" | "failed" | null;
+    filesDone: number;
+    filesTotal: number;
+    error: string | null;
+  }>({ status: null, filesDone: 0, filesTotal: 0, error: null });
+
+  const [purchasedDomain, setPurchasedDomain] = useState("");
+  const [confirmInput, setConfirmInput] = useState("");
+  const [downloading, setDownloading] = useState(false);
+  const [downloaded, setDownloaded] = useState(false);
+  const [topError, setTopError] = useState<string | null>(null);
+  const buildStartedRef = useRef(false);
+
+  // ── Step 1 → Step 2: kick off identity extraction ──
+  const onPickSignalNext = async () => {
+    if (!signalId) return;
+    setTopError(null);
+    try {
+      const { projectId } = await startDeploy(signalId);
+      setProjectId(projectId);
+      setStep("identity");
+      setIdentityError(null);
+      const { identity } = await extractIdentity(projectId);
+      setIdentity(identity);
+      setDomainInput(identity.domainSuggestions[0] || "");
+    } catch (err) {
+      setIdentityError(err instanceof Error ? err.message : "Failed to analyze chat");
+    }
+  };
+
+  // ── Debounced domain availability check ──
+  useEffect(() => {
+    if (checkTimer.current) clearTimeout(checkTimer.current);
+    if (!domainInput || step !== "domain") {
+      setCheckState(null);
+      return;
+    }
+    const name = domainInput.trim().toLowerCase();
+    if (name.length < 4 || !name.includes(".")) {
+      setCheckState({ available: null, reason: "invalid" });
+      return;
+    }
+    setChecking(true);
+    checkTimer.current = setTimeout(async () => {
+      try {
+        const r = await checkDomain(name);
+        setCheckState(r);
+      } catch {
+        setCheckState({ available: null, reason: "unknown" });
+      } finally {
+        setChecking(false);
+      }
+    }, 500);
+    return () => {
+      if (checkTimer.current) clearTimeout(checkTimer.current);
+    };
+  }, [domainInput, step]);
+
+  // ── Auto-start the build as soon as user reaches the domain step. ──
+  //    Buying a domain is optional, but the website should already be
+  //    building in the background either way.
+  useEffect(() => {
+    if (!projectId || step !== "domain" || buildStartedRef.current) return;
+    buildStartedRef.current = true;
+    startBuild(projectId).catch((err) => {
+      setTopError(err instanceof Error ? err.message : "Couldn't start build");
+    });
+  }, [projectId, step]);
+
+  // ── Poll build status while on step 3 or 4, until build is done/failed ──
+  useEffect(() => {
+    if (!projectId || (step !== "domain" && step !== "download")) return;
+    if (buildStatus.status === "done" || buildStatus.status === "failed") return;
+
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const p = await getDeployProject(projectId);
+        if (cancelled) return;
+        setBuildStatus({
+          status: p.buildJobStatus,
+          filesDone: p.buildFilesDone,
+          filesTotal: p.buildFilesTotal,
+          error: p.buildError,
+        });
+      } catch {
+        /* ignore polling errors */
+      }
+    };
+    poll();
+    const iv = setInterval(poll, 2000);
+    return () => { cancelled = true; clearInterval(iv); };
+  }, [projectId, step, buildStatus.status]);
+
+  // ── "Buy on Namecheap" — opens registrar in a new tab. Build has already started. ──
+  const onBuyOnNamecheap = async () => {
+    if (!domainInput || !projectId) return;
+    setTopError(null);
+    try {
+      const ncResp = await getNamecheapUrl(domainInput.trim().toLowerCase());
+      window.open(ncResp.url, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      setTopError(err instanceof Error ? err.message : "Couldn't build Namecheap URL");
+    }
+  };
+
+  // ── Confirm purchase → move to download step ──
+  const onConfirmPurchase = async () => {
+    if (!projectId || !confirmInput) return;
+    setTopError(null);
+    try {
+      const { domainPurchased } = await confirmPurchase(projectId, confirmInput.trim().toLowerCase());
+      setPurchasedDomain(domainPurchased);
+      setStep("download");
+    } catch (err) {
+      setTopError(err instanceof Error ? err.message : "Couldn't record purchase");
+    }
+  };
+
+  // ── Skip domain purchase — go straight to download ──
+  const onSkipDomain = () => {
+    setTopError(null);
+    setStep("download");
+  };
+
+  const onDownload = async () => {
+    if (!projectId) return;
+    setTopError(null);
+    setDownloading(true);
+    try {
+      await downloadZip(projectId);
+      setDownloaded(true);
+    } catch (err) {
+      setTopError(err instanceof Error ? err.message : "Download failed");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const onOpenHostinger = async () => {
+    try {
+      const { url } = await getHostingerUrl();
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch { /* ignore */ }
+  };
+
+  // ═══════════════════════════════════════════════════════════════════════
+
+  return (
+    <div className="max-w-xl">
+      {topError && (
+        <div className="mb-4 flex items-start gap-2 rounded-xl border border-red-500/30 bg-red-500/5 p-3 text-[12px] text-red-300">
+          <X size={14} className="mt-0.5 flex-shrink-0" />
+          <span className="flex-1">{topError}</span>
+          <button onClick={() => setTopError(null)} className="text-red-300/50 hover:text-red-200">
+            <X size={12} />
+          </button>
+        </div>
+      )}
+
+      {/* Step indicator */}
+      <div className="mb-6 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider">
+        {(["pick-signal", "identity", "domain", "download"] as CustomStep[]).map((s, i) => {
+          const stepOrder: CustomStep[] = ["pick-signal", "identity", "domain", "download"];
+          const active   = s === step;
+          const done     = stepOrder.indexOf(step) > i;
+          return (
+            <div key={s} className="flex items-center gap-2">
+              <div className={[
+                "flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black",
+                active ? "bg-[#FF6B35] text-white" : done ? "bg-green-500 text-white" : "bg-white/[0.06] text-white/40",
+              ].join(" ")}>
+                {done ? <Check size={11} strokeWidth={3} /> : i + 1}
+              </div>
+              {i < 3 && <div className={`h-px w-8 ${done ? "bg-green-500" : "bg-white/[0.06]"}`} />}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ── STEP 1: Pick Signal ── */}
+      {step === "pick-signal" && (
+        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+          <h2 className="mb-1 text-[15px] font-bold text-white">{t("pickSignalTitle")}</h2>
+          <p className="mb-4 text-[12px] text-white/40">{t("pickSignalDesc")}</p>
+          <SignalPicker selectedId={signalId} onSelect={setSignalId} />
+          <button
+            disabled={!signalId}
+            onClick={onPickSignalNext}
+            className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-white py-3 text-[13px] font-bold text-[#0A0A0A] shadow-xl shadow-black/20 transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {t("pickSignalCta")}
+            <ArrowRight size={15} />
+          </button>
+        </motion.div>
+      )}
+
+      {/* ── STEP 2: Identity reveal ── */}
+      {step === "identity" && (
+        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+          <h2 className="mb-1 text-[15px] font-bold text-white">{t("identityTitle")}</h2>
+          <p className="mb-4 text-[12px] text-white/40">{t("identityDesc")}</p>
+
+          {identityError && (
+            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/5 p-4 text-[13px] text-red-300">
+              {identityError}
+              <button
+                onClick={onPickSignalNext}
+                className="ml-2 underline hover:text-red-200"
+              >
+                {t("identityRetry")}
+              </button>
+            </div>
+          )}
+
+          {!identity && !identityError && (
+            <div className="flex items-center gap-3 rounded-xl border border-white/[0.05] bg-[#111114] p-6">
+              <Loader2 size={16} className="animate-spin text-[#FF6B35]" />
+              <div>
+                <p className="text-[13px] font-semibold text-white">{t("identityAnalyzingTitle")}</p>
+                <p className="text-[11px] text-white/40">{t("identityAnalyzingDesc")}</p>
+              </div>
+            </div>
+          )}
+
+          {identity && (
+            <div className="space-y-4">
+              <div className="rounded-xl border border-white/[0.05] bg-[#111114] p-5">
+                <p className="text-[11px] uppercase tracking-wider text-white/30">{t("identityBusinessLabel")}</p>
+                <p className="mt-1 text-[22px] font-black text-white">{identity.businessName}</p>
+                {identity.tagline && (
+                  <p className="mt-1 text-[13px] text-white/60">{identity.tagline}</p>
+                )}
+                <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+                  {identity.industry && (
+                    <span className="rounded-full bg-white/[0.06] px-2.5 py-1 text-white/50">
+                      {identity.industry}
+                    </span>
+                  )}
+                  {identity.tone && (
+                    <span className="rounded-full bg-white/[0.06] px-2.5 py-1 text-white/50">
+                      {identity.tone}
+                    </span>
+                  )}
+                  {identity.city && (
+                    <span className="rounded-full bg-white/[0.06] px-2.5 py-1 text-white/50">
+                      {identity.city}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <p className="mb-2 text-[11px] uppercase tracking-wider text-white/30">{t("identityDomainSuggestionsLabel")}</p>
+                <div className="flex flex-wrap gap-2">
+                  {identity.domainSuggestions.map((d) => (
+                    <button
+                      key={d}
+                      onClick={() => { setDomainInput(d); setStep("domain"); }}
+                      className="rounded-full border border-white/[0.06] bg-white/[0.02] px-3 py-1.5 text-[12px] font-mono text-white/70 hover:border-[#FF6B35] hover:text-[#FF6B35]"
+                    >
+                      {d}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                onClick={() => setStep("domain")}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-white py-3 text-[13px] font-bold text-[#0A0A0A] shadow-xl shadow-black/20 hover:opacity-80"
+              >
+                {t("identityPickDomainCta")}
+                <ArrowRight size={15} />
+              </button>
+            </div>
+          )}
+        </motion.div>
+      )}
+
+      {/* ── STEP 3: Domain (optional) + parallel build ── */}
+      {step === "domain" && (
+        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-[15px] font-bold text-white">
+                {t("domainTitle")}
+                <span className="ml-2 rounded-full border border-white/[0.1] px-2 py-0.5 align-middle text-[10px] font-semibold uppercase tracking-wider text-white/40">
+                  {t("domainOptionalTag")}
+                </span>
+              </h2>
+              <p className="mt-1 text-[12px] text-white/40">{t("domainDesc")}</p>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-white/[0.05] bg-[#111114] p-4">
+            <label className="block text-[11px] uppercase tracking-wider text-white/30">{t("domainLabel")}</label>
+            <div className="mt-1.5 flex items-center gap-2">
+              <span className="text-[13px] text-white/30">https://</span>
+              <input
+                autoFocus
+                value={domainInput}
+                onChange={(e) => setDomainInput(e.target.value)}
+                placeholder={t("domainPlaceholder")}
+                className="flex-1 bg-transparent font-mono text-[14px] font-semibold text-white outline-none placeholder:text-white/20"
+              />
+              {checking && <Loader2 size={14} className="animate-spin text-white/40" />}
+              {!checking && checkState?.available === true && (
+                <span className="rounded-full bg-green-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-green-400">
+                  {t("domainStatusAvailable")}
+                </span>
+              )}
+              {!checking && checkState?.available === false && (
+                <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-400">
+                  {t("domainStatusTaken")}
+                </span>
+              )}
+              {!checking && checkState?.available === null && checkState?.reason !== "invalid" && domainInput && (
+                <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white/40">
+                  {t("domainStatusUnknown")}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {identity?.domainSuggestions && identity.domainSuggestions.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {identity.domainSuggestions.map((d) => (
+                <button
+                  key={d}
+                  onClick={() => setDomainInput(d)}
+                  className={[
+                    "rounded-full border px-2.5 py-1 text-[11px] font-mono",
+                    domainInput === d
+                      ? "border-[#FF6B35] text-[#FF6B35]"
+                      : "border-white/[0.06] text-white/40 hover:border-white/[0.15] hover:text-white/70",
+                  ].join(" ")}
+                >
+                  {d}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <button
+            onClick={onBuyOnNamecheap}
+            disabled={!domainInput}
+            className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#FF6B35] py-3 text-[13px] font-bold text-white shadow-xl shadow-[#FF6B35]/20 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <ExternalLink size={15} />
+            {t("domainBuyCta")}
+          </button>
+
+          <div className="mt-5 rounded-xl border border-white/[0.05] bg-[#111114] p-4">
+            <div className="flex items-center gap-2">
+              <div className="flex h-2 w-2 flex-shrink-0 rounded-full bg-[#FF6B35]">
+                {(buildStatus.status === "running" || buildStatus.status === "pending") && (
+                  <span className="block h-2 w-2 animate-ping rounded-full bg-[#FF6B35]" />
+                )}
+              </div>
+              <p className="text-[12px] font-semibold text-white">
+                {buildStatus.status === "done"
+                  ? t("buildReady")
+                  : buildStatus.status === "running"
+                  ? (buildStatus.filesTotal
+                      ? t("buildRunning", { done: buildStatus.filesDone, total: buildStatus.filesTotal })
+                      : t("buildRunningUnknown", { done: buildStatus.filesDone }))
+                  : buildStatus.status === "pending"
+                  ? t("buildPending")
+                  : buildStatus.status === "failed"
+                  ? t("buildFailed")
+                  : t("buildIdle")}
+              </p>
+            </div>
+            {buildStatus.error && (
+              <p className="mt-1 pl-4 text-[11px] text-red-400">{buildStatus.error}</p>
+            )}
+          </div>
+
+          <div className="mt-6 rounded-xl border border-white/[0.05] bg-[#111114] p-4">
+            <p className="text-[11px] uppercase tracking-wider text-white/30">{t("confirmPurchaseLabel")}</p>
+            <p className="mt-1 text-[12px] text-white/50">{t("confirmPurchaseDesc")}</p>
+            <input
+              value={confirmInput}
+              onChange={(e) => setConfirmInput(e.target.value)}
+              placeholder={t("confirmPurchasePlaceholder")}
+              className="mt-3 w-full rounded-lg border border-white/[0.05] bg-[#0A0A0A] px-3 py-2 font-mono text-[13px] text-white outline-none placeholder:text-white/20 focus:border-[#FF6B35]"
+            />
+            <button
+              onClick={onConfirmPurchase}
+              disabled={!confirmInput}
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-white py-2.5 text-[13px] font-bold text-[#0A0A0A] hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {t("confirmPurchaseCta")}
+              <ArrowRight size={14} />
+            </button>
+          </div>
+
+          <button
+            onClick={onSkipDomain}
+            className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl border border-white/[0.05] bg-transparent py-2.5 text-[12px] font-semibold text-white/50 transition-colors hover:bg-white/[0.03] hover:text-white"
+          >
+            {t("skipDomainCta")}
+          </button>
+        </motion.div>
+      )}
+
+      {/* ── STEP 4: Download ── */}
+      {step === "download" && (
+        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+          <h2 className="mb-1 text-[15px] font-bold text-white">{t("downloadTitle")}</h2>
+          <p className="mb-4 text-[12px] text-white/40">{t("downloadDesc")}</p>
+
+          <div className="rounded-2xl border border-white/[0.05] bg-[#111114] p-6">
+            {purchasedDomain ? (
+              <div className="flex items-center gap-3">
+                <Globe size={16} className="text-green-400" />
+                <span className="font-mono text-[14px] font-semibold text-white">
+                  {purchasedDomain}
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-start gap-3">
+                <Globe size={16} className="mt-0.5 text-white/40" />
+                <div>
+                  <p className="text-[13px] font-semibold text-white">{t("noDomainTitle")}</p>
+                  <p className="mt-0.5 text-[11px] text-white/40">{t("noDomainDesc")}</p>
+                </div>
+              </div>
+            )}
+
+            {buildStatus.status !== "done" && (
+              <div className="mt-4 flex items-center gap-2 rounded-lg border border-white/[0.05] bg-[#0A0A0A] px-3 py-2.5 text-[12px] text-white/50">
+                <Loader2 size={14} className="animate-spin" />
+                {t("downloadFinalizing", { done: buildStatus.filesDone, total: buildStatus.filesTotal || "…" })}
+              </div>
+            )}
+
+            <button
+              onClick={onDownload}
+              disabled={downloading || buildStatus.status !== "done"}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-white py-3 text-[13px] font-bold text-[#0A0A0A] shadow-xl shadow-black/20 hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {downloading ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
+              {downloading ? t("downloadPreparing") : downloaded ? t("downloadAgain") : t("downloadCta")}
+            </button>
+          </div>
+
+          <div className="mt-4 rounded-2xl border border-white/[0.05] bg-[#111114] p-5">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-[#FF6B35]/10">
+                <Server size={14} className="text-[#FF6B35]" />
+              </div>
+              <div className="flex-1">
+                <p className="text-[13px] font-bold text-white">{t("hostTitle")}</p>
+                <p className="mt-0.5 text-[11px] text-white/40">{t("hostDesc")}</p>
+                <button
+                  onClick={onOpenHostinger}
+                  className="mt-3 inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#FF6B35] hover:underline"
+                >
+                  {t("hostCta")}
+                  <ExternalLink size={12} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <button
+            onClick={onExitToDashboard}
+            className="mt-6 w-full rounded-xl border border-white/[0.05] py-2.5 text-[13px] font-semibold text-white/40 hover:bg-white/[0.04] hover:text-white"
+          >
+            {t("downloadBack")}
+          </button>
+        </motion.div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+
 interface Props { setView: (v: DashboardView) => void; }
 
 export function DeploymentHub({ setView }: Props) {
-  const [route, setRoute]      = useState<Route>(null);
-  const [cms, setCms]          = useState<CMS | null>(null);
-  const [deploying, setDeploy] = useState(false);
-  const [success, setSuccess]  = useState(false);
-  const [progress, setProgress] = useState(0);
+  const t = useTranslations("deploy");
+  const [route, setRoute] = useState<Route>(null);
 
-  const startDeploy = () => {
-    setDeploy(true);
+  // ── CMS placeholder flow (unchanged mock — scope for later phase) ──
+  const [cms, setCms] = useState<CMS | null>(null);
+  const [cmsDeploying, setCmsDeploying] = useState(false);
+  const [cmsSuccess, setCmsSuccess] = useState(false);
+  const [cmsProgress, setCmsProgress] = useState(0);
+
+  const startCmsDeploy = () => {
+    setCmsDeploying(true);
     let p = 0;
     const iv = setInterval(() => {
       p += Math.random() * 10 + 4;
-      if (p >= 100) { p = 100; clearInterval(iv); setTimeout(() => setSuccess(true), 500); }
-      setProgress(Math.min(p, 100));
+      if (p >= 100) { p = 100; clearInterval(iv); setTimeout(() => setCmsSuccess(true), 500); }
+      setCmsProgress(Math.min(p, 100));
     }, 200);
   };
 
-  if (success) return <SuccessScreen onBack={() => { setSuccess(false); setDeploy(false); setRoute(null); setCms(null); setProgress(0); setView("command"); }} />;
+  if (cmsSuccess) {
+    return (
+      <CmsSuccessScreen onBack={() => {
+        setCmsSuccess(false); setCmsDeploying(false); setRoute(null); setCms(null); setCmsProgress(0); setView("command");
+      }} />
+    );
+  }
 
   return (
     <div className="p-6">
@@ -84,9 +613,13 @@ export function DeploymentHub({ setView }: Props) {
           </button>
         )}
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-white">Deploy Hub</h1>
+          <h1 className="text-2xl font-black tracking-tight text-white">{t("title")}</h1>
           <p className="mt-0.5 text-[13px] text-white/30">
-            {!route ? "Choose your deployment route" : route === "cms" ? "Select a CMS platform" : "Configure domain & hosting"}
+            {!route
+              ? t("subtitleChooseRoute")
+              : route === "cms"
+              ? t("subtitlePickCms")
+              : t("subtitleCustom")}
           </p>
         </div>
       </div>
@@ -97,18 +630,18 @@ export function DeploymentHub({ setView }: Props) {
           <motion.div key="routes" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
             <div className="grid grid-cols-2 gap-5 max-w-2xl">
               {[
-                { id: "cms" as Route,    label: "Deploy to CMS",   icon: Globe,  accent: "#4353FF", bg: "bg-blue-500/10",    desc: "Shopify, WordPress, Webflow or IKAS" },
-                { id: "custom" as Route, label: "Deploy Custom",   icon: Server, accent: "#FF6B35", bg: "bg-[#FF6B35]/10",  desc: "Domain via Namecheap + Hostinger server" },
-              ].map(({ id, label, icon: Icon, accent, bg, desc }) => (
+                { id: "cms"    as Route, labelKey: "routeCmsLabel",    descKey: "routeCmsDesc",    icon: Globe,  accent: "#4353FF", bg: "bg-blue-500/10" },
+                { id: "custom" as Route, labelKey: "routeCustomLabel", descKey: "routeCustomDesc", icon: Server, accent: "#FF6B35", bg: "bg-[#FF6B35]/10" },
+              ].map(({ id, labelKey, descKey, icon: Icon, accent, bg }) => (
                 <button key={id!} onClick={() => setRoute(id)}
                   className="group rounded-2xl bg-[#111114] border border-white/[0.05] p-7 text-left hover:border-white/[0.08] hover:shadow-xl hover:shadow-black/20 transition-all">
                   <div className={`mb-5 flex h-12 w-12 items-center justify-center rounded-xl ${bg}`}>
                     <Icon size={24} style={{ color: accent }} />
                   </div>
-                  <h3 className="text-[16px] font-bold text-white">{label}</h3>
-                  <p className="mt-1.5 text-[13px] text-white/30">{desc}</p>
+                  <h3 className="text-[16px] font-bold text-white">{t(labelKey)}</h3>
+                  <p className="mt-1.5 text-[13px] text-white/30">{t(descKey)}</p>
                   <div className="mt-5 flex items-center gap-1.5 text-[13px] font-bold" style={{ color: accent }}>
-                    Select route <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
+                    {t("routeSelect")} <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
                   </div>
                 </button>
               ))}
@@ -116,8 +649,8 @@ export function DeploymentHub({ setView }: Props) {
           </motion.div>
         )}
 
-        {/* CMS route */}
-        {route === "cms" && !deploying && (
+        {/* CMS route (placeholder — out of scope this phase) */}
+        {route === "cms" && !cmsDeploying && (
           <motion.div key="cms" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="max-w-xl">
             <div className="grid grid-cols-2 gap-3 mb-6">
               {CMS_OPTIONS.map((opt) => (
@@ -140,84 +673,39 @@ export function DeploymentHub({ setView }: Props) {
               ))}
             </div>
             {cms && (
-              <motion.button initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} onClick={startDeploy}
+              <motion.button initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} onClick={startCmsDeploy}
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-white py-3 text-[13px] font-bold text-[#0A0A0A] hover:opacity-80 transition-opacity shadow-xl shadow-black/20">
                 <Sparkles size={15} />
-                Deploy to {CMS_OPTIONS.find((c) => c.id === cms)?.label}
+                {t("cmsDeployCta", { cms: CMS_OPTIONS.find((c) => c.id === cms)?.label ?? "" })}
               </motion.button>
             )}
           </motion.div>
         )}
 
-        {/* Custom route */}
-        {route === "custom" && !deploying && (
-          <motion.div key="custom" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="max-w-md">
-            <div className="space-y-4 mb-6">
-              {[
-                {
-                  step: 1, title: "Domain Search — Namecheap",
-                  content: (
-                    <div>
-                      <div className="flex items-center gap-2 rounded-lg border border-green-500/20 bg-green-500/10 px-3 py-2.5">
-                        <span className="text-[12px] text-white/20">https://</span>
-                        <span className="flex-1 text-[13px] font-mono font-semibold">butikmode.com</span>
-                        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-green-500">
-                          <Check size={11} strokeWidth={3} className="text-white" />
-                        </div>
-                      </div>
-                      <p className="mt-1.5 text-[11px] text-green-400 font-semibold">✓ Available — $10.98/yr</p>
-                    </div>
-                  ),
-                },
-                {
-                  step: 2, title: "Server — Hostinger",
-                  content: (
-                    <div className="flex items-center justify-between rounded-lg border border-white/[0.05] bg-[#111114] px-4 py-3">
-                      <div>
-                        <p className="text-[13px] font-bold text-white">Business Plan</p>
-                        <p className="text-[11px] text-white/20 mt-0.5">4 GB RAM · 200 GB SSD · Auto SSL</p>
-                      </div>
-                      <span className="text-[16px] font-black text-[#FF6B35]">$3.99<span className="text-[11px] font-medium text-white/20">/mo</span></span>
-                    </div>
-                  ),
-                },
-              ].map(({ step, title, content }) => (
-                <div key={step} className="flex gap-4">
-                  <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-[#FF6B35]/10 border border-[#FF6B35]/30">
-                    <span className="text-[11px] font-black text-[#FF6B35]">{step}</span>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-[13px] font-semibold mb-2">{title}</p>
-                    {content}
-                  </div>
-                </div>
-              ))}
-            </div>
-            <button onClick={startDeploy}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-white py-3 text-[13px] font-bold text-[#0A0A0A] hover:opacity-80 transition-opacity shadow-xl shadow-black/20">
-              <Sparkles size={15} />
-              Confirm & Deploy
-            </button>
+        {/* Custom route — real wizard */}
+        {route === "custom" && (
+          <motion.div key="custom" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+            <CustomWizard onExitToDashboard={() => { setRoute(null); setView("command"); }} />
           </motion.div>
         )}
 
-        {/* Deploying */}
-        {deploying && !success && (
+        {/* CMS deploying — placeholder progress bar */}
+        {cmsDeploying && !cmsSuccess && (
           <motion.div key="deploying" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-sm mx-auto mt-10 text-center">
-            <p className="text-[18px] font-black mb-1 text-white">Deploying your site...</p>
-            <p className="text-[13px] text-white/30 mb-8">Usually takes under 30 seconds</p>
+            <p className="text-[18px] font-black mb-1 text-white">{t("cmsDeployingTitle")}</p>
+            <p className="text-[13px] text-white/30 mb-8">{t("cmsDeployingSubtitle")}</p>
             <div className="h-1.5 w-full rounded-full bg-white/[0.06] mb-6 overflow-hidden">
-              <motion.div className="h-1.5 rounded-full bg-[#FF6B35]" style={{ width: `${progress}%` }} />
+              <motion.div className="h-1.5 rounded-full bg-[#FF6B35]" style={{ width: `${cmsProgress}%` }} />
             </div>
             <div className="space-y-3 text-left">
-              {DEPLOY_STEPS.map((step, i) => {
-                const done = progress > (i + 1) * 25;
+              {["cmsStepBuilding", "cmsStepDns", "cmsStepSsl", "cmsStepLive"].map((key, i) => {
+                const done = cmsProgress > (i + 1) * 25;
                 return (
-                  <div key={step} className="flex items-center gap-3">
+                  <div key={key} className="flex items-center gap-3">
                     <div className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full transition-all ${done ? "bg-green-500" : "bg-white/[0.06]"}`}>
                       {done && <Check size={11} strokeWidth={3} className="text-white" />}
                     </div>
-                    <span className={`text-[13px] transition-colors ${done ? "text-white font-medium" : "text-white/20"}`}>{step}</span>
+                    <span className={`text-[13px] transition-colors ${done ? "text-white font-medium" : "text-white/20"}`}>{t(key)}</span>
                   </div>
                 );
               })}

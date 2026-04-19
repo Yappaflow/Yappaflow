@@ -606,6 +606,215 @@ a {
 ]
 \`\`\``;
 
+// ── Mock business identity (extracted from chat) ──────────────────────
+
+export const MOCK_IDENTITY = {
+  businessName: "Butik Mode",
+  tagline: "Curated fashion for the bold",
+  industry: "fashion",
+  tone: "confident, minimalist, warm",
+  city: "Istanbul",
+  domainSuggestions: [
+    "butikmode.com",
+    "butikmode.co",
+    "shopbutikmode.com",
+    "butikmode.style",
+    "butikmodeistanbul.com",
+  ],
+};
+
+// ── Mock static site (5 files, filepath: fenced) ──────────────────────
+
+export const MOCK_STATIC_SITE = `\`\`\`filepath:index.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Butik Mode — Curated fashion for the bold</title>
+  <meta name="description" content="Butik Mode — a curated Istanbul-based fashion label for the confident and style-conscious." />
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <header class="nav">
+    <a href="/" class="logo">Butik Mode</a>
+    <nav>
+      <a href="/about.html">About</a>
+      <a href="/contact.html">Contact</a>
+    </nav>
+  </header>
+  <main>
+    <section class="hero">
+      <h1>Define your silhouette.</h1>
+      <p>Curated fashion from Istanbul, for the bold and quietly confident.</p>
+      <a href="/contact.html" class="cta">Start your fitting</a>
+    </section>
+    <section class="features">
+      <div><h3>Ateliers in Istanbul</h3><p>Made in small batches by hand.</p></div>
+      <div><h3>Tailored to you</h3><p>Every piece fits by body, not by chart.</p></div>
+      <div><h3>Lifetime alterations</h3><p>Care for what you keep.</p></div>
+    </section>
+  </main>
+  <footer><p>© Butik Mode — Istanbul</p></footer>
+  <script src="assets/script.js"></script>
+</body>
+</html>
+\`\`\`
+
+\`\`\`filepath:about.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>About — Butik Mode</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <header class="nav">
+    <a href="/" class="logo">Butik Mode</a>
+    <nav><a href="/">Home</a><a href="/contact.html">Contact</a></nav>
+  </header>
+  <main>
+    <section class="page">
+      <h1>The house of Butik Mode</h1>
+      <p>Founded in Istanbul, Butik Mode is a small atelier making quietly confident clothing for women who'd rather lead than follow a trend.</p>
+    </section>
+  </main>
+  <footer><p>© Butik Mode — Istanbul</p></footer>
+</body>
+</html>
+\`\`\`
+
+\`\`\`filepath:contact.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contact — Butik Mode</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <header class="nav">
+    <a href="/" class="logo">Butik Mode</a>
+    <nav><a href="/">Home</a><a href="/about.html">About</a></nav>
+  </header>
+  <main>
+    <section class="page">
+      <h1>Get in touch</h1>
+      <p>Write to us at <a href="mailto:hello@butikmode.com">hello@butikmode.com</a>.</p>
+    </section>
+  </main>
+  <footer><p>© Butik Mode — Istanbul</p></footer>
+</body>
+</html>
+\`\`\`
+
+\`\`\`filepath:assets/style.css
+:root {
+  --ink: #141414;
+  --paper: #faf7f2;
+  --accent: #c4553d;
+  --muted: rgba(20, 20, 20, 0.6);
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; }
+body {
+  font-family: var(--font-body);
+  background: var(--paper);
+  color: var(--ink);
+  line-height: 1.6;
+}
+a { color: inherit; text-decoration: none; }
+
+.nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid rgba(20,20,20,0.08);
+}
+.nav .logo { font-family: var(--font-display); font-size: 1.25rem; font-weight: 700; }
+.nav nav a { margin-left: 1.5rem; font-size: 0.9rem; color: var(--muted); }
+.nav nav a:hover { color: var(--ink); }
+
+.hero {
+  padding: 6rem 2rem;
+  text-align: center;
+}
+.hero h1 {
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 5vw, 4.5rem);
+  letter-spacing: -0.02em;
+  margin-bottom: 1rem;
+}
+.hero p {
+  font-size: 1.125rem;
+  color: var(--muted);
+  max-width: 50ch;
+  margin: 0 auto 2rem;
+}
+.cta {
+  display: inline-block;
+  padding: 0.9rem 2rem;
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: 999px;
+  font-weight: 500;
+  transition: transform 0.2s ease;
+}
+.cta:hover { transform: translateY(-2px); }
+
+.features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 2rem;
+  padding: 4rem 2rem;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.features h3 { font-family: var(--font-display); margin-bottom: 0.5rem; }
+.features p { color: var(--muted); }
+
+.page {
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 5rem 2rem;
+}
+.page h1 {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 4vw, 3rem);
+  margin-bottom: 1.5rem;
+}
+
+footer {
+  padding: 2rem;
+  text-align: center;
+  color: var(--muted);
+  border-top: 1px solid rgba(20,20,20,0.08);
+  font-size: 0.875rem;
+}
+\`\`\`
+
+\`\`\`filepath:assets/script.js
+document.addEventListener('DOMContentLoaded', () => {
+  const hero = document.querySelector('.hero h1');
+  if (hero) {
+    hero.style.opacity = '0';
+    hero.style.transform = 'translateY(20px)';
+    requestAnimationFrame(() => {
+      hero.style.transition = 'opacity 0.8s ease, transform 0.8s ease';
+      hero.style.opacity = '1';
+      hero.style.transform = 'translateY(0)';
+    });
+  }
+});
+\`\`\``;
+
 // ── Simulate streaming with delays ────────────────────────────────────
 
 export async function simulateStreaming(

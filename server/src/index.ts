@@ -16,6 +16,8 @@ import sseRouter       from "./routes/sse.route";
 import aiStreamRouter  from "./routes/ai-stream.route";
 import aiDebugRouter   from "./routes/ai-debug.route";
 import chatImportRouter from "./routes/chat-import.route";
+import deployRouter      from "./routes/deploy.route";
+import authSessionRouter from "./routes/auth-session.route";
 
 // Accept requests from any localhost port in dev, or the configured frontend URL in prod
 const allowedOrigins = [
@@ -71,6 +73,13 @@ async function main() {
     legacyHeaders: false,
     message: { error: "Too many login attempts — please try again later" },
   });
+  const deployLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 1200,                  // generous — the project-state endpoint is polled during builds
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: "Too many deploy requests — please try again later" },
+  });
 
   // Warn on insecure defaults
   if (env.jwtSecret === "dev-secret-change-in-production" || env.jwtSecret === "your-super-secret-jwt-key-change-this") {
@@ -85,11 +94,13 @@ async function main() {
   await connectDatabase();
 
   app.use("/auth",    cors(corsOptions), authLimiter, express.json(), instagramRouter);
+  app.use("/auth",    cors(corsOptions), authLimiter, express.json(), authSessionRouter);
   app.use("/webhook", express.json(), webhooksRouter); // no CORS — server-to-server from Meta; no rate limit — Meta sends bursts
   app.use("/events",  cors(corsOptions), sseRouter);
   app.use("/ai",      cors(corsOptions), apiLimiter, express.json(), aiStreamRouter);
   app.use("/ai/debug", cors(corsOptions), express.json(), aiDebugRouter);
   app.use("/import",   cors(corsOptions), uploadLimiter, chatImportRouter); // multer handles its own body parsing
+  app.use("/deploy",   cors(corsOptions), deployLimiter, express.json(), deployRouter);
 
   const apolloServer = createApolloServer();
   await apolloServer.start();

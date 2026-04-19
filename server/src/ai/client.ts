@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { env } from "../config/env";
 import type { AIUsageMetrics } from "./types";
-import { MOCK_ANALYSIS, MOCK_PLAN, MOCK_GENERATED_CODE, simulateStreaming } from "./mock-data";
+import { MOCK_ANALYSIS, MOCK_PLAN, MOCK_GENERATED_CODE, MOCK_IDENTITY, MOCK_STATIC_SITE, simulateStreaming } from "./mock-data";
 import { log } from "../utils/logger";
 
 // ── Mock mode check ───────────────────────────────────────────────────
@@ -211,7 +211,13 @@ function getMockResponse(systemPrompt: string): { text: string; usage: AIUsageMe
   let text: string;
 
   // Check most specific phase markers FIRST (order matters — master prompt contains overlapping keywords)
-  if (lower.includes("task: generate production code")) {
+  if (lower.includes("task: extract business identity")) {
+    text = JSON.stringify(MOCK_IDENTITY, null, 2);
+    log("[AI MOCK] Returning mock business identity");
+  } else if (lower.includes("task: generate static site")) {
+    text = MOCK_STATIC_SITE;
+    log("[AI MOCK] Returning mock static site");
+  } else if (lower.includes("task: generate production code")) {
     text = MOCK_GENERATED_CODE;
     log("[AI MOCK] Returning mock generated code");
   } else if (lower.includes("task: plan project architecture")) {
