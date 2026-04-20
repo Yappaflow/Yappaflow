@@ -57,10 +57,11 @@ export interface ProviderConfig {
    * `defaultModel` is still used for small calls (analysis, planning).
    * When the caller's requested output is big enough that we're clearly
    * in generation territory, `resolveModel` swaps to this large-context
-   * model instead. On OpenRouter that's Llama 3.3 70B Instruct — its
-   * 131k context is part of the base model, so every upstream endpoint
-   * serves it uniformly (Qwen Coder's advertised 128k needs YaRN, which
-   * not all OpenRouter upstreams enable, so we don't use it here).
+   * model instead. On OpenRouter that's `deepseek/deepseek-chat` —
+   * DeepSeek V3.2 routed through OpenRouter, which bypasses the 8k
+   * output cap the native DeepSeek API imposes. Same model we trust
+   * for everything else, just over a different route. See
+   * openrouter.provider.ts for the full history of models we tried.
    *
    * DeepSeek doesn't need one — it has a single unified V3.2 route with
    * 128k input context and the output cap is enforced separately by
