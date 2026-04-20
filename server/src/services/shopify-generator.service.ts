@@ -280,6 +280,7 @@ export async function generateShopifyBundle(
 
     try {
       const { text, usage } = await analyzeOnce(systemPrompt, attemptUserContent, {
+        phase: "generating",
         maxTokens: SHOPIFY_MAX_TOKENS,
       });
       raw = text;

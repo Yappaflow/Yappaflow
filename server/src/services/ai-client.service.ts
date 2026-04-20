@@ -1,53 +1,113 @@
 /**
  * AI Client Service
  *
- * Business-logic wrapper around the raw Claude API client.
- * All other AI services go through this one.
+ * Business-logic wrapper around the OpenAI-compatible AI client
+ * (DeepSeek primary, OpenRouter fallback). All other AI-consuming
+ * services go through this one.
+ *
+ * This module used to target Anthropic directly. We pivoted to
+ * pay-per-token APIs via the `openai` SDK to hit zero-fixed-cost
+ * code generation. The public API here is unchanged so callers
+ * (code-generator, project-planner, CMS generators, etc.) keep
+ * working without edits.
  */
 
-import { createMessage, createStreamingMessage } from "../ai/client";
+import {
+  createChatCompletion,
+  createStreamingChatCompletion,
+} from "../ai/openai-client";
+import { buildSystemPrompt, type BuildSystemPromptOptions } from "../ai/build-system-prompt";
+import type { ChatCompletionOptions, ChatMessage } from "../ai/providers";
+import { resolveForPhase, type AIPhaseName } from "../ai/phase-model";
 import type { AIUsageMetrics } from "../ai/types";
 import { AISession } from "../models/AISession.model";
-import type Anthropic from "@anthropic-ai/sdk";
+
+export type { ChatMessage } from "../ai/providers";
+
+// ── Call options (superset of base + prompt-assembly knobs) ──────────
+
+export interface AIClientCallOptions {
+  /** Pipeline phase — drives per-phase provider/model selection.
+   *  Omit for one-off calls that don't belong to a pipeline stage. */
+  phase?:       AIPhaseName;
+  model?:       string;
+  maxTokens?:   number;
+  temperature?: number;
+  /** Skip design-system injection (for identity extraction, analysis, etc.). */
+  includeDesignSystem?: boolean;
+  /** Extra context blocks appended to the system prompt. */
+  extraSections?: string[];
+}
+
+function toPromptOptions(o?: AIClientCallOptions): BuildSystemPromptOptions {
+  return {
+    includeDesignSystem: o?.includeDesignSystem ?? true,
+    extraSections:       o?.extraSections,
+  };
+}
+
+/**
+ * Translate AIClientCallOptions into the base client's ChatCompletionOptions.
+ * If a phase is supplied and the caller hasn't overridden model/provider,
+ * resolve the per-phase default via `resolveForPhase`.
+ */
+function toClientOptions(o?: AIClientCallOptions): ChatCompletionOptions {
+  const out: ChatCompletionOptions = {
+    model:       o?.model,
+    maxTokens:   o?.maxTokens,
+    temperature: o?.temperature,
+  };
+
+  if (o?.phase) {
+    const choice = resolveForPhase(o.phase);
+    out.providerChain = choice.providerChain;
+    // Explicit model in options wins over phase default.
+    out.model = out.model ?? choice.model;
+  }
+
+  return out;
+}
 
 // ── Streaming call with chunk callback ────────────────────────────────
 
 export async function analyzeWithStreaming(
   systemPrompt: string,
-  userContent: string,
-  onChunk: (text: string) => void,
-  options?: { model?: string; maxTokens?: number }
+  userContent:  string,
+  onChunk:      (text: string) => void,
+  options?:     AIClientCallOptions
 ): Promise<{ text: string; usage: AIUsageMetrics }> {
-  const messages: Anthropic.MessageParam[] = [
-    { role: "user", content: userContent },
-  ];
+  const assembled = buildSystemPrompt(systemPrompt, toPromptOptions(options));
+  const messages: ChatMessage[] = [{ role: "user", content: userContent }];
 
-  return createStreamingMessage(systemPrompt, messages, onChunk, options);
+  const result = await createStreamingChatCompletion(assembled, messages, onChunk, toClientOptions(options));
+  return { text: result.text, usage: result.usage };
 }
 
 // ── Non-streaming single-shot call ────────────────────────────────────
 
 export async function analyzeOnce(
   systemPrompt: string,
-  userContent: string,
-  options?: { model?: string; maxTokens?: number }
+  userContent:  string,
+  options?:     AIClientCallOptions
 ): Promise<{ text: string; usage: AIUsageMetrics }> {
-  const messages: Anthropic.MessageParam[] = [
-    { role: "user", content: userContent },
-  ];
+  const assembled = buildSystemPrompt(systemPrompt, toPromptOptions(options));
+  const messages: ChatMessage[] = [{ role: "user", content: userContent }];
 
-  return createMessage(systemPrompt, messages, options);
+  const result = await createChatCompletion(assembled, messages, toClientOptions(options));
+  return { text: result.text, usage: result.usage };
 }
 
 // ── Multi-turn conversation ───────────────────────────────────────────
 
 export async function analyzeConversation(
   systemPrompt: string,
-  messages: Anthropic.MessageParam[],
-  onChunk: (text: string) => void,
-  options?: { model?: string; maxTokens?: number }
+  messages:     ChatMessage[],
+  onChunk:      (text: string) => void,
+  options?:     AIClientCallOptions
 ): Promise<{ text: string; usage: AIUsageMetrics }> {
-  return createStreamingMessage(systemPrompt, messages, onChunk, options);
+  const assembled = buildSystemPrompt(systemPrompt, toPromptOptions(options));
+  const result = await createStreamingChatCompletion(assembled, messages, onChunk, toClientOptions(options));
+  return { text: result.text, usage: result.usage };
 }
 
 // ── Track usage on an AI session ──────────────────────────────────────
@@ -65,7 +125,7 @@ export async function trackUsage(sessionId: string, usage: AIUsageMetrics): Prom
   });
 }
 
-// ── Extract JSON from Claude response ─────────────────────────────────
+// ── Extract JSON from an AI response ──────────────────────────────────
 
 export function extractJSON<T>(text: string): T {
   // Try direct parse first
@@ -86,22 +146,22 @@ export function extractJSON<T>(text: string): T {
   }
 
   // Find first { or [ and last } or ]
-  const firstBrace = text.indexOf("{");
+  const firstBrace   = text.indexOf("{");
   const firstBracket = text.indexOf("[");
   const start = firstBrace === -1 ? firstBracket
     : firstBracket === -1 ? firstBrace
     : Math.min(firstBrace, firstBracket);
 
   if (start === -1) {
-    throw new Error("No JSON object found in Claude response");
+    throw new Error("No JSON object found in AI response");
   }
 
   const isArray = text[start] === "[";
-  const closer = isArray ? "]" : "}";
+  const closer  = isArray ? "]" : "}";
   const lastClose = text.lastIndexOf(closer);
 
   if (lastClose === -1) {
-    throw new Error("Malformed JSON in Claude response");
+    throw new Error("Malformed JSON in AI response");
   }
 
   const jsonStr = text.slice(start, lastClose + 1);
@@ -109,6 +169,6 @@ export function extractJSON<T>(text: string): T {
   try {
     return JSON.parse(jsonStr) as T;
   } catch (err) {
-    throw new Error(`Failed to parse JSON from Claude response: ${(err as Error).message}`);
+    throw new Error(`Failed to parse JSON from AI response: ${(err as Error).message}`);
   }
 }

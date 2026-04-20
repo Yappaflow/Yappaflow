@@ -157,6 +157,7 @@ export async function generateStaticSite(
   let raw: string;
   try {
     const { text, usage } = await analyzeOnce(systemPrompt, userContent, {
+      phase: "generating",
       maxTokens: hasProducts ? ECOMMERCE_MAX_TOKENS : NON_ECOMMERCE_MAX_TOKENS,
     });
     raw = text;

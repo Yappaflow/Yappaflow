@@ -16,7 +16,7 @@ import { ProjectRequirement } from "../models/ProjectRequirement.model";
 import { GeneratedArtifact } from "../models/GeneratedArtifact.model";
 import { analyzeConversation } from "../services/conversation-analyzer.service";
 import { runFullPipeline } from "../services/ai-orchestrator.service";
-import { isMockMode } from "../ai/client";
+import { isMockMode } from "../ai/openai-client";
 import { buildFullDemoWebsite } from "./preview-renderer";
 
 const router: express.Router = express.Router();

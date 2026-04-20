@@ -38,11 +38,80 @@ export const env = {
   // Generate with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
   encryptionMasterKey: process.env.ENCRYPTION_MASTER_KEY || "",
 
-  // Anthropic (Claude AI Engine)
+  // ── AI Engine (primary: DeepSeek, fallback: OpenRouter) ─────────────
+  //
+  // Yappaflow's code-generation engine runs on pay-per-token APIs. We
+  // talk to them through the official `openai` npm package by overriding
+  // `baseURL` + `apiKey` — both DeepSeek and OpenRouter are OpenAI-SDK
+  // compatible. No self-hosted GPUs, no fixed monthly server cost.
+  //
+  //   AI_PROVIDER=deepseek    (default; flip to "openrouter" to bypass)
+  //   AI_FALLBACK_PROVIDER=openrouter   (set to "none" to disable fallback)
+  //
+  // DeepSeek models we use:
+  //   - deepseek-chat     (general / Next.js code gen; V3)
+  //   - deepseek-coder    (pure code tasks)
+  //
+  // OpenRouter is our fallback — route to the cheapest open-weight model
+  // available at request time. Default to Qwen 2.5 Coder 32B (fast, cheap,
+  // strong on React). Override via OPENROUTER_MODEL at any time without
+  // touching code.
+  aiProvider:         (process.env.AI_PROVIDER          || "deepseek") as "deepseek" | "openrouter",
+  aiFallbackProvider: (process.env.AI_FALLBACK_PROVIDER || "openrouter") as "deepseek" | "openrouter" | "none",
+  aiMaxTokens:        parseInt(process.env.AI_MAX_TOKENS || "4096", 10),
+  aiTemperature:      parseFloat(process.env.AI_TEMPERATURE || "0.7"),
+
+  // DeepSeek (primary)
+  deepseekApiKey:  process.env.DEEPSEEK_API_KEY  || "",
+  deepseekBaseUrl: process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com/v1",
+  deepseekModel:   process.env.DEEPSEEK_MODEL    || "deepseek-chat",
+
+  // OpenRouter (fallback). Referer + title are optional branding headers
+  // OpenRouter displays on their leaderboard for apps using their gateway.
+  openrouterApiKey:   process.env.OPENROUTER_API_KEY   || "",
+  openrouterBaseUrl:  process.env.OPENROUTER_BASE_URL  || "https://openrouter.ai/api/v1",
+  openrouterModel:    process.env.OPENROUTER_MODEL     || "google/gemini-2.5-flash-lite",
+  openrouterReferer:  process.env.OPENROUTER_REFERER   || "https://yappaflow.app",
+  openrouterAppTitle: process.env.OPENROUTER_APP_TITLE || "Yappaflow",
+
+  // ── Per-phase model selection ───────────────────────────────────────
+  //
+  // Yappaflow's AI pipeline has 3 phases with very different needs:
+  //
+  //   analyzing   → parse Turkish WhatsApp/IG chats into structured
+  //                 business-identity JSON. Language quality dominates;
+  //                 DeepSeek V3.2's Turkish is weaker than Google's or
+  //                 Alibaba's. Default to Gemini 2.5 Flash Lite on
+  //                 OpenRouter (cheap + strong Turkish + 1M context).
+  //
+  //   planning    → turn analysis JSON into an architecture plan.
+  //                 Reasoning over structured data, language-light,
+  //                 DeepSeek V3.2 is a sweet spot on cost/quality.
+  //
+  //   generating  → emit Next.js / Shopify / WP / Webflow code. Pure
+  //                 code generation, DeepSeek V3.2 is strongest here
+  //                 and also the cheapest of comparable quality tiers.
+  //
+  // Any of {PROVIDER,MODEL} may be left unset — the resolver falls back
+  // to the global primary/fallback provider + its default model.
+  aiAnalysisProvider:   (process.env.AI_ANALYSIS_PROVIDER   || "openrouter") as "deepseek" | "openrouter" | "",
+  aiAnalysisModel:       process.env.AI_ANALYSIS_MODEL      || "google/gemini-2.5-flash-lite",
+  aiPlanningProvider:   (process.env.AI_PLANNING_PROVIDER   || "deepseek") as "deepseek" | "openrouter" | "",
+  aiPlanningModel:       process.env.AI_PLANNING_MODEL      || "deepseek-chat",
+  aiGenerationProvider: (process.env.AI_GENERATION_PROVIDER || "deepseek") as "deepseek" | "openrouter" | "",
+  aiGenerationModel:     process.env.AI_GENERATION_MODEL    || "deepseek-chat",
+
+  // Legacy Anthropic settings — kept for backwards compatibility with
+  // unrelated callers; no longer drives code generation.
   anthropicApiKey:    process.env.ANTHROPIC_API_KEY || "",
-  anthropicModel:    process.env.ANTHROPIC_MODEL || "claude-sonnet-4-20250514",
+  anthropicModel:     process.env.ANTHROPIC_MODEL   || "claude-sonnet-4-20250514",
   anthropicMaxTokens: parseInt(process.env.ANTHROPIC_MAX_TOKENS || "4096", 10),
-  aiMockMode:        process.env.AI_MOCK_MODE === "true" || !process.env.ANTHROPIC_API_KEY,
+
+  // Mock mode — true when explicitly set OR when the active provider has
+  // no API key configured. Lets local dev + tests run without credentials.
+  aiMockMode:
+    process.env.AI_MOCK_MODE === "true" ||
+    (!process.env.DEEPSEEK_API_KEY && !process.env.OPENROUTER_API_KEY && !process.env.ANTHROPIC_API_KEY),
 
   // Deploy Hub — registrar + host affiliate deep-links (no API integration)
   namecheapAffiliateId: process.env.NAMECHEAP_AFFILIATE_ID || "",

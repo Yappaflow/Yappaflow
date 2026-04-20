@@ -223,6 +223,7 @@ export async function generateWebflowBundle(
 
     try {
       const { text, usage } = await analyzeOnce(systemPrompt, attemptUserContent, {
+        phase: "generating",
         maxTokens: WEBFLOW_MAX_TOKENS,
       });
       raw = text;

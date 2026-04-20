@@ -310,6 +310,7 @@ export async function generateWordPressBundle(
 
     try {
       const { text, usage } = await analyzeOnce(systemPrompt, attemptUserContent, {
+        phase: "generating",
         maxTokens: WORDPRESS_MAX_TOKENS,
       });
       raw = text;

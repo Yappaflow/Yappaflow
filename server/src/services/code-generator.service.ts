@@ -51,7 +51,10 @@ export async function generateCode(sessionId: string, agencyId: string) {
       (chunk) => {
         emitToUser(agencyId, "ai:code-chunk", { sessionId, chunk });
       },
-      { maxTokens: 8192 }
+      {
+        phase: "generating",         // Next.js / theme code → DeepSeek V3.2
+        maxTokens: 8192,
+      }
     );
 
     await trackUsage(sessionId, usage);

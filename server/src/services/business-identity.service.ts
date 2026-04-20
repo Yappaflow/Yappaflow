@@ -169,7 +169,11 @@ export async function extractBusinessIdentity(
   let raw: string;
   try {
     // Extra tokens give the model room for the products array.
-    const { text } = await analyzeOnce(systemPrompt, userContent, { maxTokens: 2048 });
+    const { text } = await analyzeOnce(systemPrompt, userContent, {
+      phase: "analyzing",           // Turkish chat → identity JSON, language-heavy
+      maxTokens: 2048,
+      includeDesignSystem: false,
+    });
     raw = text;
   } catch (err) {
     logError("extractBusinessIdentity AI call failed", err);

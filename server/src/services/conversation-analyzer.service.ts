@@ -62,7 +62,11 @@ export async function analyzeConversation(signalId: string, agencyId: string) {
       (chunk) => {
         emitToUser(agencyId, "ai:analysis-chunk", { sessionId, chunk });
       },
-      { maxTokens: 4096 }
+      {
+        phase: "analyzing",          // routes to Turkish-strong model (see phase-model.ts)
+        maxTokens: 4096,
+        includeDesignSystem: false,  // analysis is pure NLU — design bible adds noise
+      }
     );
 
     // 7. Track usage

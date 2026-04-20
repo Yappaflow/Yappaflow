@@ -206,6 +206,7 @@ export async function generateIkasBundle(
 
     try {
       const { text, usage } = await analyzeOnce(systemPrompt, attemptUserContent, {
+        phase: "generating",
         maxTokens: IKAS_MAX_TOKENS,
       });
       raw = text;

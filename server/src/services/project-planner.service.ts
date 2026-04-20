@@ -60,7 +60,10 @@ export async function planProject(requirementId: string, agencyId: string) {
       (chunk) => {
         emitToUser(agencyId, "ai:analysis-chunk", { sessionId, chunk });
       },
-      { maxTokens: 4096 }
+      {
+        phase: "planning",           // structured reasoning → DeepSeek V3.2
+        maxTokens: 4096,
+      }
     );
 
     await trackUsage(sessionId, usage);
