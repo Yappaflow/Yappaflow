@@ -30,7 +30,7 @@
  *   GET   /deploy/wordpress/connection             — read the user's WordPress connection
  */
 
-import { Router } from "express";
+import { Router, type Request } from "express";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import { env } from "../config/env";
@@ -60,18 +60,41 @@ import { log, logError } from "../utils/logger";
 
 const router: import("express").Router = Router();
 
-function getUserId(authHeader?: string): string | null {
-  if (!authHeader?.startsWith("Bearer ")) return null;
+/**
+ * Resolve the authenticated user from the incoming request.
+ *
+ * Matches the three-source pattern used by the other platform routes
+ * (shopify.route, webflow.route, ikas.route, wordpress.route):
+ *
+ *   1. `Authorization: Bearer <jwt>` — the standard API call path.
+ *   2. `?token=<jwt>` query parameter — used when the browser navigates
+ *      directly to the endpoint (OAuth redirects, download links) and
+ *      can't set an Authorization header.
+ *   3. `token` cookie — set after login so the Deploy Hub's on-mount
+ *      status checks (e.g. GET /deploy/shopify/connection) work without
+ *      the frontend needing to attach a Bearer header to every call.
+ *
+ * Before this was aligned, /deploy/* ONLY accepted Bearer headers and
+ * silently 401'd on cookie-auth callers — that gap is what surfaced
+ * the 400 on the Deploy Hub page's connection-status call in prod.
+ */
+function getUserId(req: Request): string | null {
+  const authHeader = req.headers.authorization;
+  const bearer = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : undefined;
+  const queryToken  = typeof req.query.token === "string" ? req.query.token : undefined;
+  const cookieToken = (req as unknown as { cookies?: Record<string, string> }).cookies?.token;
+  const token = bearer ?? queryToken ?? cookieToken;
+  if (!token) return null;
   try {
-    const payload = jwt.verify(authHeader.slice(7), env.jwtSecret) as { userId?: string };
+    const payload = jwt.verify(token, env.jwtSecret) as { userId?: string };
     return payload.userId ?? null;
   } catch {
     return null;
   }
 }
 
-function requireAuth(req: any, res: any): string | null {
-  const userId = getUserId(req.headers.authorization);
+function requireAuth(req: Request, res: any): string | null {
+  const userId = getUserId(req);
   if (!userId) {
     res.status(401).json({ error: "Authentication required" });
     return null;
