@@ -38,6 +38,16 @@ export const typeDefs = `#graphql
     verifyPhone(phone: String!, code: String!): User!
     logout: Boolean!
 
+    # ── MFA (TOTP) ────────────────────────────────────────
+    # Second leg of login when the account has MFA enabled.
+    # The client receives a short-lived challenge token from
+    # loginWithEmail and exchanges it here for a real session JWT.
+    loginWithMfa(input: MfaLoginInput!): AuthResult!
+    mfaInit: MfaSetupResult!
+    mfaEnable(code: String!): MfaEnableResult!
+    mfaDisable(code: String!): Boolean!
+    mfaRegenerateBackupCodes(code: String!): MfaBackupCodesResult!
+
     # ── Projects ──────────────────────────────────────────
     createProject(input: CreateProjectInput!): Project!
     updateProject(id: ID!, input: UpdateProjectInput!): Project!
@@ -73,20 +83,60 @@ export const typeDefs = `#graphql
   # ── Auth types ────────────────────────────────────────────────
   input EmailRegisterInput { email: String! password: String! name: String! }
   input EmailLoginInput    { email: String! password: String! }
+  input MfaLoginInput      {
+    challengeToken: String!
+    # Either a 6-digit TOTP code OR one of the user's backup codes.
+    code:           String!
+    # When true, code is treated as a single-use backup code instead
+    # of a rolling TOTP code. Defaults to false.
+    useBackupCode:  Boolean
+  }
 
-  type AuthResult    { token: String! user: User! }
+  # When mfaRequired is true, token and user will be null and
+  # mfaChallengeToken is populated. The client must then call
+  # loginWithMfa with that token plus the users second-factor code.
+  type AuthResult {
+    token:             String
+    user:              User
+    mfaRequired:       Boolean
+    mfaChallengeToken: String
+  }
   type OtpSentResult { success: Boolean! message: String! }
 
+  # Returned from mfaInit — contains everything the UI needs to
+  # render the QR code plus the manual secret (for users who cannot
+  # scan). The users mfaEnabled flag stays false until mfaEnable succeeds.
+  type MfaSetupResult {
+    secret:     String!
+    otpauthUrl: String!
+    qrDataUrl:  String!
+  }
+
+  # Returned from mfaEnable — plaintext backup codes are shown ONCE
+  # at enrollment. The user should copy/download them now; the server
+  # only stores their bcrypt hashes.
+  type MfaEnableResult {
+    success:     Boolean!
+    backupCodes: [String!]!
+  }
+
+  # Returned from mfaRegenerateBackupCodes. Same deal — shown once.
+  type MfaBackupCodesResult {
+    backupCodes: [String!]!
+  }
+
   type User {
-    id:            ID!
-    name:          String!
-    email:         String
-    phone:         String
-    phoneVerified: Boolean!
-    authProvider:  String!
-    avatarUrl:     String
-    locale:        String!
-    createdAt:     String!
+    id:                     ID!
+    name:                   String!
+    email:                  String
+    phone:                  String
+    phoneVerified:          Boolean!
+    authProvider:           String!
+    avatarUrl:              String
+    locale:                 String!
+    mfaEnabled:             Boolean!
+    mfaBackupCodesRemaining: Int!
+    createdAt:              String!
   }
 
   type HealthStatus { status: String! timestamp: String! dbConnected: Boolean! }

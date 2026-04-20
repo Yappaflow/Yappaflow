@@ -80,6 +80,39 @@ async function gql(query: string, variables?: Record<string, unknown>, token?: s
   return json.data;
 }
 
+// ── AuthResult shape ──────────────────────────────────────────────────
+//
+// Mirrors the server's `AuthResult`: if `mfaRequired === true`, `token`
+// and `user` are null and the client must call `loginWithMfa` with the
+// `mfaChallengeToken` plus a TOTP (or backup) code.
+export interface AuthUser {
+  id:                      string;
+  name:                    string;
+  email?:                  string | null;
+  phone?:                  string | null;
+  phoneVerified:           boolean;
+  authProvider:            string;
+  mfaEnabled?:             boolean;
+  mfaBackupCodesRemaining?: number;
+}
+
+export interface AuthResult {
+  token:             string | null;
+  user:              AuthUser | null;
+  mfaRequired?:      boolean;
+  mfaChallengeToken?: string | null;
+}
+
+const AUTH_RESULT_FIELDS = `
+  token
+  mfaRequired
+  mfaChallengeToken
+  user {
+    id name email phone phoneVerified authProvider
+    mfaEnabled mfaBackupCodesRemaining
+  }
+`;
+
 export async function registerWithEmail(
   email: string,
   password: string,
@@ -87,7 +120,7 @@ export async function registerWithEmail(
 ) {
   return gql(
     `mutation Register($input: EmailRegisterInput!) {
-      registerWithEmail(input: $input) { token user { id name email phoneVerified authProvider } }
+      registerWithEmail(input: $input) { ${AUTH_RESULT_FIELDS} }
     }`,
     { input: { email, password, name } }
   );
@@ -96,9 +129,85 @@ export async function registerWithEmail(
 export async function loginWithEmail(email: string, password: string) {
   return gql(
     `mutation Login($input: EmailLoginInput!) {
-      loginWithEmail(input: $input) { token user { id name email phoneVerified authProvider } }
+      loginWithEmail(input: $input) { ${AUTH_RESULT_FIELDS} }
     }`,
     { input: { email, password } }
+  );
+}
+
+/**
+ * Second leg of an MFA-gated login. `challengeToken` comes from the
+ * previous `loginWithEmail` response when `mfaRequired === true`.
+ * `useBackupCode` flips the server from "verify TOTP" to "consume
+ * backup code" mode — use it when the user can't reach their
+ * authenticator app.
+ */
+export async function loginWithMfa(
+  challengeToken: string,
+  code: string,
+  useBackupCode = false
+) {
+  return gql(
+    `mutation LoginMfa($input: MfaLoginInput!) {
+      loginWithMfa(input: $input) { ${AUTH_RESULT_FIELDS} }
+    }`,
+    { input: { challengeToken, code, useBackupCode } }
+  );
+}
+
+// ── MFA management (requires session token) ───────────────────────────
+
+export async function mfaInit(token: string) {
+  return gql(
+    `mutation MfaInit {
+      mfaInit { secret otpauthUrl qrDataUrl }
+    }`,
+    undefined,
+    token
+  );
+}
+
+export async function mfaEnable(code: string, token: string) {
+  return gql(
+    `mutation MfaEnable($code: String!) {
+      mfaEnable(code: $code) { success backupCodes }
+    }`,
+    { code },
+    token
+  );
+}
+
+export async function mfaDisable(code: string, token: string) {
+  return gql(
+    `mutation MfaDisable($code: String!) {
+      mfaDisable(code: $code)
+    }`,
+    { code },
+    token
+  );
+}
+
+export async function mfaRegenerateBackupCodes(code: string, token: string) {
+  return gql(
+    `mutation MfaRegen($code: String!) {
+      mfaRegenerateBackupCodes(code: $code) { backupCodes }
+    }`,
+    { code },
+    token
+  );
+}
+
+/** Lightweight `me` fetch including MFA state, for the security settings. */
+export async function fetchMe(token: string) {
+  return gql(
+    `query Me {
+      me {
+        id name email phone phoneVerified authProvider
+        mfaEnabled mfaBackupCodesRemaining
+      }
+    }`,
+    undefined,
+    token
   );
 }
 

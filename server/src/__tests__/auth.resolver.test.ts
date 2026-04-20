@@ -11,9 +11,25 @@ const mockUser = {
   authProvider: "email" as const,
   avatarUrl: undefined as string | undefined,
   locale: "en" as const,
+  mfaEnabled: false,
+  mfaBackupCodes: [] as { hash: string; used: boolean }[],
   createdAt: new Date("2024-01-01T00:00:00Z"),
   comparePassword: vi.fn(),
 };
+
+/** Wrap a resolved value in a mongoose-query-like shape so the resolver
+ *  can call `.select()` on it. Returns a thenable that also exposes `.select()`.
+ *  This mirrors the subset of the mongoose Query chain we actually use.
+ */
+function asQuery<T>(value: T) {
+  const chain = {
+    select: vi.fn(() => chain),
+    // Make it thenable so `await User.findById(…)` resolves to `value`.
+    then: (onFulfilled: (v: T) => unknown) => Promise.resolve(value).then(onFulfilled),
+    catch: (onRejected: (e: unknown) => unknown) => Promise.resolve(value).catch(onRejected),
+  };
+  return chain;
+}
 
 vi.mock("../models/User.model", () => ({
   User: {
@@ -32,6 +48,8 @@ vi.mock("../models/PlatformConnection.model", () => ({
 
 vi.mock("../services/jwt.service", () => ({
   signToken: vi.fn(() => "mock-jwt-token"),
+  signMfaChallengeToken: vi.fn(() => "mock-mfa-challenge-token"),
+  verifyMfaChallengeToken: vi.fn(() => ({ userId: "user-id-1", purpose: "mfa" })),
 }));
 
 vi.mock("../services/otp.service", () => ({
@@ -62,6 +80,10 @@ function formatExpected(user: typeof mockUser) {
     authProvider: user.authProvider,
     avatarUrl: user.avatarUrl,
     locale: user.locale,
+    mfaEnabled: user.mfaEnabled === true,
+    mfaBackupCodesRemaining: Array.isArray(user.mfaBackupCodes)
+      ? user.mfaBackupCodes.filter((c) => !c.used).length
+      : 0,
     createdAt: user.createdAt.toISOString(),
   };
 }
@@ -79,13 +101,13 @@ describe("authResolvers", () => {
     });
 
     it("returns formatted user when authenticated and user exists", async () => {
-      vi.mocked(User.findById).mockResolvedValueOnce(mockUser as never);
+      vi.mocked(User.findById).mockReturnValueOnce(asQuery(mockUser) as never);
       const result = await authResolvers.Query.me(undefined, undefined, authCtx);
       expect(result).toEqual(formatExpected(mockUser));
     });
 
     it("returns null when authenticated but user not found in DB", async () => {
-      vi.mocked(User.findById).mockResolvedValueOnce(null);
+      vi.mocked(User.findById).mockReturnValueOnce(asQuery(null) as never);
       const result = await authResolvers.Query.me(undefined, undefined, authCtx);
       expect(result).toBeNull();
     });
@@ -131,7 +153,7 @@ describe("authResolvers", () => {
     const input = { email: "test@yappaflow.com", password: "Password123!" };
 
     it("throws INVALID_CREDENTIALS when user not found", async () => {
-      vi.mocked(User.findOne).mockResolvedValueOnce(null);
+      vi.mocked(User.findOne).mockReturnValueOnce(asQuery(null) as never);
       await expect(
         authResolvers.Mutation.loginWithEmail(undefined, { input })
       ).rejects.toMatchObject({ extensions: { code: "INVALID_CREDENTIALS" } });
@@ -139,7 +161,7 @@ describe("authResolvers", () => {
 
     it("throws INVALID_CREDENTIALS when password doesn't match", async () => {
       const userWithBadPw = { ...mockUser, comparePassword: vi.fn().mockResolvedValue(false) };
-      vi.mocked(User.findOne).mockResolvedValueOnce(userWithBadPw as never);
+      vi.mocked(User.findOne).mockReturnValueOnce(asQuery(userWithBadPw) as never);
 
       await expect(
         authResolvers.Mutation.loginWithEmail(undefined, { input })
@@ -148,13 +170,31 @@ describe("authResolvers", () => {
 
     it("returns token and user on valid credentials", async () => {
       const userOk = { ...mockUser, comparePassword: vi.fn().mockResolvedValue(true) };
-      vi.mocked(User.findOne).mockResolvedValueOnce(userOk as never);
+      vi.mocked(User.findOne).mockReturnValueOnce(asQuery(userOk) as never);
 
       const result = await authResolvers.Mutation.loginWithEmail(undefined, { input });
 
       expect(result.token).toBe("mock-jwt-token");
       expect(result.user.id).toBe("user-id-1");
       expect(signToken).toHaveBeenCalledWith({ userId: "user-id-1", email: "test@yappaflow.com" });
+    });
+
+    it("issues MFA challenge (no session token) when account has MFA enabled", async () => {
+      const mfaUser = {
+        ...mockUser,
+        mfaEnabled: true,
+        comparePassword: vi.fn().mockResolvedValue(true),
+      };
+      vi.mocked(User.findOne).mockReturnValueOnce(asQuery(mfaUser) as never);
+
+      const result = await authResolvers.Mutation.loginWithEmail(undefined, { input });
+
+      expect(result.mfaRequired).toBe(true);
+      expect(result.token).toBeNull();
+      expect(result.user).toBeNull();
+      expect(result.mfaChallengeToken).toBe("mock-mfa-challenge-token");
+      // The normal session JWT must NOT be issued on the first leg.
+      expect(signToken).not.toHaveBeenCalled();
     });
   });
 

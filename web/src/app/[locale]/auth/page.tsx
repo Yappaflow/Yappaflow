@@ -11,9 +11,11 @@ import {
   ArrowLeft,
   Eye,
   EyeOff,
+  Shield,
 } from "lucide-react";
 import {
   loginWithEmail,
+  loginWithMfa,
   registerWithEmail,
   requestWhatsappOtp,
   verifyWhatsappOtp,
@@ -26,6 +28,7 @@ import {
 type Step =
   | "choose"
   | "email"
+  | "mfa_challenge"
   | "whatsapp_phone"
   | "whatsapp_otp"
   | "phone_verify"
@@ -56,6 +59,14 @@ export default function AuthPage() {
   const [authToken, setAuthToken] = useState("");
   const [needsPhone, setNeedsPhone] = useState(false);
 
+  // ── MFA challenge state ──────────────────────────────────────
+  // `mfaChallengeToken` is a short-lived token the server hands back
+  // when an MFA-enabled user logs in; we echo it to `loginWithMfa` with
+  // the TOTP (or backup) code to complete the session.
+  const [mfaChallengeToken, setMfaChallengeToken] = useState("");
+  const [mfaCode, setMfaCode] = useState("");
+  const [mfaUseBackup, setMfaUseBackup] = useState(false);
+
   function clearError() { setError(""); }
 
   async function handleEmailSubmit(e: React.FormEvent) {
@@ -65,6 +76,17 @@ export default function AuthPage() {
       if (emailMode === "login") {
         data = await loginWithEmail(email, password);
         const result = data.loginWithEmail;
+
+        // Server says "password OK, but we need your second factor" —
+        // jump to the MFA input step and hold the challenge token.
+        if (result.mfaRequired) {
+          setMfaChallengeToken(result.mfaChallengeToken);
+          setMfaCode("");
+          setMfaUseBackup(false);
+          setStep("mfa_challenge");
+          return;
+        }
+
         setAuthToken(result.token);
         if (!result.user.phoneVerified) { setNeedsPhone(true); setStep("phone_verify"); }
         else { storeTokenAndRedirect(result.token); }
@@ -75,6 +97,25 @@ export default function AuthPage() {
       }
     } catch (err: unknown) { setError(err instanceof Error ? err.message : t("errorGeneric")); }
     finally { setLoading(false); }
+  }
+
+  async function handleMfaChallenge(e: React.FormEvent) {
+    e.preventDefault(); clearError(); setLoading(true);
+    try {
+      const data = await loginWithMfa(mfaChallengeToken, mfaCode.trim(), mfaUseBackup);
+      const result = data.loginWithMfa;
+      setAuthToken(result.token);
+      if (result.user && !result.user.phoneVerified) {
+        setNeedsPhone(true);
+        setStep("phone_verify");
+      } else {
+        storeTokenAndRedirect(result.token);
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : t("errorInvalid"));
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleSendWhatsappOtp(e: React.FormEvent) {
@@ -259,6 +300,68 @@ export default function AuthPage() {
                     {emailMode === "login" ? t("switchToRegister") : t("switchToLogin")}
                   </button>
                 </p>
+              </motion.div>
+            )}
+
+            {/* ── MFA CHALLENGE (TOTP or backup code) ── */}
+            {step === "mfa_challenge" && (
+              <motion.div key="mfa" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className={cardCls}>
+                <button onClick={() => { setStep("email"); clearError(); setMfaCode(""); }}
+                  className="flex items-center gap-1 text-sm text-white/30 hover:text-white mb-6">
+                  <ArrowLeft className="h-4 w-4" /> {t("back")}
+                </button>
+                <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-brand-orange/10 text-brand-orange mb-4">
+                  <Shield className="h-5 w-5" />
+                </div>
+                <h2 className="text-xl font-bold text-white">
+                  {mfaUseBackup ? "Enter a backup code" : "Two-factor verification"}
+                </h2>
+                <p className="mt-1 text-sm text-white/30">
+                  {mfaUseBackup
+                    ? "Paste one of the single-use recovery codes you saved when you enabled MFA."
+                    : "Open your authenticator app and enter the 6-digit code for Yappaflow."}
+                </p>
+
+                <form onSubmit={handleMfaChallenge} className="mt-6 space-y-4">
+                  <div>
+                    <label className="block text-xs font-medium text-white/40 mb-1.5">
+                      {mfaUseBackup ? "Backup code" : "Authenticator code"}
+                    </label>
+                    <input
+                      type="text"
+                      inputMode={mfaUseBackup ? "text" : "numeric"}
+                      autoComplete="one-time-code"
+                      autoFocus
+                      pattern={mfaUseBackup ? undefined : "[0-9]{6}"}
+                      maxLength={mfaUseBackup ? 14 : 6}
+                      required
+                      value={mfaCode}
+                      onChange={(e) =>
+                        setMfaCode(
+                          mfaUseBackup
+                            ? e.target.value.toUpperCase()
+                            : e.target.value.replace(/\D/g, "")
+                        )
+                      }
+                      placeholder={mfaUseBackup ? "XXXX-XXXX-XX" : "123456"}
+                      className={`${inputCls} text-center font-mono ${mfaUseBackup ? "text-lg tracking-[0.3em]" : "text-2xl tracking-[0.5em]"}`}
+                    />
+                  </div>
+                  {error && <p className="text-sm text-red-400">{error}</p>}
+                  <button type="submit" disabled={loading} className="w-full bg-brand-orange text-white py-3 rounded-lg font-medium hover:bg-brand-orange-dark transition-colors text-sm disabled:opacity-50">
+                    {loading ? "..." : t("verify")}
+                  </button>
+                </form>
+
+                <button
+                  type="button"
+                  onClick={() => { setMfaUseBackup(!mfaUseBackup); setMfaCode(""); clearError(); }}
+                  className="mt-3 w-full text-center text-sm text-white/30 hover:text-brand-orange"
+                >
+                  {mfaUseBackup
+                    ? "Use authenticator app instead"
+                    : "Can't access your authenticator? Use a backup code"}
+                </button>
               </motion.div>
             )}
 

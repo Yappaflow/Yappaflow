@@ -910,6 +910,418 @@ LEADS = [
      "", "https://www.linkedin.com/company/hopistanbul/", "",
      "Interdisciplinary design studio since 2014. Use LinkedIn or site form.",
      "Client", "Low"),
+
+    # ================== ROUND 4 — LinkedIn-first small agencies ==================
+    ("Wedevo", "Agency", "Istanbul", "https://wedevo.net/", "hello@wedevo.net",
+     "", "https://www.linkedin.com/company/79526388/", "",
+     "Premium web design/dev boutique. hello@ email + LinkedIn.",
+     "Client", "Medium"),
+    ("Lime or Lemon Digital Studios", "Agency", "Istanbul (Kadıköy)", "https://limeorlemon.com/", "",
+     "", "https://www.linkedin.com/company/lime-or-lemon", "",
+     "Founded 2014, 11-50 ppl, Muhurdar Cad Kadıköy. Award-winning. LinkedIn-first.",
+     "Client", "High"),
+    ("EKAS TASARIM", "Agency", "Istanbul (Maltepe) + Orlando", "https://www.ekastasarim.com/", "info@ekastasarim.com",
+     "", "https://www.linkedin.com/company/ekas-tasarim/", "",
+     "100+ projects; cross-border (US office). Client pitch.",
+     "Client", "Medium"),
+    ("Epigra", "Agency", "Istanbul (Şişli) + London", "https://epigra.com/", "",
+     "", "https://www.linkedin.com/company/epigra", "",
+     "Global design+software agency since 2009. Use LinkedIn DM.",
+     "Client", "High"),
+    ("Babel", "Agency", "Bursa (Osmangazi)", "https://babel.com.tr/", "",
+     "+90 224 235 37 37", "https://www.linkedin.com/company/babeltr/", "",
+     "17+ yrs, 250+ clients, 360 agency. Regional heavy-hitter.",
+     "Client", "Medium"),
+    ("Office701", "Agency", "Izmir (Konak)", "https://office701.com/", "destek@office701.com",
+     "+90 850 441 47 01", "https://www.linkedin.com/company/office701", "",
+     "İzmir-based, 10+ yrs, 587 projects. Solid regional SMB target.",
+     "Client", "High"),
+    ("Clockwork Agency", "Agency", "Istanbul (Sarıyer Maslak)", "https://clockwork.com.tr/", "clock@clockwork.com.tr",
+     "+90 212 275 10 84", "https://www.linkedin.com/company/clockwork-agency", "",
+     "Serves Turkcell, Ziraat, BİM. Premium Maslak office. Enterprise clients.",
+     "Client", "Medium"),
+    ("Brandaft Digital Agency", "Agency", "Istanbul", "https://brandaft.com/", "",
+     "+90 552 845 11 80", "https://www.linkedin.com/company/brandaft-digital-agency/", "Şahan Muratoğlu + Benay Özcan (Co-founders)",
+     "Two co-founders public on LinkedIn. Warm DM to founders works well.",
+     "Client", "High"),
+    ("Blakfy", "Agency", "Turkey", "https://blakfy.com/", "",
+     "+90 505 979 61 34", "https://www.linkedin.com/company/blakfy", "",
+     "500+ companies in 5 years. Web + SEO + ads. Use LinkedIn or WhatsApp.",
+     "Client", "Medium"),
+    ("Moda Kreatif", "Agency", "Istanbul (Kadıköy)", "https://modakreatif.com/", "hello@modakreatif.com",
+     "", "https://www.linkedin.com/company/modakreatif/", "",
+     "Kadıköy boutique. Multi-industry portfolio. LinkedIn company + hello@.",
+     "Client", "Medium"),
+    ("Studio Sour", "Agency", "Istanbul (Şişli)", "https://studiosour.co/", "hello@studiosour.co",
+     "", "https://www.linkedin.com/company/studio-sour", "",
+     "B2B SaaS growth partner. Yappaflow landing-page speed = direct synergy.",
+     "Partnership", "High"),
+    ("Gricreative", "Agency", "Istanbul (Kadıköy, Kozyatağı)", "https://gricreative.com/", "info@gricreative.com",
+     "+90 216 450 02 30", "https://www.linkedin.com/company/gri-creative/", "",
+     "22 yrs, 200+ brands, 1500+ projects. Established mid-market.",
+     "Client", "Medium"),
+    ("Karen Dijital", "Agency", "Bursa (Osmangazi)", "https://karendijital.com/", "hello@karendijital.com",
+     "+90 224 334 11 21", "https://www.linkedin.com/company/karen-dijital/", "",
+     "KOBİ→kurumsal positioning. Bursa presence. AI focus.",
+     "Client", "Medium"),
+    ("Sentez Bilişim", "Agency", "Istanbul (Başakşehir)", "https://sentezbilisim.com/", "destek@sentezbilisim.com",
+     "+90 212 470 00 03", "", "",
+     "Mall of Istanbul address. Web + e-com + SEO. SMB delivery shop.",
+     "Client", "Medium"),
+    ("BWA Digital", "Agency", "Istanbul", "https://www.bwa.com.tr/", "",
+     "", "https://www.linkedin.com/company/bwa-digital/", "",
+     "Corporate web agency. Use LinkedIn DM.",
+     "Client", "Low"),
+    ("Pigu Creative Agency", "Agency", "Istanbul (Kadıköy)", "https://pigu.com.tr/", "",
+     "+90 212 706 74 48", "https://tr.linkedin.com/in/bybayezit", "Yıldırım Bayezit (Founder)",
+     "Founded 2017, Kadıköy. Direct founder LinkedIn — best outreach path.",
+     "Client", "High"),
+    ("kreatiFabrika", "Agency", "Istanbul", "https://www.kreatifabrika.com/", "",
+     "", "https://www.linkedin.com/company/kreatifabrika/", "",
+     "1,494 LinkedIn followers. Full-stack creative. LinkedIn DM.",
+     "Client", "Medium"),
+    ("Koala Project", "Agency", "Istanbul (Kadıköy)", "https://koalaproject.com.tr/", "info@koalaproject.com.tr",
+     "+90 216 574 51 60", "https://www.linkedin.com/company/11120555/", "",
+     "Indep creative ad agency since 2014. Data-driven. Client pitch.",
+     "Client", "Medium"),
+    ("Kontra Creative", "Agency", "Istanbul", "https://www.kontraist.com/", "",
+     "", "https://www.behance.net/kontracr", "",
+     "Creative collective. Behance-first. Pitch as delivery accelerator.",
+     "Client", "Low"),
+    ("BBCo Studio", "Agency", "Istanbul + London + Miami + Berlin", "https://www.bbcostudio.com/", "",
+     "", "https://www.linkedin.com/company/bbcostudio/", "",
+     "Founded 2022, 1000+ brands. Multi-country strategy+creative+tech.",
+     "Client", "High"),
+    ("Genau Media", "Agency", "Istanbul (Kadıköy)", "https://genaumedia.com/", "",
+     "", "https://www.linkedin.com/company/genau-media/", "",
+     "Social media agency. Kadıköy, Zühtüpaşa. LinkedIn-first outreach.",
+     "Client", "Medium"),
+    ("Hoops", "Agency", "Istanbul (Beşiktaş) + Budapest + Malmö", "https://hoops.com.tr/", "",
+     "", "https://www.linkedin.com/company/hoopstheagency", "",
+     "360 marcomm; multi-country. Etiler office.",
+     "Client", "Medium"),
+
+    # ================== ROUND 4b — More LinkedIn-first mid-small agencies ==================
+    ("BrandEnn", "Agency", "Istanbul (Şişli, Esentepe) + NY", "https://www.brandenn.com/", "contact@brandenn.com",
+     "+90 212 800 79 26", "https://www.linkedin.com/company/brandenn/", "",
+     "12-person team, 20 yrs. partners@ email = partnership DM. Cross-border.",
+     "Partnership", "High"),
+    ("BrandTeam Group", "Agency", "Istanbul (Kadıköy) + Izmir", "https://www.brandteamgroup.com/", "istanbul@brandteamgroup.com",
+     "+90 216 504 20 58", "https://www.linkedin.com/company/brandteamgroup-ist/", "",
+     "Folkart Towers. Multi-office. Standard client pitch.",
+     "Client", "Medium"),
+    ("Starter Design", "Agency", "Istanbul", "https://starterdesign.co/", "info@starterdesign.co",
+     "", "https://www.linkedin.com/in/korayshahan/", "Koray Şahan (Founder)",
+     "Boutique brand+identity+web shop. Founder on LinkedIn — direct DM.",
+     "Client", "High"),
+    ("MarkaWorks", "Agency", "Istanbul (Nişantaşı) + London + Dubai + Antalya", "https://markaworks.com/", "contact@markaworks.com",
+     "+44 20 3885 8018", "https://www.linkedin.com/company/markaworks/", "",
+     "International brand agency, 4 offices. Partnership angle.",
+     "Partnership", "Medium"),
+    ("Brand Agents", "Agency", "Istanbul (Caddebostan)", "https://www.brand-agents.com/", "info@brand-agents.com",
+     "", "https://www.linkedin.com/company/brand-agents/", "Fırat Şaka + Gökhan Balyemez (Co-founders)",
+     "200+ international brands. Two founders public — warm DM path.",
+     "Client", "High"),
+    ("Lein Digital", "Agency", "Istanbul", "https://leindigital.com/", "",
+     "+90 530 219 30 72", "https://www.linkedin.com/company/lein-digital/", "Can Bey (senior)",
+     "10+ yrs, Turkey's first GEO agency claim. AI-focused. Client angle.",
+     "Client", "Medium"),
+    ("Brandistanbul PR", "Agency", "Istanbul (Nişantaşı)", "https://brandistanbulpr.com/", "",
+     "+90 212 224 02 25", "https://tr.linkedin.com/company/brandistanbul-public-relations/", "Hatice Kumalar (President)",
+     "PR boutique with 300+ brands. Pitch Yappaflow as quick campaign landing pages.",
+     "Client", "Medium"),
+    ("Zeo Agency", "Agency", "Istanbul (Kadıköy) + Ankara + London", "https://www.zeo.org/", "hello@zeo.org",
+     "+90 216 336 90 37", "https://www.linkedin.com/company/zeo/", "Ceyhun Burak Akgül (Co-founder/Co-CEO)",
+     "50+ consultants, SEO/AI heavy. Co-founder LinkedIn reachable.",
+     "Partnership", "High"),
+    ("Sempeak", "Agency", "Istanbul (Avcılar + Üsküdar)", "https://www.sempeak.com/", "info@sempeak.com",
+     "+90 216 550 01 35", "https://www.linkedin.com/company/sempeak/", "",
+     "Since 2011. Digital performance boutique. SMB/mid target.",
+     "Client", "Medium"),
+    ("Reklam5 Digital Agency", "Agency", "Istanbul (Zeytinburnu) + NY", "https://reklam5.com/", "info@reklam5.com",
+     "+90 212 356 21 66", "https://www.linkedin.com/company/reklam5/", "",
+     "83 awards; NYC office. Cross-border delivery target.",
+     "Client", "Medium"),
+
+    # ================== ROUND 4c — SEO/performance agencies + regional ==================
+    ("Mobitek SEO Agency", "Agency", "Istanbul (Kadıköy)", "https://mobitek.com/", "iletisim@mobitek.com",
+     "+90 216 418 08 84", "https://www.linkedin.com/company/mobitek/", "",
+     "Since 2003, SEO-heavy. Business Istanbul office.",
+     "Client", "Medium"),
+    ("AORA Digital Agency", "Agency", "Istanbul (Ataşehir)", "https://www.aora.com.tr/", "info@aora.com.tr",
+     "+90 216 580 97 20", "https://www.linkedin.com/company/aora-digital-agency/", "",
+     "25 yrs; 179 projects. UK phone too. Cross-border.",
+     "Client", "Medium"),
+    ("ROIBLE", "Agency", "Istanbul (Kadıköy, Bağdat Cad)", "https://roible.com/", "",
+     "", "https://www.linkedin.com/company/roible/", "Ibrahim (lead)",
+     "Result-oriented turnkey SEO; US/UK/EU markets. LinkedIn-first.",
+     "Client", "Medium"),
+    ("Adverpeak", "Agency", "Istanbul (Maltepe)", "https://adverpeak.com/", "digital@adverpeak.com",
+     "+90 216 606 85 58", "https://www.linkedin.com/company/adverpeak/", "",
+     "Since 2010, conversion-focused. Small-mid shop.",
+     "Client", "Medium"),
+    ("Seobaz", "Agency", "Mersin + Istanbul (Sarıyer)", "https://seobaz.com/", "info@seobaz.com",
+     "+90 850 840 95 39", "https://tr.linkedin.com/company/seobaz", "",
+     "Mersin HQ = rare regional mid-shop. AI/SEO focus.",
+     "Client", "Medium"),
+    ("İmza SEO Agency", "Agency", "Konya", "https://www.imza.com/", "",
+     "", "https://www.linkedin.com/company/imzainternet/", "",
+     "Konya since 2011, 10-49 ppl. Regional SEO shop; Yappaflow pairs with SEO delivery.",
+     "Client", "Medium"),
+
+    # ================== ROUND 4d — more ikas partners + freelancers ==================
+    ("Artelio Creative", "Platform Partner", "Istanbul", "https://www.arteliocreative.com/", "",
+     "+90 850 346 60 71", "https://www.linkedin.com/company/artelio-creative/", "",
+     "Official ikas business partner. Training + live support focus. Partnership fit.",
+     "Partnership", "High"),
+    ("Artnova Creative", "Platform Partner", "Istanbul (Pendik)", "https://www.artnovacreative.com/", "",
+     "+90 547 180 18 80", "https://tr.linkedin.com/in/artnovacreativecom", "",
+     "ikas partner, API integration expertise. Marketplace specialist.",
+     "Partnership", "High"),
+    ("CreaTwins", "Platform Partner", "Istanbul (Ümraniye)", "https://creatwins.com/", "",
+     "+90 850 303 12 26", "https://www.linkedin.com/company/creatwins/", "",
+     "ikas consultant agency. E-com product photography focus. Warm partnership.",
+     "Partnership", "Medium"),
+    ("Mimoza Bilişim", "Agency", "Zonguldak (Ereğli)", "https://mimozabilisim.com/", "onurkalafat67@gmail.com",
+     "+90 530 571 40 67", "https://www.linkedin.com/in/onurkalafat/", "Onur Kalafat (Founder)",
+     "ikas partner, AI/GEO focus. Founder direct email. Regional = rare.",
+     "Partnership", "High"),
+    ("Ajans Max", "Platform Partner", "Turkey", "https://ajansmax.com.tr/", "",
+     "", "https://www.linkedin.com/company/ajans-max/", "",
+     "ikas partner with e-commerce support. Partnership DM via LinkedIn.",
+     "Partnership", "Medium"),
+    ("Perest", "Agency", "Istanbul", "https://perest.com/", "",
+     "+90 850 242 33 32", "https://www.linkedin.com/company/perest/", "",
+     "360 performance agency, Meta/Google certified. Phone + LinkedIn.",
+     "Client", "Medium"),
+    ("GNS Ajans", "Agency", "Istanbul (Küçükçekmece)", "https://www.gnsajans.com/", "",
+     "+90 212 909 04 34", "https://www.linkedin.com/company/GNSAjans", "",
+     "Mid-shop, currently rebranding. LinkedIn DM.",
+     "Client", "Low"),
+    ("Grimor Web Design", "Agency", "Istanbul (Mecidiyeköy)", "https://www.grimor.com/", "info@grimor.com",
+     "+90 212 272 46 00", "https://www.linkedin.com/company/grimor-ajans/", "",
+     "Since 2004, web + e-com + SEO. 20 yrs, good baseline agency.",
+     "Client", "Medium"),
+    ("Taksim Ajans", "Agency", "Edirne + Istanbul", "https://taksimajans.com.tr/", "",
+     "", "https://www.linkedin.com/company/taksim-ajans/", "",
+     "Edirne regional coverage — rare. Small shop.",
+     "Client", "Low"),
+    ("Ferdi Tarakçı", "Freelancer", "Istanbul (Kadıköy)", "https://ferditarakci.com/", "bilgi@ferditarakci.com",
+     "+90 546 831 20 73", "https://www.linkedin.com/in/ferditarakci/", "Ferdi Tarakçı",
+     "Full-stack Vue/React/Laravel freelancer since 2008. Perfect white-label partner.",
+     "Client", "High"),
+    ("Gökhan Çınar", "Freelancer", "Eskişehir", "", "",
+     "", "https://www.linkedin.com/in/gokhaanc/", "Gökhan Çınar",
+     "Indie maker, engagement+sales design focus. LinkedIn-first outreach.",
+     "Client", "Medium"),
+    ("Ayşe Akar", "Freelancer", "Ankara / Izmir", "", "",
+     "", "https://www.linkedin.com/in/ayse-akar/", "Ayşe Akar",
+     "Front-end dev, WordPress + modern FE. LinkedIn DM.",
+     "Client", "Medium"),
+    ("Yasin Yalçın", "Freelancer", "Istanbul", "", "",
+     "", "https://www.linkedin.com/in/yasinyalccin/", "Yasin Yalçın",
+     "Startup freelance web dev at Masspace. LinkedIn DM.",
+     "Client", "Low"),
+    ("Ibrahim Tigrek", "Freelancer", "Ankara / Istanbul", "", "",
+     "", "https://www.linkedin.com/in/ibrahim-tigrek/", "Ibrahim Tigrek",
+     "Software developer, Ankara/Istanbul. LinkedIn DM.",
+     "Client", "Low"),
+
+    # ================== ROUND 4e — LinkedIn-first small agencies + regional + freelancers ==================
+    ("Grow Dijital Ajans", "Agency", "Istanbul (Kadıköy)", "https://growdijitalajans.com/", "info@growdijitalajans.com",
+     "+90 530 024 38 67", "", "",
+     "Boutique digital agency, Kadıköy-based. Social + web. Small team. Email primary.",
+     "Client", "Medium"),
+    ("AWT Dijital (Erzurum Web)", "Agency", "Erzurum + Ankara + Istanbul + Izmir", "https://www.erzurumweb.com.tr/", "info@erzurumweb.com.tr",
+     "+90 444 7298", "", "",
+     "Regional shop with multi-city presence. Web + SEO + social. Eastern TR coverage is a differentiator.",
+     "Client", "Medium"),
+    ("Workuid", "Agency", "Istanbul (Pendik)", "https://workuid.com/", "hello@workuid.com",
+     "+90 532 313 59 91", "https://www.linkedin.com/company/workuid/", "",
+     "Multi-platform e-commerce setup: Shopify, ikas, Ticimax, Tsoft. LinkedIn-first outreach; partnership pitch fits.",
+     "Partnership", "High"),
+    ("Zemedya", "Agency", "Istanbul (Ataşehir)", "https://www.zemedya.com/", "info@zemedya.com",
+     "+90 216 606 74 69", "https://www.linkedin.com/company/zemedya-internet-hizmetleri/", "",
+     "18+ yrs, healthcare/tourism/travel web. LinkedIn company page active.",
+     "Client", "Medium"),
+    ("WegaBT", "Agency", "Antalya (Kepez) + Trabzon", "https://www.wegabt.com/", "bilgi@wegabt.com",
+     "+90 554 898 80 89", "https://www.linkedin.com/company/wegabilgiteknolojileri/", "",
+     "15+ yrs. Dual-city (Antalya/Trabzon). LinkedIn active. Web + e-com + SEO.",
+     "Client", "Medium"),
+    ("SEO Turuncu", "Agency", "Istanbul (Şişli) + Miami", "https://www.seoturuncu.com/", "",
+     "+90 537 522 49 06", "https://www.linkedin.com/company/seo-turuncu/", "",
+     "E-com consultancy + ikas partner. LinkedIn-first — no public email, DM via LinkedIn.",
+     "Partnership", "Medium"),
+    ("Arisdot Digital", "Agency", "Eskişehir + Istanbul + Berlin", "https://www.arisdot.com/", "hello@arisdot.com",
+     "+90 222 226 000 1", "https://www.linkedin.com/company/arisdotdigital/", "",
+     "13 yrs, UX/UI + e-com, multi-country. Small-mid team. hello@ + LinkedIn.",
+     "Client", "Medium"),
+    ("Adres Ajans", "Agency", "Gaziantep (Şehitkamil)", "https://www.adresajans.com/", "naci@adresajans.com",
+     "+90 342 215 16 06", "", "Naci (owner)",
+     "Gaziantep boutique. Founder email direct. Regional small-business clients.",
+     "Client", "Medium"),
+    ("Var Ajans", "Agency", "Gaziantep", "https://www.varajans.com/", "info@varajans.com",
+     "+90 544 784 85 25", "", "",
+     "Gaziantep SMB agency since 2015. Web/social/video.",
+     "Client", "Low"),
+    ("Fikir Sanat Medya", "Agency", "Gaziantep (Şehitkamil)", "https://www.fikirsanatmedya.com.tr/", "info@fikirsanatmedya.com.tr",
+     "+90 850 466 0 376", "https://linkedin.com/in/fikir-sanat-creative-a58385318", "",
+     "Gaziantep creative shop. Packaging + web + digital.",
+     "Client", "Low"),
+    ("F13 İstanbul", "Agency", "Istanbul (Başakşehir)", "https://f13istanbul.com/", "info@f13istanbul.com",
+     "+90 212 843 40 72", "", "",
+     "Young (est. 2023) indie agency, creative X tech. Works with premium brands. Good partnership fit.",
+     "Partnership", "High"),
+    ("MSH Creative", "Agency", "Istanbul (Bahçelievler)", "https://mshcreative.com/", "info@mshcreative.com",
+     "+90 533 738 36 74", "", "",
+     "10-yr, 27-person shop. 230+ brands, healthcare/real-estate/tourism. Full-service digital.",
+     "Client", "Medium"),
+    ("EFORWEB", "Agency", "Mersin (Yenişehir)", "https://www.eforweb.com/", "eforweb@eforweb.com",
+     "+90 324 325 99 33", "https://www.linkedin.com/company/eforweb-internet-çözümleri/", "",
+     "Since 1999. Google Partner. Regional Mersin SMB anchor. Stable shop.",
+     "Client", "Medium"),
+    ("Üç Yirmiiki (3.22)", "Agency", "Adana (Seyhan)", "https://www.ucyirmiiki.com/", "info@ucyirmiiki.com",
+     "+90 322 457 83 22", "", "",
+     "Adana boutique — graphic + web + social. Home-office team = small.",
+     "Client", "Low"),
+    ("Talya Tasarım", "Agency", "Antalya (Muratpaşa)", "https://talyatasarim.com/", "info@talyatasarim.com",
+     "+90 543 499 55 55", "", "",
+     "Antalya creative digital shop. Web + brand. Dual email for sales/support.",
+     "Client", "Medium"),
+    ("İMER İletişim", "Agency", "Antalya (Serik)", "https://imeriletisim.com.tr/", "info@imeriletisim.com.tr",
+     "+90 545 636 16 48", "https://www.linkedin.com/in/imer-iletisim-ve-reklam-ajansi-38b864297/", "",
+     "360° Antalya shop w/ LinkedIn presence. Web + mobile + brand consult.",
+     "Client", "Medium"),
+    ("Ovi Medya", "Agency", "Antalya + Istanbul (Levent) + Ankara (Çankaya)", "https://www.ovimedya.com/", "ovimedya@ajansovono.com",
+     "+90 533 500 93 17", "", "",
+     "10+ yr social-heavy shop, 3 cities. Owner under Ovono A.Ş. — responsive email.",
+     "Client", "Medium"),
+    ("WAX Ajans", "Agency", "Antalya (Muratpaşa)", "https://www.waxajans.com/", "info@waxajans.com",
+     "+90 242 312 35 43", "https://www.linkedin.com/company/waxajans/", "",
+     "Antalya web + hotel management systems. Hospitality niche.",
+     "Client", "Medium"),
+    ("Gözde Ajans", "Agency", "Aksaray", "https://www.gozdeajans.com.tr/", "info@gozdeajans.com.tr",
+     "+90 382 213 33 45", "", "",
+     "Aksaray full-service agency. Regional anchor — less competition.",
+     "Client", "Low"),
+    ("Stage Dijital", "Agency", "Konya", "https://stagedijital.com/", "merhaba@stagedijital.com",
+     "", "https://www.linkedin.com/company/thestagedigital/", "",
+     "Konya 15-yr shop. Modern brand, LinkedIn-active, e-com + mobile + web.",
+     "Client", "Medium"),
+    ("UGR Reklam Ajansı", "Agency", "Konya (Karatay)", "https://ugrajans.com.tr/", "bilgi@ugrajans.com",
+     "+90 332 351 51 96", "https://tr.linkedin.com/company/ugrreklamajansi", "",
+     "Konya design/digital boutique, LinkedIn-active. Regional.",
+     "Client", "Low"),
+    ("Bariz Medya", "Agency", "Kocaeli (İzmit)", "https://www.barizmedya.com/", "",
+     "+90 507 564 09 32", "https://www.linkedin.com/company/barizmedya/", "",
+     "Kocaeli SMB agency. LinkedIn-first — no public email; DM on LinkedIn/WhatsApp.",
+     "Client", "Low"),
+    ("Meri Creative", "Agency", "Istanbul (Taksim)", "https://mericreative.com/", "info@mericreative.com",
+     "+90 212 251 00 18", "https://www.linkedin.com/company/mericreative/", "",
+     "Boutique creative agency since 2015. Branding + web. LinkedIn-active.",
+     "Client", "Medium"),
+    ("Creodive", "Agency", "Istanbul", "https://www.creodive.com.tr/", "hi@creodive.com.tr",
+     "+90 544 240 71 99", "https://tr.linkedin.com/company/creodive", "",
+     "Award-winning Istanbul digital shop. hi@ email + LinkedIn presence.",
+     "Client", "Medium"),
+    ("MaunaUP", "Agency", "Samsun (Atakum)", "https://maunaup.com/", "info@maunaup.com",
+     "+90 362 438 30 60", "https://www.linkedin.com/company/maunaupcom/", "",
+     "Samsun digital media agency, LinkedIn-active. Karadeniz region anchor.",
+     "Client", "Medium"),
+    ("KNZ Ajans", "Agency", "Denizli", "https://www.knzajans.com.tr/", "info@knzajans.com.tr",
+     "+90 507 631 73 82", "https://www.linkedin.com/company/82085328/", "",
+     "Denizli boutique. Web + SEO + QR menu. LinkedIn company page.",
+     "Client", "Low"),
+    ("MAC ART", "Agency", "Denizli (ops Istanbul/Izmir/Muğla)", "https://macart.com.tr/", "bilgi@macart.com.tr",
+     "+90 532 491 43 48", "", "",
+     "30-yr brand design + digital. Denizli HQ, multi-city ops.",
+     "Client", "Medium"),
+    ("Wemotion İstanbul", "Agency", "Istanbul", "https://www.wemotionistanbul.com/", "hello@wemotionistanbul.com",
+     "+90 507 422 91 65", "https://www.linkedin.com/company/wemotionistanbul/", "",
+     "Creative agency — branding + motion + web. 80+ brands. hello@ + LinkedIn.",
+     "Client", "Medium"),
+    ("Esla Medya", "Agency", "Denizli + Antalya", "https://eslamedya.com/", "info@eslamedya.com",
+     "+90 850 812 37 52", "", "",
+     "Dual-city Aegean/Mediterranean shop. Web + social. 4 office phones.",
+     "Client", "Low"),
+    ("bw/a (better with agency)", "Agency", "Samsun", "https://bw.agency/", "",
+     "", "", "",
+     "Samsun sustainability-focused boutique. Local businesses only. LinkedIn DM via website contact form.",
+     "Client", "Low"),
+    ("Ekin Pekyiğit", "Freelancer", "Istanbul", "", "",
+     "", "https://www.linkedin.com/in/ekinpekyigit/", "Ekin Pekyiğit",
+     "Senior UI/UX designer — LinkedIn-first DM. Personal brand strong.",
+     "Client", "Medium"),
+    ("Can Ünal", "Freelancer", "Istanbul", "", "",
+     "", "https://www.linkedin.com/in/canunal/", "Can Ünal",
+     "Product designer — LinkedIn-first DM.",
+     "Client", "Medium"),
+    ("Ekrem Köse", "Freelancer", "Istanbul / Ankara", "", "",
+     "", "https://www.linkedin.com/in/ekrem-kose/", "Ekrem Köse",
+     "UI/UX freelancer — LinkedIn DM only.",
+     "Client", "Low"),
+    ("Tuğba Işık", "Freelancer", "Istanbul / Ankara", "", "",
+     "", "https://www.linkedin.com/in/tugbaisik/", "Tuğba Işık",
+     "UI/UX designer, LinkedIn-active. DM with Yappaflow positioning.",
+     "Client", "Low"),
+    ("Oğuzhan Öz", "Freelancer", "Istanbul", "https://www.behance.net/oguzhanozuag", "",
+     "", "https://www.linkedin.com/in/oguzhan-oz/", "Oğuzhan Öz",
+     "Freelance creative developer. Behance + LinkedIn. Strong solo dev + design.",
+     "Client", "Low"),
+
+    # ================== ROUND 4f — more Istanbul + Anatolia small agencies + freelancers ==================
+    ("SIMPLEIST", "Agency", "Istanbul (Şişli)", "https://www.simple-ist.com/", "request@simple-ist.com",
+     "+90 850 473 14 13", "", "",
+     "International-focused marketing agency. 6 languages, real-estate/tourism niche. Unique email (request@).",
+     "Client", "Medium"),
+    ("Macfly Reklam Ajansı", "Agency", "Ankara (Çankaya)", "https://www.macfly.com.tr/", "info@macfly.com.tr",
+     "+90 312 911 99 17", "", "",
+     "Ankara digital media agency. Brand + social + SEO. Medium-small shop.",
+     "Client", "Medium"),
+    ("Ajans Bulut", "Agency", "Bursa", "https://www.ajansbulut.com/", "bilgi@ajansbulut.com",
+     "+90 224 888 00 95", "https://www.linkedin.com/company/ajans-bulut/", "",
+     "Bursa's self-styled leading digital shop since 2015. LinkedIn company presence.",
+     "Client", "Medium"),
+    ("Taha Erel", "Freelancer", "Istanbul", "https://tahaerel.com/", "",
+     "", "https://www.linkedin.com/in/tahaerel/", "Taha Erel",
+     "Freelance WordPress/full-stack web dev. Personal portfolio + LinkedIn (500+ conn).",
+     "Client", "Medium"),
+    ("Ahtapot Sosyal Medya", "Agency", "Istanbul (Şişli)", "https://www.ahtapotsosyalmedya.com/", "info@ahtapotsm.com",
+     "+90 212 212 32 33", "https://www.linkedin.com/company/ahtapot-sosyal-medya/", "",
+     "Mid-boutique (50 people), creative/social-heavy. 2014. Good LinkedIn presence.",
+     "Client", "Medium"),
+    ("Proji Digital", "Agency", "Izmir (Bayraklı) + Istanbul (Sarıyer)", "https://proji.com.tr/", "info@proji.com.tr",
+     "+90 232 433 74 16", "https://www.linkedin.com/company/projicomtr/", "",
+     "Dual-city (Izmir/Istanbul) digital agency since 2015. LinkedIn-active.",
+     "Client", "Medium"),
+    ("Zolpix", "Agency", "Istanbul (Kağıthane)", "https://kagithane.zolpix.com/", "info@zolpix.com",
+     "+90 505 219 18 52", "", "",
+     "District-focused Istanbul shop (39 districts). Transparent pricing (18K-85K TL).",
+     "Client", "Low"),
+    ("Rekclick", "Agency", "Istanbul (4.Levent)", "https://www.rekclick.com/", "merhaba@rekclick.com",
+     "+90 212 269 95 96", "https://www.linkedin.com/company/rekclick/", "",
+     "15-yr Levent-based 360° digital agency. merhaba@ — warm tone; Turkish-market-fit.",
+     "Client", "Medium"),
+    ("Ozge Keles", "Freelancer", "Ankara", "https://www.ozgekeles.com/", "",
+     "", "https://www.linkedin.com/in/ozge-keles-webflow/", "Ozge Keles",
+     "Certified Webflow Partner (since 2024). Solo freelancer, $5K+ projects. Strong Yappaflow fit (static-site alignment).",
+     "Partnership", "High"),
+    ("Berkay Çınar", "Freelancer", "Istanbul", "https://www.berkaycinar.com/", "",
+     "", "https://linkedin.com/in/berkaycinar", "Berkay Çınar",
+     "UI/UX/interaction designer w/ personal site. Behance + LinkedIn. LinkedIn-first DM.",
+     "Client", "Medium"),
+    ("Tolga Taşcı", "Freelancer", "Istanbul", "https://www.tolgatasci.co.uk/", "",
+     "", "https://www.behance.net/tolgatasci", "Tolga Taşcı",
+     "Senior UX/UI designer with international focus. Behance + personal .co.uk site.",
+     "Client", "Low"),
+    ("Gelişim Medya", "Agency", "Kayseri (Melikgazi)", "https://www.gelisimmedya.com/", "info@gelisimmedya.com",
+     "", "", "",
+     "Multi-city regional shop (Kayseri/Malatya/Elazığ). Eastern Anatolia coverage niche.",
+     "Client", "Low"),
+    ("OXO Creative", "Agency", "Kayseri (Kocasinan)", "https://oxocreative.com/", "info@oxocreative.com",
+     "", "", "",
+     "Kayseri boutique. Google Ads + web + brand. Small team. Regional.",
+     "Client", "Low"),
 ]
 
 # Header row
@@ -989,6 +1401,246 @@ leads.cell(row=summary_row + 4, column=2, value="Freelancers").font = BODY_BOLD
 leads.cell(row=summary_row + 4, column=3, value=f'=COUNTIF(C2:C{last_row},"Freelancer")').font = BODY_FONT
 leads.cell(row=summary_row + 5, column=2, value="Platform partners").font = BODY_BOLD
 leads.cell(row=summary_row + 5, column=3, value=f'=COUNTIF(C2:C{last_row},"Platform Partner")').font = BODY_FONT
+
+# =========================================================
+# Sheet 3: Samsun (in-person visit list)
+# =========================================================
+# Columns tuned for walking into offices: Full Address + Phone are primary,
+# email / LinkedIn are secondary because the user will be showing up in person.
+samsun = wb.create_sheet("Samsun")
+samsun.sheet_view.showGridLines = False
+
+# Title band
+samsun["A1"] = "Samsun — in-person visit list (küçük/orta web ajansları)"
+samsun["A1"].font = TITLE_FONT
+samsun.merge_cells("A1:M1")
+samsun["A2"] = (
+    "Address-first list of small/medium Samsun web/digital agencies. Full addresses + phones are "
+    "primary because Yusuf Mirza plans to walk into offices; email / LinkedIn / Instagram are fallback."
+)
+samsun["A2"].font = Font(name=FONT, italic=True, size=10, color="666666")
+samsun["A2"].alignment = WRAP
+samsun.merge_cells("A2:M2")
+samsun.row_dimensions[2].height = 30
+
+SAMSUN_HEADERS = [
+    "#", "Agency", "Type", "District (İlçe)", "Neighborhood (Mahalle)",
+    "Full Address", "Phone", "Email", "Website", "Socials",
+    "Visit Priority", "Notes", "Visit Status",
+]
+
+# (agency, type, district, neighborhood, full_address, phone, email, website, socials, priority, notes)
+SAMSUN_LEADS = [
+    ("MaunaUP", "Agency", "Atakum", "Cumhuriyet Mah.",
+     "Cumhuriyet Mah. Atatürk Bulv. No:327, Kat:3 Daire:13, Yavuz Grup İş Merkezi, Atakum/Samsun",
+     "+90 362 438 30 60", "info@maunaup.com", "https://maunaup.com/",
+     "LinkedIn: maunaupcom · IG: @maunaupcom",
+     "High",
+     "Full digital-media agency, LinkedIn-active. Walking in as a fellow Samsun developer is a strong opener — ask for the founder."),
+    ("Dijital10 Marka ve Strateji", "Agency", "Atakum", "Cumhuriyet Mah.",
+     "Cumhuriyet Mah. Doğuş Cad. 38. Sk. No:2/8, Yavuz Tuna Center, Atakum/Samsun",
+     "+90 539 771 34 54", "destek@dijital10.com", "https://www.dijital10.com/",
+     "IG: @dijital10 · X: @Dijital10com",
+     "High",
+     "Brand + strategy agency inside Yavuz Tuna Center. Same building as Mustafa Sarıca (freelance) — you can double-hit in one trip."),
+    ("Mustafa Sarıca (freelance)", "Freelancer", "Atakum", "Cumhuriyet Mah.",
+     "Yavuz Tuna Center, Doğuş Cd. 38. Sk. No:2/8, Atakum/Samsun",
+     "+90 543 535 15 13", "merhaba@mustafasarica.com", "https://mustafasarica.com/",
+     "IG: @mustafasarica_com · LinkedIn: mustafa-sarica",
+     "High",
+     "Solo dev, SAME BUILDING as Dijital10. Freelancers are Yappaflow's easiest yes — one-person volume uplift is the pitch."),
+    ("Deca Yazılım", "Agency", "Atakum", "Atakent Mah.",
+     "Atakent Mah. 3307. Sk. No:4, 55200 Atakum/Samsun",
+     "+90 545 270 13 46", "info@decayazilim.com", "https://decayazilim.com/",
+     "Twitter: @vamtam",
+     "High",
+     "Yazılım-first shop (software house). Exact 'custom delivery' profile Yappaflow compresses from days → minutes."),
+    ("Proweb Tasarım Samsun", "Agency", "İlkadım", "Kale Mah.",
+     "Kale Mah. Kazımpaşa Cad. Meseret Sok. No:1 Kat:2/23, 55260 İlkadım/Samsun",
+     "+90 545 368 53 69", "destek@prowebtasarim.net", "https://www.prowebtasarim.net/",
+     "FB: prowebtasarim · IG: @prowebajans",
+     "High",
+     "Self-described #1 Samsun web-design firm. Central İlkadım address, easy walk-in from city center."),
+    ("CodiaSoft", "Agency", "İlkadım", "Çiftlik Mah.",
+     "Çiftlik Mah. İstiklal Cad. Başoğlu İş Merkezi Varol Apt. No:102/A Kat:3 Daire:2, İlkadım/Samsun",
+     "+90 850 532 01 08", "info@codiasoft.com", "https://www.codiasoft.com/",
+     "IG: @codiasoft · LinkedIn: codiasoft",
+     "High",
+     "Software + web shop, city-center (Çiftlik). LinkedIn-active — Yappaflow's AI-driven generator angle will resonate."),
+    ("Webmooy Dijital Reklam", "Agency", "Atakum", "Yenimahalle",
+     "Yenimahalle, İzmir Cd. Bina No:25 B.B.15, Atakum/Samsun",
+     "+90 850 480 05 15", "info@webmooy.com", "https://webmooy.com/",
+     "IG: @webmooy · LinkedIn: webmooy",
+     "High",
+     "Since 2020 — web + SEO + full-service digital marketing. Atakum address, easy visit."),
+    ("İlgiHost / Samweb", "Agency", "İlkadım", "Kale Mah.",
+     "Kale Mah. Gazi Cad. Bafra İşhanı No:52 Kat:2 Daire:6, İlkadım/Samsun",
+     "+90 362 435 03 30", "bilgi@ilgihost.com", "https://samweb.com.tr/",
+     "IG: @ilgihost",
+     "Medium",
+     "Hosting + web-design combo in city center (Bafra İşhanı). Walk-in friendly. Mention Yappaflow ZIP hand-off as a hosting upsell."),
+    ("Fikir Kulübü", "Agency", "İlkadım", "Kılıçdede Mah.",
+     "Kılıçdede Mah. İstiklal Cd. No:181/10, İlkadım/Samsun",
+     "+90 362 233 28 49", "bilgi@fikirkulubu.com.tr", "https://www.fikirkulubu.com.tr/",
+     "IG: @fikir.kulubu · FB: fikirkulup",
+     "Medium",
+     "Marka + iletişim + baskı + etkinlik ajansı. Partnership angle > client — they sub-contract website work."),
+    ("Czia Kurumsal", "Agency", "Atakum", "Esenler Mah.",
+     "Esenler Mah. 317. Sk. No:2 Kat:3, Atakum/Samsun",
+     "+90 362 230 88 88", "info@czia.com", "https://czia.com/",
+     "FB: CziaCom · X: @cziacom",
+     "Medium",
+     "Kurumsal hizmet evi (web + grafik + foto/video). Atakum office, easy walk-in from most of Samsun."),
+    ("Sitebizden (Samsun Web Tasarımı)", "Agency", "İlkadım", "Kılıçdede Mah.",
+     "Kılıçdede Mah. Ülkem Sk. No:8 Borkonut Niş İş Merkezi B Blok D:36, İlkadım/Samsun (2. ofis: OMÜ Teknopark, Atakum)",
+     "+90 850 302 43 55", "", "https://www.samsunwebtasarimi.com/",
+     "IG: @sitebizden · FB: sitebizden",
+     "Medium",
+     "14 yıllık firma, 600+ aktif müşteri. İki ofis (şehir + Teknopark). Kılıçdede ofisini seç — daha kalabalık."),
+    ("Redia Dijital (redia.com.tr)", "Agency", "Atakum", "Yenimahalle",
+     "Atakum Vatan Cd. 3169. Sk., Yenimahalle tramvay durağı karşısı, Atakum/Samsun",
+     "+90 555 888 55 24", "info@redia.com.tr", "https://redia.com.tr/",
+     "IG: @redia.ajans · LinkedIn: Redia Ajans",
+     "Medium",
+     "Atakum ofisi, tram stop landmark'ı kolay. 'Yenimahalle tramvay durağı karşısı' ile kolayca bulunur."),
+    ("Redia Ajans (medya.red)", "Agency", "İlkadım", "Mevlana Mah.",
+     "Mevlana Mah. Şehit Gökhan Çavuşoğlu Sk., İlkadım/Samsun",
+     "+90 555 888 55 24", "bilgi@medya.red", "https://www.medya.red/",
+     "IG: @medyared.samsun · LinkedIn: redia-ajans",
+     "Medium",
+     "Redia'nın İlkadım ayağı. 2006'dan beri 200+ website müşterisi. Partnership angle — Yappaflow = delivery accelerator."),
+    ("Seven's Design", "Agency", "İlkadım", "Derebahçe Mah.",
+     "Derebahçe Mah., İlkadım/Samsun (tam adres telefondan)",
+     "+90 553 719 53 84", "info@sevens-design.com", "https://sevens-design.com/",
+     "IG: @sevens7design",
+     "Medium",
+     "Web + grafik tasarım. Sokak/no web'de yok — önce arayıp tam adres al."),
+    ("Annak Studio", "Agency", "Atakum", "Samsun (şehir içi)",
+     "Samsun ofisi (spesifik adres gizli — Atakum semti; 2. ofis: Washington, USA)",
+     "", "hi@studioannak.com", "https://studioannak.com/",
+     "",
+     "Medium",
+     "UI/UX-forward stüdyo, US ofisi de var. Email-first: randevu iste, sonra Atakum ofisine git."),
+    ("bw/a (Better With Agency)", "Agency", "Samsun", "—",
+     "Samsun (contact form only — adres web'de yok)",
+     "", "", "https://bw.agency/",
+     "",
+     "Medium",
+     "Zaten ana Leads listesinde var. Modern Samsun ajansı — form üzerinden walk-in talebi gönder."),
+    ("Hepar Web Tasarım", "Agency", "Samsun genel", "—",
+     "Samsun merkezli (Atakum/İlkadım/Canik/Terme/Havza hizmet bölgesi). Adres yok — telefon/WhatsApp.",
+     "+90 545 500 01 51", "", "https://hepar.org.tr/",
+     "",
+     "Low",
+     "15-yıllık. Spesifik ofis yok gibi — önce WhatsApp'tan randevu iste."),
+    ("İnnova Reklam Web Tasarım", "Agency", "Samsun", "—",
+     "Samsun (tam adres web'de yok). Ticaret sicil no: 14040.",
+     "+90 532 683 13 43", "", "https://www.innovaajans.com.tr/",
+     "",
+     "Low",
+     "12+ yıl. Sadece telefon + sicil no. Önce ara, adresi tam al, sonra git."),
+    ("Dijitasyon", "Agency", "Samsun", "—",
+     "Samsun (spesifik sokak/kat web sitesinde yok)",
+     "+90 530 642 69 55", "web@dijitasyon.com.tr", "http://dijitasyon.com.tr/",
+     "IG: @dijitasyoncomtr",
+     "Low",
+     "Web + dijital pazarlama. Adres gizli — telefon/email ilk temas, sonra ziyaret."),
+    ("Onsa Ajans", "Agency", "Samsun", "—",
+     "Samsun (4-kişilik ekip, adres gizli)",
+     "", "", "https://www.onsaajans.com/",
+     "IG: @onsaajans",
+     "Low",
+     "2017'den beri — önce İstanbul, şimdi Samsun ekibi. Instagram DM veya site formu ilk temas."),
+]
+
+# Header row for Samsun (at row 4 to leave space for title band)
+samsun_hdr_row = 4
+for col_idx, h in enumerate(SAMSUN_HEADERS, start=1):
+    c = samsun.cell(row=samsun_hdr_row, column=col_idx, value=h)
+    c.font = HDR_FONT
+    c.fill = HDR_FILL
+    c.alignment = CENTER
+    c.border = BORDER
+samsun.row_dimensions[samsun_hdr_row].height = 32
+
+# Data rows
+for idx, row in enumerate(SAMSUN_LEADS, start=1):
+    agency, kind, district, neigh, full_addr, phone, email, website, socials, priority, notes = row
+    r = samsun_hdr_row + idx
+    values = [idx, agency, kind, district, neigh, full_addr, phone, email, website, socials, priority, notes, ""]
+    for col_idx, v in enumerate(values, start=1):
+        c = samsun.cell(row=r, column=col_idx, value=v)
+        c.font = BODY_FONT
+        c.alignment = WRAP
+        c.border = BORDER
+    # zebra on even rows
+    if idx % 2 == 0:
+        for col_idx in range(1, len(SAMSUN_HEADERS) + 1):
+            samsun.cell(row=r, column=col_idx).fill = ZEBRA
+    # priority color override
+    pri_cell = samsun.cell(row=r, column=11)
+    if priority == "High":
+        pri_cell.fill = PRIORITY_HIGH
+        pri_cell.font = BODY_BOLD
+    pri_cell.alignment = CENTER
+    # center the row #, type, district
+    samsun.cell(row=r, column=1).alignment = CENTER
+    samsun.cell(row=r, column=3).alignment = CENTER
+    samsun.cell(row=r, column=4).alignment = CENTER
+    samsun.row_dimensions[r].height = 72  # taller — full addresses wrap
+
+# Column widths tuned for walk-in use (Full Address is the widest)
+samsun_widths = {
+    "A": 4,   # #
+    "B": 30,  # Agency
+    "C": 13,  # Type
+    "D": 15,  # District
+    "E": 20,  # Neighborhood
+    "F": 55,  # Full Address ← primary
+    "G": 20,  # Phone ← primary
+    "H": 28,  # Email
+    "I": 32,  # Website
+    "J": 30,  # Socials
+    "K": 13,  # Visit Priority
+    "L": 50,  # Notes
+    "M": 14,  # Visit Status
+}
+for col, w in samsun_widths.items():
+    samsun.column_dimensions[col].width = w
+
+# Freeze header + the agency name column so the address stays visible as you scroll right
+samsun.freeze_panes = "C5"
+
+# Convert to Excel Table for filter/sort UI
+samsun_last_col = get_column_letter(len(SAMSUN_HEADERS))
+samsun_last_row = samsun_hdr_row + len(SAMSUN_LEADS)
+samsun_tbl_ref = f"A{samsun_hdr_row}:{samsun_last_col}{samsun_last_row}"
+samsun_table = Table(displayName="SamsunLeads", ref=samsun_tbl_ref)
+samsun_table.tableStyleInfo = TableStyleInfo(
+    name="TableStyleMedium4", showFirstColumn=False, showLastColumn=False,
+    showRowStripes=False, showColumnStripes=False,
+)
+# strip header fills so the table style shows
+for col_idx in range(1, len(SAMSUN_HEADERS) + 1):
+    h = samsun.cell(row=samsun_hdr_row, column=col_idx)
+    h.fill = PatternFill(fill_type=None)
+    h.font = Font(name=FONT, bold=True, color="FFFFFF", size=11)
+samsun.add_table(samsun_table)
+
+# Summary below the table
+samsun_summary_row = samsun_last_row + 2
+samsun.cell(row=samsun_summary_row, column=2, value="Samsun leads total").font = BODY_BOLD
+samsun.cell(row=samsun_summary_row, column=3,
+            value=f"=COUNTA(B{samsun_hdr_row + 1}:B{samsun_last_row})").font = BODY_FONT
+samsun.cell(row=samsun_summary_row + 1, column=2, value="High visit-priority").font = BODY_BOLD
+samsun.cell(row=samsun_summary_row + 1, column=3,
+            value=f'=COUNTIF(K{samsun_hdr_row + 1}:K{samsun_last_row},"High")').font = BODY_FONT
+samsun.cell(row=samsun_summary_row + 2, column=2, value="Atakum-based").font = BODY_BOLD
+samsun.cell(row=samsun_summary_row + 2, column=3,
+            value=f'=COUNTIF(D{samsun_hdr_row + 1}:D{samsun_last_row},"Atakum")').font = BODY_FONT
+samsun.cell(row=samsun_summary_row + 3, column=2, value="İlkadım-based").font = BODY_BOLD
+samsun.cell(row=samsun_summary_row + 3, column=3,
+            value=f'=COUNTIF(D{samsun_hdr_row + 1}:D{samsun_last_row},"İlkadım")').font = BODY_FONT
 
 wb.save(OUT)
 print(f"Wrote {OUT}")

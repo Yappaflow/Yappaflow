@@ -7,6 +7,7 @@ import { CommandCenter }   from "@/components/dashboard/CommandCenter";
 import { EngineRoom }      from "@/components/dashboard/EngineRoom";
 import { DeploymentHub }   from "@/components/dashboard/DeploymentHub";
 import { IntegrationsSettings } from "@/components/dashboard/IntegrationsSettings";
+import { SecuritySettings } from "@/components/dashboard/SecuritySettings";
 import { Solutions } from "@/components/dashboard/Solutions";
 
 export default function DashboardPage() {
@@ -33,6 +34,7 @@ export default function DashboardPage() {
         if (view === "deploy")       return <DeploymentHub setView={setView} />;
         if (view === "solutions")    return <Solutions />;
         if (view === "integrations") return <IntegrationsSettings />;
+        if (view === "security")     return <SecuritySettings />;
         return null;
       }}
     </DashboardShell>

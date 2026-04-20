@@ -57,7 +57,7 @@ function ConsentBanner() {
   );
 }
 
-export type DashboardView = "command" | "engine" | "deploy" | "solutions" | "integrations";
+export type DashboardView = "command" | "engine" | "deploy" | "solutions" | "integrations" | "security";
 
 const NAV_MAIN = [
   { id: "command"      as DashboardView, labelKey: "navDashboard", icon: LayoutDashboard },
@@ -66,8 +66,11 @@ const NAV_MAIN = [
   { id: "solutions"    as DashboardView, labelKey: "navSolutions", icon: Layers          },
 ];
 
+// "Security" lives in general nav alongside Settings — the two together
+// form the account-admin cluster.
 const NAV_GENERAL = [
   { id: "integrations" as DashboardView, labelKey: "navSettings",  icon: Settings        },
+  { id: "security"     as DashboardView, labelKey: "navSecurity",  icon: Shield          },
 ];
 
 interface Props {
