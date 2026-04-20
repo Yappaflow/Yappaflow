@@ -1,37 +1,20 @@
 "use client";
 
 import { useRef } from "react";
+import { useTranslations } from "next-intl";
 import { motion, useScroll, useTransform, MotionValue } from "framer-motion";
 import { MessageCircle, Code, Rocket, Settings, Zap, Check, Globe, ExternalLink } from "lucide-react";
 
-/* ─── Data ─── */
+/* ─── Static icon map — labels come from i18n at render ─── */
 
-const SIDEBAR_ITEMS = [
-  { icon: Zap, label: "Command Center" },
-  { icon: MessageCircle, label: "Signals" },
-  { icon: Code, label: "Engine Room" },
-  { icon: Rocket, label: "Deploy Hub" },
-  { icon: Settings, label: "Integrations" },
-];
-
-// Client-to-client conversation — AI silently listens
-const CHAT_MESSAGES = [
-  { sender: "Ahmet", text: "I need a modern e-commerce store for my fashion brand", time: "14:32" },
-  { sender: "You", text: "Sure, what platforms do you prefer?", time: "14:32" },
-  { sender: "Ahmet", text: "Shopify would be great. Turkish lira payments, dark mode, mobile first", time: "14:33" },
-  { sender: "Ahmet", text: "And I need it launched by next Friday", time: "14:33" },
-  { sender: "You", text: "Got it. Let me get this started for you right away", time: "14:34" },
-];
-
-// AI extracts these requirements silently in real-time
-const AI_EXTRACTIONS = [
-  "E-commerce storefront",
-  "Platform: Shopify",
-  "Payment: Turkish Lira (Iyzico)",
-  "Theme: Dark mode",
-  "Priority: Mobile-first",
-  "Deadline: 7 days",
-];
+const SIDEBAR_ICONS = [Zap, MessageCircle, Code, Rocket, Settings];
+const SIDEBAR_KEYS = [
+  "sidebarCommand",
+  "sidebarSignals",
+  "sidebarEngine",
+  "sidebarDeploy",
+  "sidebarIntegrations",
+] as const;
 
 const CODE_STRING = `import { Store } from '@yappaflow/core'
 import { Payment } from '@yappaflow/pay'
@@ -48,27 +31,35 @@ export default function App() {
   )
 }`;
 
-const DEPLOY_STEPS = [
-  "Building production assets",
-  "Configuring DNS records",
-  "Provisioning SSL certificate",
-  "Deploying to Shopify CDN",
-];
-
 /* ─── Phase Content ─── */
 
 function ListenContent({ progress }: { progress: MotionValue<number> }) {
+  const t = useTranslations("dashboardJourney");
+  const ahmet = t("chatSenderAhmet");
+  const you = t("chatSenderYou");
+  const chatMessages = [
+    { sender: ahmet, text: t("chat1Text"), time: t("chat1Time") },
+    { sender: you,   text: t("chat2Text"), time: t("chat2Time") },
+    { sender: ahmet, text: t("chat3Text"), time: t("chat3Time") },
+    { sender: ahmet, text: t("chat4Text"), time: t("chat4Time") },
+    { sender: you,   text: t("chat5Text"), time: t("chat5Time") },
+  ];
+  const extractions = [
+    t("extract1"), t("extract2"), t("extract3"),
+    t("extract4"), t("extract5"), t("extract6"),
+  ];
+
   return (
     <div className="p-5 h-full flex flex-col">
       <div className="flex items-center gap-2 mb-4">
         <div className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
-        <span className="text-[10px] text-white/30 uppercase tracking-wider">Listening — WhatsApp Conversation</span>
+        <span className="text-[10px] text-white/30 uppercase tracking-wider">{t("listeningHeader")}</span>
       </div>
 
       <div className="flex-1 flex gap-4 overflow-hidden">
         {/* Left: Client conversation (AI is silently listening) */}
         <div className="flex-1 space-y-2">
-          {CHAT_MESSAGES.map((msg, i) => (
+          {chatMessages.map((msg, i) => (
             <motion.div
               key={i}
               style={{ opacity: useTransform(progress, [0.02 + i * 0.06, 0.08 + i * 0.06], [0, 1]) }}
@@ -89,10 +80,10 @@ function ListenContent({ progress }: { progress: MotionValue<number> }) {
               transition={{ repeat: Infinity, duration: 1.5 }}
               className="h-1.5 w-1.5 rounded-full bg-brand-orange"
             />
-            <span className="text-[9px] text-brand-orange uppercase tracking-wider">AI Extracting</span>
+            <span className="text-[9px] text-brand-orange uppercase tracking-wider">{t("aiExtracting")}</span>
           </div>
           <div className="space-y-1.5">
-            {AI_EXTRACTIONS.map((item, i) => (
+            {extractions.map((item, i) => (
               <motion.div
                 key={i}
                 style={{ opacity: useTransform(progress, [0.15 + i * 0.08, 0.22 + i * 0.08], [0, 1]) }}
@@ -110,6 +101,7 @@ function ListenContent({ progress }: { progress: MotionValue<number> }) {
 }
 
 function BuildContent({ progress }: { progress: MotionValue<number> }) {
+  const t = useTranslations("dashboardJourney");
   const charCount = useTransform(progress, [0, 0.9], [0, CODE_STRING.length]);
 
   return (
@@ -117,7 +109,7 @@ function BuildContent({ progress }: { progress: MotionValue<number> }) {
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Code className="h-3.5 w-3.5 text-brand-orange" />
-          <span className="text-[10px] text-white/30 uppercase tracking-wider">Generating — store.tsx</span>
+          <span className="text-[10px] text-white/30 uppercase tracking-wider">{t("generating")}</span>
         </div>
       </div>
       <div className="flex-1 bg-[#08080a] rounded-lg p-4 overflow-hidden font-mono text-[11px] leading-relaxed">
@@ -142,21 +134,28 @@ function BuildContent({ progress }: { progress: MotionValue<number> }) {
 }
 
 function ShipContent({ progress }: { progress: MotionValue<number> }) {
+  const t = useTranslations("dashboardJourney");
   const barWidth = useTransform(progress, [0, 0.7], [0, 100]);
+  const deploySteps = [
+    t("deployStep1"),
+    t("deployStep2"),
+    t("deployStep3"),
+    t("deployStep4"),
+  ];
 
   return (
     <div className="p-5 h-full flex flex-col">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Rocket className="h-3.5 w-3.5 text-brand-orange" />
-          <span className="text-[10px] text-white/30 uppercase tracking-wider">Deploying — Shopify</span>
+          <span className="text-[10px] text-white/30 uppercase tracking-wider">{t("deploying")}</span>
         </div>
         <motion.div
           style={{ opacity: useTransform(progress, [0.8, 0.9], [0, 1]) }}
           className="flex items-center gap-1.5"
         >
           <div className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
-          <span className="text-[10px] text-green-400 font-medium uppercase tracking-wider">Live</span>
+          <span className="text-[10px] text-green-400 font-medium uppercase tracking-wider">{t("live")}</span>
         </motion.div>
       </div>
 
@@ -170,7 +169,7 @@ function ShipContent({ progress }: { progress: MotionValue<number> }) {
       </div>
 
       <div className="space-y-3 flex-1">
-        {DEPLOY_STEPS.map((step, i) => (
+        {deploySteps.map((step, i) => (
           <motion.div
             key={step}
             style={{ opacity: useTransform(progress, [0.1 + i * 0.15, 0.2 + i * 0.15], [0, 1]) }}
@@ -190,7 +189,7 @@ function ShipContent({ progress }: { progress: MotionValue<number> }) {
       >
         <div className="flex items-center gap-2">
           <Globe className="h-3.5 w-3.5 text-green-400" />
-          <span className="text-xs text-white/70">butikmode.com</span>
+          <span className="text-xs text-white/70">{t("liveDomain")}</span>
         </div>
         <ExternalLink className="h-3 w-3 text-white/20" />
       </motion.div>
@@ -201,11 +200,16 @@ function ShipContent({ progress }: { progress: MotionValue<number> }) {
 /* ─── Main: Single Dashboard that scales in → then transforms ─── */
 
 export function DashboardJourney() {
+  const t = useTranslations("dashboardJourney");
   const containerRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
     target: containerRef,
     offset: ["start start", "end end"],
   });
+  const sidebarItems = SIDEBAR_ICONS.map((Icon, i) => ({
+    icon: Icon,
+    label: t(SIDEBAR_KEYS[i]),
+  }));
 
   // PHASE 0 (0-0.10): Dashboard scales in — fast
   const scale = useTransform(scrollYProgress, [0, 0.05, 0.10], [0.45, 0.75, 1]);
@@ -317,16 +321,16 @@ export function DashboardJourney() {
           <div className="relative h-6">
             <motion.p style={{ opacity: useTransform(scrollYProgress, (v) => v < 0.15 ? 1 : 0) }}
               className="absolute font-heading text-sm uppercase tracking-wider text-white/40">
-              Introducing
+              {t("eyebrow")}
             </motion.p>
             <motion.p style={{ opacity: o1 }} className="absolute font-heading text-sm uppercase tracking-wider text-white/60">
-              01 Listen
+              {t("phase1")}
             </motion.p>
             <motion.p style={{ opacity: o2 }} className="absolute font-heading text-sm uppercase tracking-wider text-white/60">
-              02 Build
+              {t("phase2")}
             </motion.p>
             <motion.p style={{ opacity: o3 }} className="absolute font-heading text-sm uppercase tracking-wider text-white/60">
-              03 Ship
+              {t("phase3")}
             </motion.p>
           </div>
           <div className="mt-2 w-20 h-0.5 bg-white/[0.06] rounded-full overflow-hidden">
@@ -367,7 +371,7 @@ export function DashboardJourney() {
                 {/* Sidebar — persistent, active changes */}
                 <div className="w-44 border-r border-white/[0.05] p-3 hidden sm:block shrink-0">
                   <div className="space-y-0.5">
-                    {SIDEBAR_ITEMS.map((item, i) => (
+                    {sidebarItems.map((item, i) => (
                       <motion.div
                         key={item.label}
                         style={{

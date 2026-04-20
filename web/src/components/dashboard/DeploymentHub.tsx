@@ -602,6 +602,7 @@ function CustomWizard({ onExitToDashboard }: { onExitToDashboard: () => void }) 
 type ShopifyStep = "pick-signal" | "identity" | "build" | "publish";
 
 function ShopifyWizard({ onExitToDashboard }: { onExitToDashboard: () => void }) {
+  const t = useTranslations("deploy");
   const [step, setStep] = useState<ShopifyStep>("pick-signal");
   const [signalId, setSignalId] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -698,7 +699,7 @@ function ShopifyWizard({ onExitToDashboard }: { onExitToDashboard: () => void })
       clean.searchParams.delete("shop");
       window.history.replaceState({}, "", clean.toString());
     } else if (status === "error") {
-      setTopError(`Shopify connect failed: ${params.get("reason") ?? "unknown"}`);
+      setTopError(t("shopifyConnectFailed", { reason: params.get("reason") ?? "unknown" }));
     }
   }, []);
 
@@ -713,13 +714,13 @@ function ShopifyWizard({ onExitToDashboard }: { onExitToDashboard: () => void })
   const onConnectShopify = () => {
     const shop = shopInput.trim().toLowerCase();
     if (!/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(shop)) {
-      setTopError("Enter a valid <name>.myshopify.com domain");
+      setTopError(t("shopifyInvalidDomain"));
       return;
     }
     try {
       window.location.href = getShopifyAuthorizeUrl(shop);
     } catch (err) {
-      setTopError(err instanceof Error ? err.message : "Couldn't start OAuth");
+      setTopError(err instanceof Error ? err.message : t("shopifyCouldntStartOauth"));
     }
   };
 
@@ -731,7 +732,7 @@ function ShopifyWizard({ onExitToDashboard }: { onExitToDashboard: () => void })
       const result = await publishToShopify(projectId);
       setPublishResult(result);
     } catch (err) {
-      setTopError(err instanceof Error ? err.message : "Publish failed");
+      setTopError(err instanceof Error ? err.message : t("shopifyPublishFailed"));
     } finally {
       setPublishing(false);
     }
@@ -745,7 +746,7 @@ function ShopifyWizard({ onExitToDashboard }: { onExitToDashboard: () => void })
       await downloadShopifyZip(projectId);
       setDownloaded(true);
     } catch (err) {
-      setTopError(err instanceof Error ? err.message : "Download failed");
+      setTopError(err instanceof Error ? err.message : t("downloadFailed"));
     } finally {
       setDownloading(false);
     }
@@ -762,9 +763,9 @@ function ShopifyWizard({ onExitToDashboard }: { onExitToDashboard: () => void })
       {/* Step 1 — pick signal */}
       {step === "pick-signal" && (
         <div>
-          <h3 className="text-[18px] font-black text-white mb-2">Pick a chat signal</h3>
+          <h3 className="text-[18px] font-black text-white mb-2">{t("shopifyPickSignalTitle")}</h3>
           <p className="text-[13px] text-white/40 mb-5">
-            The messages will be analyzed to extract the business identity and products for your Shopify store.
+            {t("shopifyPickSignalDesc")}
           </p>
           <SignalPicker selectedId={signalId} onSelect={setSignalId} />
           <button
@@ -772,7 +773,7 @@ function ShopifyWizard({ onExitToDashboard }: { onExitToDashboard: () => void })
             disabled={!signalId}
             className="mt-5 w-full rounded-xl bg-white py-3 text-[13px] font-bold text-[#0A0A0A] disabled:opacity-30 hover:opacity-80 transition-opacity"
           >
-            Continue
+            {t("shopifyContinue")}
           </button>
         </div>
       )}
@@ -783,7 +784,7 @@ function ShopifyWizard({ onExitToDashboard }: { onExitToDashboard: () => void })
           {!identity && !identityError && (
             <div className="flex items-center gap-3 text-white/60">
               <Loader2 className="animate-spin" size={16} />
-              <span className="text-[13px]">Analyzing the chat for business identity…</span>
+              <span className="text-[13px]">{t("shopifyAnalyzing")}</span>
             </div>
           )}
           {identityError && (
@@ -791,7 +792,7 @@ function ShopifyWizard({ onExitToDashboard }: { onExitToDashboard: () => void })
           )}
           {identity && (
             <div>
-              <div className="mb-1 text-[11px] uppercase tracking-wider text-white/30">Business</div>
+              <div className="mb-1 text-[11px] uppercase tracking-wider text-white/30">{t("shopifyBusinessLabel")}</div>
               <h4 className="text-[20px] font-black text-white">{identity.businessName}</h4>
               {identity.tagline && <p className="mt-1 text-[13px] text-white/50">{identity.tagline}</p>}
               <p className="mt-2 text-[12px] text-white/30">
@@ -805,9 +806,9 @@ function ShopifyWizard({ onExitToDashboard }: { onExitToDashboard: () => void })
       {/* Step 3 — build */}
       {step === "build" && (
         <div className="rounded-2xl border border-white/[0.05] bg-[#111114] p-6">
-          <h3 className="text-[16px] font-black text-white mb-1">Generating Shopify theme</h3>
+          <h3 className="text-[16px] font-black text-white mb-1">{t("shopifyBuildTitle")}</h3>
           <p className="text-[13px] text-white/40 mb-4">
-            A complete Liquid theme + Shopify-compatible products.csv will be built for you.
+            {t("shopifyBuildDesc")}
           </p>
           <div className="h-1.5 w-full rounded-full bg-white/[0.06] mb-3 overflow-hidden">
             <motion.div
@@ -821,10 +822,10 @@ function ShopifyWizard({ onExitToDashboard }: { onExitToDashboard: () => void })
           </div>
           <p className="text-[12px] text-white/40">
             {buildStatus.status === "failed"
-              ? <span className="text-red-400">Build failed: {buildStatus.error ?? "unknown error"}</span>
+              ? <span className="text-red-400">{t("shopifyBuildFailed", { error: buildStatus.error ?? t("shopifyBuildUnknownError") })}</span>
               : buildStatus.filesTotal
-                ? `${buildStatus.filesDone} / ${buildStatus.filesTotal} files`
-                : "Starting…"}
+                ? t("shopifyBuildFilesProgress", { done: buildStatus.filesDone, total: buildStatus.filesTotal })
+                : t("shopifyBuildStarting")}
           </p>
         </div>
       )}
@@ -838,11 +839,10 @@ function ShopifyWizard({ onExitToDashboard }: { onExitToDashboard: () => void })
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-500">
                   <Check size={16} strokeWidth={3} className="text-white" />
                 </div>
-                <h3 className="text-[18px] font-black text-white">Pushed to Shopify</h3>
+                <h3 className="text-[18px] font-black text-white">{t("shopifyPushedTitle")}</h3>
               </div>
               <p className="text-[13px] text-white/60">
-                Theme uploaded ({publishResult.themeFiles} files) and {publishResult.productsCreated} products created on{" "}
-                <strong className="text-white">{publishResult.shopDomain}</strong>.
+                {t("shopifyPushedBody", { themeFiles: publishResult.themeFiles, productsCreated: publishResult.productsCreated, shopDomain: publishResult.shopDomain })}
               </p>
               <a
                 href={publishResult.previewUrl}
@@ -850,33 +850,33 @@ function ShopifyWizard({ onExitToDashboard }: { onExitToDashboard: () => void })
                 rel="noopener noreferrer"
                 className="mt-4 inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-[13px] font-bold text-[#0A0A0A] hover:opacity-80 transition-opacity"
               >
-                Open in Shopify admin
+                {t("shopifyOpenAdmin")}
                 <ExternalLink size={14} />
               </a>
             </div>
           ) : connection?.connected && connection.shopDomain ? (
             <div className="rounded-2xl border border-white/[0.05] bg-[#111114] p-6">
-              <div className="mb-1 text-[11px] uppercase tracking-wider text-white/30">Connected store</div>
+              <div className="mb-1 text-[11px] uppercase tracking-wider text-white/30">{t("shopifyConnectedStore")}</div>
               <h4 className="text-[16px] font-black text-white">{connection.shopDomain}</h4>
-              <p className="mt-1 text-[12px] text-white/40">Scopes: {connection.scopes}</p>
+              <p className="mt-1 text-[12px] text-white/40">{t("shopifyScopes", { scopes: connection.scopes ?? "" })}</p>
               <button
                 onClick={onPublish}
                 disabled={publishing}
                 className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#96BF48] px-4 py-2.5 text-[13px] font-bold text-white hover:opacity-80 disabled:opacity-40 transition-opacity"
               >
                 {publishing ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                {publishing ? "Pushing to Shopify…" : "Push to Shopify now"}
+                {publishing ? t("shopifyPushing") : t("shopifyPushNow")}
               </button>
             </div>
           ) : (
             <div className="rounded-2xl border border-white/[0.05] bg-[#111114] p-6">
-              <h3 className="text-[16px] font-black text-white mb-1">Connect your Shopify store</h3>
+              <h3 className="text-[16px] font-black text-white mb-1">{t("shopifyConnectTitle")}</h3>
               <p className="text-[13px] text-white/40 mb-4">
-                Authorize Yappaflow once, and we'll upload the theme + products straight to your store.
+                {t("shopifyConnectDesc")}
               </p>
               <input
                 type="text"
-                placeholder="your-store.myshopify.com"
+                placeholder={t("shopifyShopPlaceholder")}
                 value={shopInput}
                 onChange={(e) => setShopInput(e.target.value)}
                 className="w-full rounded-xl border border-white/[0.08] bg-[#0A0A0A] px-4 py-2.5 text-[14px] text-white placeholder:text-white/20 focus:outline-none focus:border-white/20"
@@ -885,7 +885,7 @@ function ShopifyWizard({ onExitToDashboard }: { onExitToDashboard: () => void })
                 onClick={onConnectShopify}
                 className="mt-3 w-full rounded-xl bg-white py-3 text-[13px] font-bold text-[#0A0A0A] hover:opacity-80 transition-opacity"
               >
-                Connect with Shopify
+                {t("shopifyConnectCta")}
               </button>
             </div>
           )}
@@ -894,9 +894,9 @@ function ShopifyWizard({ onExitToDashboard }: { onExitToDashboard: () => void })
           <div className="rounded-2xl border border-white/[0.05] bg-[#111114] p-6">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h4 className="text-[14px] font-black text-white">Prefer to upload manually?</h4>
+                <h4 className="text-[14px] font-black text-white">{t("shopifyManualTitle")}</h4>
                 <p className="mt-1 text-[12px] text-white/40">
-                  Download the ZIP and upload it yourself (Online Store → Themes → Upload zip file).
+                  {t("shopifyManualDesc")}
                 </p>
               </div>
               <button
@@ -905,7 +905,7 @@ function ShopifyWizard({ onExitToDashboard }: { onExitToDashboard: () => void })
                 className="flex items-center gap-2 rounded-xl border border-white/[0.08] px-4 py-2 text-[12px] font-bold text-white/70 hover:text-white hover:bg-white/[0.04] disabled:opacity-30 transition-all"
               >
                 {downloading ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
-                {downloaded ? "Downloaded" : "Download ZIP"}
+                {downloaded ? t("downloaded") : t("downloadZip")}
               </button>
             </div>
           </div>
@@ -916,7 +916,7 @@ function ShopifyWizard({ onExitToDashboard }: { onExitToDashboard: () => void })
         onClick={onExitToDashboard}
         className="mt-6 w-full rounded-xl border border-white/[0.05] py-2.5 text-[13px] font-semibold text-white/40 hover:bg-white/[0.04] hover:text-white"
       >
-        Back to dashboard
+        {t("downloadBack")}
       </button>
     </div>
   );
@@ -939,6 +939,7 @@ function ShopifyWizard({ onExitToDashboard }: { onExitToDashboard: () => void })
 type WordPressStep = "pick-signal" | "identity" | "build" | "publish";
 
 function WordPressWizard({ onExitToDashboard }: { onExitToDashboard: () => void }) {
+  const t = useTranslations("deploy");
   const [step, setStep] = useState<WordPressStep>("pick-signal");
   const [signalId, setSignalId] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -1061,7 +1062,7 @@ function WordPressWizard({ onExitToDashboard }: { onExitToDashboard: () => void 
       clean.searchParams.delete("site");
       window.history.replaceState({}, "", clean.toString());
     } else if (status === "error") {
-      setTopError(`WordPress connect failed: ${params.get("reason") ?? "unknown"}`);
+      setTopError(t("wpConnectFailed", { reason: params.get("reason") ?? "unknown" }));
     }
   }, []);
 
@@ -1076,7 +1077,7 @@ function WordPressWizard({ onExitToDashboard }: { onExitToDashboard: () => void 
   const onConnectSelfHosted = async () => {
     setTopError(null);
     if (!siteUrlInput.trim() || !usernameInput.trim() || !appPasswordInput.trim()) {
-      setTopError("Site URL, username, and application password are all required");
+      setTopError(t("wpMissingFields"));
       return;
     }
     setConnecting(true);
@@ -1090,7 +1091,7 @@ function WordPressWizard({ onExitToDashboard }: { onExitToDashboard: () => void 
       // Clear sensitive inputs once the token is stored server-side.
       setAppPasswordInput("");
     } catch (err) {
-      setTopError(err instanceof Error ? err.message : "Couldn't verify the application password");
+      setTopError(err instanceof Error ? err.message : t("wpCouldntVerify"));
     } finally {
       setConnecting(false);
     }
@@ -1100,7 +1101,7 @@ function WordPressWizard({ onExitToDashboard }: { onExitToDashboard: () => void 
     try {
       window.location.href = getWordPressComAuthorizeUrl(siteUrlInput.trim() || undefined);
     } catch (err) {
-      setTopError(err instanceof Error ? err.message : "Couldn't start OAuth");
+      setTopError(err instanceof Error ? err.message : t("shopifyCouldntStartOauth"));
     }
   };
 
@@ -1112,7 +1113,7 @@ function WordPressWizard({ onExitToDashboard }: { onExitToDashboard: () => void 
       const result = await publishToWordPress(projectId);
       setPublishResult(result);
     } catch (err) {
-      setTopError(err instanceof Error ? err.message : "Publish failed");
+      setTopError(err instanceof Error ? err.message : t("shopifyPublishFailed"));
     } finally {
       setPublishing(false);
     }
@@ -1126,7 +1127,7 @@ function WordPressWizard({ onExitToDashboard }: { onExitToDashboard: () => void 
       await downloadWordPressZip(projectId);
       setDownloaded(true);
     } catch (err) {
-      setTopError(err instanceof Error ? err.message : "Download failed");
+      setTopError(err instanceof Error ? err.message : t("downloadFailed"));
     } finally {
       setDownloading(false);
     }
@@ -1145,9 +1146,9 @@ function WordPressWizard({ onExitToDashboard }: { onExitToDashboard: () => void 
       {/* Step 1 — pick signal */}
       {step === "pick-signal" && (
         <div>
-          <h3 className="text-[18px] font-black text-white mb-2">Pick a chat signal</h3>
+          <h3 className="text-[18px] font-black text-white mb-2">{t("shopifyPickSignalTitle")}</h3>
           <p className="text-[13px] text-white/40 mb-5">
-            The messages will be analyzed to extract the business identity, pages, and products for your WordPress site.
+            {t("wpPickSignalDesc")}
           </p>
           <SignalPicker selectedId={signalId} onSelect={setSignalId} />
           <button
@@ -1155,7 +1156,7 @@ function WordPressWizard({ onExitToDashboard }: { onExitToDashboard: () => void 
             disabled={!signalId}
             className="mt-5 w-full rounded-xl bg-white py-3 text-[13px] font-bold text-[#0A0A0A] disabled:opacity-30 hover:opacity-80 transition-opacity"
           >
-            Continue
+            {t("shopifyContinue")}
           </button>
         </div>
       )}
@@ -1166,7 +1167,7 @@ function WordPressWizard({ onExitToDashboard }: { onExitToDashboard: () => void 
           {!identity && !identityError && (
             <div className="flex items-center gap-3 text-white/60">
               <Loader2 className="animate-spin" size={16} />
-              <span className="text-[13px]">Analyzing the chat for business identity…</span>
+              <span className="text-[13px]">{t("shopifyAnalyzing")}</span>
             </div>
           )}
           {identityError && (
@@ -1174,7 +1175,7 @@ function WordPressWizard({ onExitToDashboard }: { onExitToDashboard: () => void 
           )}
           {identity && (
             <div>
-              <div className="mb-1 text-[11px] uppercase tracking-wider text-white/30">Business</div>
+              <div className="mb-1 text-[11px] uppercase tracking-wider text-white/30">{t("shopifyBusinessLabel")}</div>
               <h4 className="text-[20px] font-black text-white">{identity.businessName}</h4>
               {identity.tagline && <p className="mt-1 text-[13px] text-white/50">{identity.tagline}</p>}
               <p className="mt-2 text-[12px] text-white/30">
@@ -1188,9 +1189,9 @@ function WordPressWizard({ onExitToDashboard }: { onExitToDashboard: () => void 
       {/* Step 3 — build */}
       {step === "build" && (
         <div className="rounded-2xl border border-white/[0.05] bg-[#111114] p-6">
-          <h3 className="text-[16px] font-black text-white mb-1">Generating WordPress theme</h3>
+          <h3 className="text-[16px] font-black text-white mb-1">{t("wpBuildTitle")}</h3>
           <p className="text-[13px] text-white/40 mb-4">
-            A full classic + block-editor theme, editor-ready page bodies, and a WooCommerce products CSV are being built.
+            {t("wpBuildDesc")}
           </p>
           <div className="h-1.5 w-full rounded-full bg-white/[0.06] mb-3 overflow-hidden">
             <motion.div
@@ -1205,10 +1206,10 @@ function WordPressWizard({ onExitToDashboard }: { onExitToDashboard: () => void 
           </div>
           <p className="text-[12px] text-white/40">
             {buildStatus.status === "failed"
-              ? <span className="text-red-400">Build failed: {buildStatus.error ?? "unknown error"}</span>
+              ? <span className="text-red-400">{t("shopifyBuildFailed", { error: buildStatus.error ?? t("shopifyBuildUnknownError") })}</span>
               : buildStatus.filesTotal
-                ? `${buildStatus.filesDone} / ${buildStatus.filesTotal} files`
-                : "Starting…"}
+                ? t("shopifyBuildFilesProgress", { done: buildStatus.filesDone, total: buildStatus.filesTotal })
+                : t("shopifyBuildStarting")}
           </p>
         </div>
       )}
@@ -1222,21 +1223,19 @@ function WordPressWizard({ onExitToDashboard }: { onExitToDashboard: () => void 
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-500">
                   <Check size={16} strokeWidth={3} className="text-white" />
                 </div>
-                <h3 className="text-[18px] font-black text-white">Pushed to WordPress</h3>
+                <h3 className="text-[18px] font-black text-white">{t("wpPushedTitle")}</h3>
               </div>
               <p className="text-[13px] text-white/60">
-                {publishResult.pagesCreated} pages created
+                {t("wpPushedPages", { pagesCreated: publishResult.pagesCreated })}
                 {publishResult.wooCommerceAvailable
-                  ? ` and ${publishResult.productsCreated} products pushed to WooCommerce`
+                  ? t("wpPushedWithWoo", { productsCreated: publishResult.productsCreated })
                   : publishResult.productsCreated === 0 && connection?.wooCommerceEnabled === false
-                    ? " (WooCommerce not installed — products skipped)"
+                    ? t("wpPushedNoWoo")
                     : ""}
-                {" "}on <strong className="text-white">{publishResult.siteUrl}</strong>.
+                {t("wpPushedSite", { siteUrl: publishResult.siteUrl })}
               </p>
               <p className="mt-3 text-[12px] text-white/40">
-                The theme still needs to be uploaded manually — download the ZIP below and upload
-                <strong className="text-white/60"> wordpress-theme.zip </strong>
-                at <em className="text-white/50">Appearance → Themes → Add New → Upload Theme</em>.
+                {t("wpThemeUploadHint")}
               </p>
               <a
                 href={publishResult.themeAdminUrl}
@@ -1244,23 +1243,23 @@ function WordPressWizard({ onExitToDashboard }: { onExitToDashboard: () => void 
                 rel="noopener noreferrer"
                 className="mt-4 inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-[13px] font-bold text-[#0A0A0A] hover:opacity-80 transition-opacity"
               >
-                Open WordPress themes admin
+                {t("wpOpenThemesAdmin")}
                 <ExternalLink size={14} />
               </a>
             </div>
           ) : connection?.connected && connection.siteUrl ? (
             <div className="rounded-2xl border border-white/[0.05] bg-[#111114] p-6">
               <div className="mb-1 text-[11px] uppercase tracking-wider text-white/30">
-                Connected site ({connection.flavor === "dotcom" ? "WordPress.com" : "Self-hosted"})
+                {connection.flavor === "dotcom" ? t("wpConnectedSiteDotcom") : t("wpConnectedSiteSelf")}
               </div>
               <h4 className="text-[16px] font-black text-white break-all">{connection.siteUrl}</h4>
               {connection.username && (
-                <p className="mt-1 text-[12px] text-white/40">User: {connection.username}</p>
+                <p className="mt-1 text-[12px] text-white/40">{t("wpUserLabel", { username: connection.username })}</p>
               )}
               {connection.wooCommerceEnabled ? (
-                <p className="mt-1 text-[12px] text-emerald-400">WooCommerce detected — products will push directly.</p>
+                <p className="mt-1 text-[12px] text-emerald-400">{t("wpWooDetected")}</p>
               ) : (
-                <p className="mt-1 text-[12px] text-white/30">WooCommerce not detected — theme/pages only.</p>
+                <p className="mt-1 text-[12px] text-white/30">{t("wpWooNotDetected")}</p>
               )}
               <button
                 onClick={onPublish}
@@ -1269,14 +1268,14 @@ function WordPressWizard({ onExitToDashboard }: { onExitToDashboard: () => void 
                 style={{ backgroundColor: wordpressAccent }}
               >
                 {publishing ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                {publishing ? "Pushing to WordPress…" : "Push to WordPress now"}
+                {publishing ? t("wpPushing") : t("wpPushNow")}
               </button>
             </div>
           ) : (
             <div className="rounded-2xl border border-white/[0.05] bg-[#111114] p-6">
-              <h3 className="text-[16px] font-black text-white mb-1">Connect your WordPress site</h3>
+              <h3 className="text-[16px] font-black text-white mb-1">{t("wpConnectTitle")}</h3>
               <p className="text-[13px] text-white/40 mb-4">
-                Authorize Yappaflow once, and we&apos;ll push your pages + products directly via the REST API.
+                {t("wpConnectDesc")}
               </p>
 
               {/* Flavor toggle — only shown when WP.com OAuth is server-configured */}
@@ -1293,7 +1292,7 @@ function WordPressWizard({ onExitToDashboard }: { onExitToDashboard: () => void 
                           : "text-white/50 hover:text-white",
                       ].join(" ")}
                     >
-                      {flav === "self_hosted" ? "Self-hosted" : "WordPress.com"}
+                      {flav === "self_hosted" ? t("wpSelfHosted") : t("wpDotcom")}
                     </button>
                   ))}
                 </div>
@@ -1301,36 +1300,34 @@ function WordPressWizard({ onExitToDashboard }: { onExitToDashboard: () => void 
 
               {connectFlavor === "self_hosted" ? (
                 <>
-                  <label className="block text-[11px] uppercase tracking-wider text-white/30 mb-1">Site URL</label>
+                  <label className="block text-[11px] uppercase tracking-wider text-white/30 mb-1">{t("wpSiteUrlLabel")}</label>
                   <input
                     type="text"
-                    placeholder="https://your-site.com"
+                    placeholder={t("wpSiteUrlPlaceholder")}
                     value={siteUrlInput}
                     onChange={(e) => setSiteUrlInput(e.target.value)}
                     className="w-full rounded-xl border border-white/[0.08] bg-[#0A0A0A] px-4 py-2.5 text-[14px] text-white placeholder:text-white/20 focus:outline-none focus:border-white/20 mb-3"
                   />
-                  <label className="block text-[11px] uppercase tracking-wider text-white/30 mb-1">WordPress username</label>
+                  <label className="block text-[11px] uppercase tracking-wider text-white/30 mb-1">{t("wpUsernameLabel")}</label>
                   <input
                     type="text"
-                    placeholder="admin"
+                    placeholder={t("wpUsernamePlaceholder")}
                     value={usernameInput}
                     onChange={(e) => setUsernameInput(e.target.value)}
                     className="w-full rounded-xl border border-white/[0.08] bg-[#0A0A0A] px-4 py-2.5 text-[14px] text-white placeholder:text-white/20 focus:outline-none focus:border-white/20 mb-3"
                   />
                   <label className="block text-[11px] uppercase tracking-wider text-white/30 mb-1">
-                    Application password
+                    {t("wpAppPasswordLabel")}
                   </label>
                   <input
                     type="password"
-                    placeholder="xxxx xxxx xxxx xxxx xxxx xxxx"
+                    placeholder={t("wpAppPasswordPlaceholder")}
                     value={appPasswordInput}
                     onChange={(e) => setAppPasswordInput(e.target.value)}
                     className="w-full rounded-xl border border-white/[0.08] bg-[#0A0A0A] px-4 py-2.5 text-[14px] text-white placeholder:text-white/20 focus:outline-none focus:border-white/20"
                   />
                   <p className="mt-2 text-[11px] text-white/30 leading-relaxed">
-                    Generate one in your WP admin under{" "}
-                    <strong className="text-white/50">Users → Profile → Application Passwords</strong>.
-                    Yappaflow stores it encrypted.
+                    {t("wpAppPasswordHint")}
                   </p>
                   <button
                     onClick={onConnectSelfHosted}
@@ -1338,17 +1335,17 @@ function WordPressWizard({ onExitToDashboard }: { onExitToDashboard: () => void 
                     className="mt-3 w-full rounded-xl py-3 text-[13px] font-bold text-white hover:opacity-80 disabled:opacity-40 transition-opacity"
                     style={{ backgroundColor: wordpressAccent }}
                   >
-                    {connecting ? "Verifying…" : "Connect site"}
+                    {connecting ? t("wpVerifying") : t("wpConnectSite")}
                   </button>
                 </>
               ) : (
                 <>
                   <label className="block text-[11px] uppercase tracking-wider text-white/30 mb-1">
-                    Site URL (optional — WP.com will pick your primary blog)
+                    {t("wpDotcomSiteUrlLabel")}
                   </label>
                   <input
                     type="text"
-                    placeholder="https://your-site.wordpress.com"
+                    placeholder={t("wpDotcomSiteUrlPlaceholder")}
                     value={siteUrlInput}
                     onChange={(e) => setSiteUrlInput(e.target.value)}
                     className="w-full rounded-xl border border-white/[0.08] bg-[#0A0A0A] px-4 py-2.5 text-[14px] text-white placeholder:text-white/20 focus:outline-none focus:border-white/20"
@@ -1358,7 +1355,7 @@ function WordPressWizard({ onExitToDashboard }: { onExitToDashboard: () => void 
                     className="mt-3 w-full rounded-xl py-3 text-[13px] font-bold text-white hover:opacity-80 transition-opacity"
                     style={{ backgroundColor: wordpressAccent }}
                   >
-                    Connect with WordPress.com
+                    {t("wpConnectDotcom")}
                   </button>
                 </>
               )}
@@ -1369,10 +1366,9 @@ function WordPressWizard({ onExitToDashboard }: { onExitToDashboard: () => void 
           <div className="rounded-2xl border border-white/[0.05] bg-[#111114] p-6">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h4 className="text-[14px] font-black text-white">Prefer to upload manually?</h4>
+                <h4 className="text-[14px] font-black text-white">{t("shopifyManualTitle")}</h4>
                 <p className="mt-1 text-[12px] text-white/40">
-                  Download the ZIP and upload <strong className="text-white/60">wordpress-theme.zip</strong> inside it
-                  at <em>Appearance → Themes → Add New → Upload Theme</em>.
+                  {t("wpManualDesc")}
                 </p>
               </div>
               <button
@@ -1381,7 +1377,7 @@ function WordPressWizard({ onExitToDashboard }: { onExitToDashboard: () => void 
                 className="flex items-center gap-2 rounded-xl border border-white/[0.08] px-4 py-2 text-[12px] font-bold text-white/70 hover:text-white hover:bg-white/[0.04] disabled:opacity-30 transition-all"
               >
                 {downloading ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
-                {downloaded ? "Downloaded" : "Download ZIP"}
+                {downloaded ? t("downloaded") : t("downloadZip")}
               </button>
             </div>
           </div>
@@ -1392,7 +1388,7 @@ function WordPressWizard({ onExitToDashboard }: { onExitToDashboard: () => void 
         onClick={onExitToDashboard}
         className="mt-6 w-full rounded-xl border border-white/[0.05] py-2.5 text-[13px] font-semibold text-white/40 hover:bg-white/[0.04] hover:text-white"
       >
-        Back to dashboard
+        {t("downloadBack")}
       </button>
     </div>
   );
@@ -1540,7 +1536,7 @@ export function DeploymentHub({ setView }: Props) {
               <motion.div className="h-1.5 rounded-full bg-[#FF6B35]" style={{ width: `${cmsProgress}%` }} />
             </div>
             <div className="space-y-3 text-left">
-              {["cmsStepBuilding", "cmsStepDns", "cmsStepSsl", "cmsStepLive"].map((key, i) => {
+              {(["cmsStepBuilding", "cmsStepDns", "cmsStepSsl", "cmsStepLive"] as const).map((key, i) => {
                 const done = cmsProgress > (i + 1) * 25;
                 return (
                   <div key={key} className="flex items-center gap-3">

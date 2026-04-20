@@ -1,74 +1,84 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import { Check, ArrowUpRight } from "lucide-react";
 
-const TIERS = [
-  {
-    name: "Starter",
-    desc: "For solo agencies getting started",
-    monthly: 49,
-    annual: 39,
-    features: [
-      "5 active projects",
-      "WhatsApp + Instagram listening",
-      "Shopify & WordPress deploy",
-      "Basic AI code generation",
-      "Email support",
-      "1 team member",
-    ],
-    cta: "Start Free Trial",
-    popular: false,
-  },
-  {
-    name: "Growth",
-    desc: "For growing agencies scaling fast",
-    monthly: 149,
-    annual: 119,
-    features: [
-      "25 active projects",
-      "All messaging platforms",
-      "All CMS platforms (6+)",
-      "Advanced AI code generation",
-      "Priority support",
-      "Custom domains",
-      "API access",
-      "5 team members",
-    ],
-    cta: "Start Free Trial",
-    popular: true,
-  },
-  {
-    name: "Scale",
-    desc: "For enterprise agencies",
-    monthly: null,
-    annual: null,
-    features: [
-      "Unlimited projects",
-      "Dedicated infrastructure",
-      "Custom integrations",
-      "SLA guarantee",
-      "Dedicated account manager",
-      "On-premise option",
-      "Unlimited team members",
-      "White-label support",
-    ],
-    cta: "Contact Sales",
-    popular: false,
-  },
-];
-
-const FAQ = [
-  { q: "Can I switch plans anytime?", a: "Yes, you can upgrade or downgrade your plan at any time. Changes take effect immediately and billing is prorated." },
-  { q: "What happens after the free trial?", a: "After 14 days, you'll be asked to choose a plan. No charge during the trial. Cancel anytime." },
-  { q: "Do you offer refunds?", a: "We offer a 30-day money-back guarantee on all paid plans. No questions asked." },
-  { q: "Is there a setup fee?", a: "No setup fees, no hidden costs. The price you see is the price you pay." },
-];
-
 export default function PricingPage() {
+  const t = useTranslations("pricing");
   const [annual, setAnnual] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  const tiers: Array<{
+    name: string;
+    desc: string;
+    monthly: string | null;
+    annual: string | null;
+    features: string[];
+    cta: string;
+    popular: boolean;
+  }> = [
+    {
+      name: t("tierStarterName"),
+      desc: t("tierStarterDesc"),
+      monthly: t("tierStarterPriceMonthly"),
+      annual: t("tierStarterPriceAnnual"),
+      features: [
+        t("tierStarterFeature1"),
+        t("tierStarterFeature2"),
+        t("tierStarterFeature3"),
+        t("tierStarterFeature4"),
+        t("tierStarterFeature5"),
+        t("tierStarterFeature6"),
+      ],
+      cta: t("tierStarterCta"),
+      popular: false,
+    },
+    {
+      name: t("tierGrowthName"),
+      desc: t("tierGrowthDesc"),
+      monthly: t("tierGrowthPriceMonthly"),
+      annual: t("tierGrowthPriceAnnual"),
+      features: [
+        t("tierGrowthFeature1"),
+        t("tierGrowthFeature2"),
+        t("tierGrowthFeature3"),
+        t("tierGrowthFeature4"),
+        t("tierGrowthFeature5"),
+        t("tierGrowthFeature6"),
+        t("tierGrowthFeature7"),
+        t("tierGrowthFeature8"),
+      ],
+      cta: t("tierGrowthCta"),
+      popular: true,
+    },
+    {
+      name: t("tierScaleName"),
+      desc: t("tierScaleDesc"),
+      monthly: null,
+      annual: null,
+      features: [
+        t("tierScaleFeature1"),
+        t("tierScaleFeature2"),
+        t("tierScaleFeature3"),
+        t("tierScaleFeature4"),
+        t("tierScaleFeature5"),
+        t("tierScaleFeature6"),
+        t("tierScaleFeature7"),
+        t("tierScaleFeature8"),
+      ],
+      cta: t("tierScaleCta"),
+      popular: false,
+    },
+  ];
+
+  const faq = [
+    { q: t("faqQ1"), a: t("faqA1") },
+    { q: t("faqQ2"), a: t("faqA2") },
+    { q: t("faqQ3"), a: t("faqA3") },
+    { q: t("faqQ4"), a: t("faqA4") },
+  ];
 
   return (
     <div className="min-h-screen bg-brand-dark text-white">
@@ -86,7 +96,7 @@ export default function PricingPage() {
       {/* Nav back */}
       <div className="relative z-10 px-6 py-6">
         <a href="/" className="font-heading text-lg uppercase tracking-tight text-white hover:text-brand-orange transition-colors">
-          Yappaflow
+          {t("brand")}
         </a>
       </div>
 
@@ -95,35 +105,35 @@ export default function PricingPage() {
         <div className="max-w-4xl mx-auto text-center pt-16 sm:pt-24 mb-16">
           <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}
             className="text-[10px] uppercase tracking-[0.5em] text-brand-orange/60 mb-6">
-            Pricing
+            {t("eyebrow")}
           </motion.p>
           <motion.h1 initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}
             className="font-heading text-4xl sm:text-5xl md:text-6xl lg:text-7xl uppercase tracking-tight leading-[0.95]">
-            Simple pricing<br />
-            <span className="text-brand-orange">for growing agencies</span>
+            {t("headline1")}<br />
+            <span className="text-brand-orange">{t("headline2")}</span>
           </motion.h1>
           <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}
             className="mt-6 text-sm text-white/30 max-w-md mx-auto">
-            Start free for 14 days. No credit card required. Scale as your agency grows.
+            {t("subhead")}
           </motion.p>
 
           {/* Annual/Monthly toggle */}
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
             className="mt-8 flex items-center justify-center gap-3">
-            <span className={`text-xs uppercase tracking-wider ${!annual ? "text-white" : "text-white/25"}`}>Monthly</span>
+            <span className={`text-xs uppercase tracking-wider ${!annual ? "text-white" : "text-white/25"}`}>{t("billingMonthly")}</span>
             <button onClick={() => setAnnual(!annual)}
               className={`w-12 h-6 rounded-full flex items-center px-0.5 transition-colors ${annual ? "bg-brand-orange" : "bg-white/10"}`}>
               <div className={`w-5 h-5 rounded-full bg-white transition-transform ${annual ? "translate-x-6" : "translate-x-0"}`} />
             </button>
             <span className={`text-xs uppercase tracking-wider ${annual ? "text-white" : "text-white/25"}`}>
-              Annual <span className="text-brand-orange text-[10px]">-20%</span>
+              {t("billingAnnual")} <span className="text-brand-orange text-[10px]">{t("annualBadge")}</span>
             </span>
           </motion.div>
         </div>
 
         {/* Tier cards */}
         <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-4">
-          {TIERS.map((tier, i) => (
+          {tiers.map((tier, i) => (
             <motion.div
               key={tier.name}
               initial={{ opacity: 0, y: 30 }}
@@ -137,7 +147,7 @@ export default function PricingPage() {
             >
               {tier.popular && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-brand-orange text-white text-[9px] uppercase tracking-widest px-4 py-1 rounded-full font-medium">
-                  Most Popular
+                  {t("mostPopular")}
                 </div>
               )}
 
@@ -149,11 +159,11 @@ export default function PricingPage() {
               <div className="mb-6">
                 {tier.monthly ? (
                   <div className="flex items-baseline gap-1">
-                    <span className="font-heading text-5xl text-white">${annual ? tier.annual : tier.monthly}</span>
-                    <span className="text-xs text-white/25">/mo</span>
+                    <span className="font-heading text-5xl text-white">{t("currency")}{annual ? tier.annual : tier.monthly}</span>
+                    <span className="text-xs text-white/25">{t("perMonth")}</span>
                   </div>
                 ) : (
-                  <span className="font-heading text-3xl text-white">Custom</span>
+                  <span className="font-heading text-3xl text-white">{t("custom")}</span>
                 )}
               </div>
 
@@ -182,21 +192,21 @@ export default function PricingPage() {
         {/* FAQ */}
         <div className="max-w-2xl mx-auto mt-24">
           <h2 className="font-heading text-2xl uppercase tracking-tight text-white text-center mb-10">
-            Frequently asked
+            {t("faqHeadline")}
           </h2>
           <div className="space-y-2">
-            {FAQ.map((faq, i) => (
+            {faq.map((item, i) => (
               <div key={i} className="border border-white/[0.04] rounded-lg overflow-hidden">
                 <button
                   onClick={() => setOpenFaq(openFaq === i ? null : i)}
                   className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-white/[0.02] transition-colors"
                 >
-                  <span className="text-sm text-white/70">{faq.q}</span>
+                  <span className="text-sm text-white/70">{item.q}</span>
                   <span className="text-white/20 text-lg">{openFaq === i ? "−" : "+"}</span>
                 </button>
                 {openFaq === i && (
                   <div className="px-5 pb-4">
-                    <p className="text-xs text-white/30 leading-relaxed">{faq.a}</p>
+                    <p className="text-xs text-white/30 leading-relaxed">{item.a}</p>
                   </div>
                 )}
               </div>
@@ -207,10 +217,11 @@ export default function PricingPage() {
         {/* Bottom CTA */}
         <div className="max-w-2xl mx-auto mt-20 text-center">
           <p className="text-[10px] uppercase tracking-widest text-white/15">
-            No credit card required · Free for 14 days · Cancel anytime
+            {t("bottomCta")}
           </p>
         </div>
       </div>
     </div>
   );
 }
+

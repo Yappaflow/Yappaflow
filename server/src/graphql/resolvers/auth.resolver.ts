@@ -323,10 +323,20 @@ export const authResolvers = {
         { upsert: true, new: true }
       );
 
-      // Note: WhatsApp-OTP login already proves possession of the phone,
-      // so we treat it as its own second factor and don't additionally
-      // gate on app-based MFA here. (If a WhatsApp-authenticated user
-      // later sets up TOTP, it only applies to email login.)
+      // If the user previously enabled TOTP, require it here too. WhatsApp
+      // OTP alone isn't enough: a SIM-swap attacker can receive the OTP but
+      // won't have the authenticator-app secret. The TOTP challenge closes
+      // that hole — same mfaChallengeToken contract as email login.
+      if (user.mfaEnabled) {
+        const challengeToken = signMfaChallengeToken(user.id);
+        return {
+          token: null,
+          user: null,
+          mfaRequired: true,
+          mfaChallengeToken: challengeToken,
+        };
+      }
+
       const token = signToken({ userId: user.id, phone: user.phone });
       return {
         token,

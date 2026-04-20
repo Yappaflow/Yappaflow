@@ -103,9 +103,9 @@ export function DashboardShell({ children }: Props) {
         {/* Logo */}
         <div className="flex items-center gap-2.5 px-5 py-5">
           <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#FF6B35]">
-            <span className="text-xs font-black text-white tracking-tight">YF</span>
+            <span className="text-xs font-black text-white tracking-tight">{t("brandLogoLetters")}</span>
           </div>
-          <span className="font-bold text-[15px] tracking-tight">Yappaflow</span>
+          <span className="font-bold text-[15px] tracking-tight">{t("brandName")}</span>
         </div>
 
         {/* Nav — Main */}
@@ -131,7 +131,7 @@ export function DashboardShell({ children }: Props) {
                   <Icon size={15} className="flex-shrink-0" />
                   <span>{t(labelKey)}</span>
                   {id === "engine" && (
-                    <span className="ml-auto flex h-4 w-4 items-center justify-center rounded-full bg-[#FF6B35] text-[9px] font-bold text-white">3</span>
+                    <span className="ml-auto flex h-4 w-4 items-center justify-center rounded-full bg-[#FF6B35] text-[9px] font-bold text-white">{t("engineBadge")}</span>
                   )}
                 </button>
               );
@@ -207,7 +207,7 @@ export function DashboardShell({ children }: Props) {
               className="flex-1 bg-transparent text-[13px] text-white placeholder-white/20 outline-none"
               placeholder={t("searchPlaceholder")}
             />
-            <span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-semibold text-white/20">⌘F</span>
+            <span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-semibold text-white/20">{t("searchShortcut")}</span>
           </div>
 
           <div className="flex items-center gap-2 ml-auto">
@@ -226,11 +226,11 @@ export function DashboardShell({ children }: Props) {
 
             <div className="flex items-center gap-2.5 pl-2 border-l border-white/[0.05]">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#FF6B35]/10 border border-[#FF6B35]/30">
-                <span className="text-[12px] font-bold text-[#FF6B35]">A</span>
+                <span className="text-[12px] font-bold text-[#FF6B35]">{t("orgInitial")}</span>
               </div>
               <div className="hidden sm:block">
-                <p className="text-[12px] font-semibold leading-none text-white">Agency</p>
-                <p className="text-[10px] text-white/20 mt-0.5">yappaflow.com</p>
+                <p className="text-[12px] font-semibold leading-none text-white">{t("orgName")}</p>
+                <p className="text-[10px] text-white/20 mt-0.5">{t("orgDomain")}</p>
               </div>
             </div>
           </div>

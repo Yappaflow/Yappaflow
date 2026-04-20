@@ -1,10 +1,12 @@
 "use client";
 
 import { useRef } from "react";
+import { useTranslations } from "next-intl";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { ArrowUpRight } from "lucide-react";
 
 export function CtaSection() {
+  const t = useTranslations("ctaSection");
   const sectionRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: sectionRef, offset: ["start end", "start 30%"] });
   const headingO = useTransform(scrollYProgress, [0, 1], [0, 1]);
@@ -29,19 +31,19 @@ export function CtaSection() {
         <motion.div style={{ opacity: headingO, y: headingY }}>
           {/* Eyebrow */}
           <p className="text-[10px] uppercase tracking-[0.5em] text-brand-orange/60 mb-8">
-            Get Started
+            {t("eyebrow")}
           </p>
 
           {/* Massive headline */}
           <h2 className="font-heading text-5xl sm:text-6xl md:text-7xl lg:text-8xl xl:text-9xl uppercase tracking-tight leading-[0.9] text-white mb-10">
-            Ready to<br />
-            <span className="text-brand-orange">automate</span><br />
-            your agency?
+            {t("headline1")}<br />
+            <span className="text-brand-orange">{t("headline2")}</span><br />
+            {t("headline3")}
           </h2>
 
           {/* Description */}
           <p className="text-sm sm:text-base text-white/30 max-w-lg leading-relaxed mb-10">
-            Join agencies already shipping faster with Yappaflow. Connect your channels, generate code from conversations, and deploy in minutes — not weeks.
+            {t("description")}
           </p>
 
           {/* CTA buttons */}
@@ -50,21 +52,21 @@ export function CtaSection() {
               href="#"
               className="inline-flex items-center justify-center gap-2 bg-brand-orange text-white text-xs uppercase tracking-widest px-10 py-5 hover:bg-brand-orange-dark transition-colors"
             >
-              Start Free Trial
+              {t("ctaPrimary")}
               <ArrowUpRight className="h-4 w-4" />
             </a>
             <a
               href="#"
               className="inline-flex items-center justify-center gap-2 border border-white/10 text-white/60 text-xs uppercase tracking-widest px-10 py-5 hover:border-white/25 hover:text-white transition-all"
             >
-              Book a Demo
+              {t("ctaSecondary")}
               <ArrowUpRight className="h-4 w-4" />
             </a>
           </div>
 
           {/* Trust line */}
           <p className="mt-8 text-[10px] uppercase tracking-widest text-white/15">
-            No credit card required · Free for 14 days · Cancel anytime
+            {t("trust")}
           </p>
         </motion.div>
       </div>

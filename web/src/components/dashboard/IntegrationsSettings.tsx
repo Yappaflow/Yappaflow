@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Eye, EyeOff, Check, User, Bell, Shield, Link2, Loader2, Unlink, MessageCircle, Instagram, Download, Upload } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { Eye, EyeOff, Check, User, Bell, Shield, Link2, Loader2, Unlink, MessageCircle, Instagram, Download } from "lucide-react";
 import {
   getPlatformConnections, disconnectPlatform, importPlatformMessages,
   getMe,
@@ -12,21 +13,24 @@ import ChatImport from "./ChatImport";
 
 // ── API Key field ──────────────────────────────────────────────────────────────
 
-const API_FIELDS = [
-  { id: "namecheap",  label: "Namecheap API Key",  service: "Domain registrar",  placeholder: "nc_api_xxxxxxxxxx",  color: "#E05C00" },
-  { id: "hostinger",  label: "Hostinger API Key",  service: "Hosting provider",  placeholder: "hg_tok_xxxxxxxxxx",  color: "#7823DC" },
-  { id: "iyzico",     label: "Iyzico API Key",     service: "Payment gateway",   placeholder: "sandbox-xxxxxxxxxx", color: "#00B4D8" },
-];
+const API_FIELD_IDS = ["namecheap", "hostinger", "iyzico"] as const;
+const API_FIELD_COLORS = ["#E05C00", "#7823DC", "#00B4D8"] as const;
+const API_FIELD_LABEL_KEYS = ["apiNamecheapLabel", "apiHostingerLabel", "apiIyzicoLabel"] as const;
+const API_FIELD_SERVICE_KEYS = ["apiNamecheapService", "apiHostingerService", "apiIyzicoService"] as const;
+const API_FIELD_PH_KEYS = ["apiNamecheapPh", "apiHostingerPh", "apiIyzicoPh"] as const;
 
-const PREFERENCES = [
-  { id: "push",  label: "Push Notifications", desc: "New signals & deployment alerts" },
-  { id: "sound", label: "Sound Alerts",        desc: "Audio cue on new message"       },
-  { id: "auto",  label: "Auto-Build",          desc: "Start building on intake end"   },
-];
+const PREF_IDS = ["push", "sound", "auto"] as const;
+const PREF_LABEL_KEYS = ["notifPushLabel", "notifSoundLabel", "notifAutoLabel"] as const;
+const PREF_DESC_KEYS = ["notifPushDesc", "notifSoundDesc", "notifAutoDesc"] as const;
+
+const SECTION_IDS = ["profile", "platforms", "api", "notif"] as const;
+const SECTION_LABEL_KEYS = ["sectionProfile", "sectionPlatforms", "sectionApi", "sectionNotif"] as const;
+const SECTION_ICONS = [User, Link2, Shield, Bell];
 
 function ApiKeyField({ label, service, placeholder, color }: {
   label: string; service: string; placeholder: string; color: string;
 }) {
+  const t = useTranslations("integrationsSettings");
   const [value, setValue]     = useState("");
   const [visible, setVisible] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -50,7 +54,7 @@ function ApiKeyField({ label, service, placeholder, color }: {
         {connected && (
           <span className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold" style={{ backgroundColor: color + "15", color }}>
             <Check size={9} strokeWidth={3} />
-            Connected
+            {t("apiConnected")}
           </span>
         )}
       </div>
@@ -85,18 +89,10 @@ function Toggle({ enabled, onChange }: { enabled: boolean; onChange: (v: boolean
   );
 }
 
-let _settingsApiBase: string | null = null;
-function getApiBase(): string {
-  if (_settingsApiBase !== null) return _settingsApiBase;
-  const direct = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-  if (typeof window === "undefined") return direct;
-  _settingsApiBase = direct;
-  return _settingsApiBase;
-}
-
 // ── Instagram one-click connect ────────────────────────────────────────────────
 
 function InstagramOAuthButton() {
+  const t = useTranslations("integrationsSettings");
   const handleClick = () => {
     window.location.href = "/api/auth/instagram/authorize";
   };
@@ -104,14 +100,13 @@ function InstagramOAuthButton() {
   return (
     <div className="mt-3 space-y-3 rounded-xl border border-white/[0.05] bg-white/[0.04] p-4">
       <p className="text-[11px] text-white/30 leading-relaxed">
-        Connect your Instagram Business account in one click. You&apos;ll be redirected to Meta
-        to authorize Yappaflow to read your DMs.
+        {t("igOauthDesc")}
       </p>
       <button onClick={handleClick}
         className="w-full rounded-lg py-2 text-[12px] font-bold text-white hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
         style={{ background: "linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)" }}>
         <Instagram size={13} />
-        Continue with Instagram
+        {t("igContinue")}
       </button>
     </div>
   );
@@ -122,9 +117,11 @@ function InstagramOAuthButton() {
 function ConnectedCard({
   conn, onDisconnect,
 }: { conn: PlatformConnection; onDisconnect: () => void }) {
+  const t = useTranslations("integrationsSettings");
   const [disconnecting, setDisconnecting] = useState(false);
   const [importing, setImporting]         = useState(false);
   const [importMsg, setImportMsg]         = useState("");
+  const [importFailed, setImportFailed]   = useState(false);
 
   const handleDisconnect = async () => {
     setDisconnecting(true);
@@ -133,19 +130,20 @@ function ConnectedCard({
   };
 
   const handleImport = async () => {
-    setImporting(true); setImportMsg("");
+    setImporting(true); setImportMsg(""); setImportFailed(false);
     try {
       const result = await importPlatformMessages(conn.platform);
-      setImportMsg(`Imported ${result.signalsCreated} conversations, ${result.messagesCreated} messages`);
+      setImportMsg(t("importedSummary", { signals: result.signalsCreated, messages: result.messagesCreated }));
     } catch (e: unknown) {
-      setImportMsg(e instanceof Error ? e.message : "Import failed");
+      setImportFailed(true);
+      setImportMsg(e instanceof Error ? e.message : t("importFailed"));
     } finally { setImporting(false); }
   };
 
   const isWA = conn.platform === "whatsapp" || conn.platform === "whatsapp_business";
   const isIG = conn.platform === "instagram" || conn.platform === "instagram_dm";
   const color = isWA ? "#25D366" : "#E1306C";
-  const label = isWA ? "WhatsApp Business" : "Instagram DMs";
+  const label = isWA ? t("whatsappBusiness") : t("igDmsLabel");
   const sub   = isWA ? conn.displayPhone : `@${conn.igUsername}`;
 
   return (
@@ -164,29 +162,29 @@ function ConnectedCard({
         </div>
         <div className="flex items-center gap-2">
           <span className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold" style={{ backgroundColor: color + "15", color }}>
-            <Check size={9} strokeWidth={3} /> Live
+            <Check size={9} strokeWidth={3} /> {t("liveBadge")}
           </span>
           {isIG && (
             <button onClick={handleImport} disabled={importing}
               className="flex items-center gap-1 rounded-lg border border-white/[0.05] px-2.5 py-1.5 text-[11px] font-semibold text-white/30 hover:border-white/[0.08] hover:text-white transition-colors disabled:opacity-50">
               {importing ? <Loader2 size={11} className="animate-spin" /> : <Download size={11} />}
-              {importing ? "Importing…" : "Import Messages"}
+              {importing ? t("importing") : t("importMessages")}
             </button>
           )}
           <button onClick={handleDisconnect} disabled={disconnecting}
             className="flex items-center gap-1 rounded-lg border border-white/[0.05] px-2.5 py-1.5 text-[11px] font-semibold text-white/30 hover:border-red-200 hover:text-red-500 transition-colors disabled:opacity-50">
             {disconnecting ? <Loader2 size={11} className="animate-spin" /> : <Unlink size={11} />}
-            Disconnect
+            {t("disconnect")}
           </button>
         </div>
       </div>
       {isWA && (
         <p className="text-[10px] text-white/20 leading-relaxed px-1">
-          WhatsApp message history is not available via the API — new messages will appear here in real-time as customers write to you.
+          {t("whatsappHistoryNote")}
         </p>
       )}
       {importMsg && (
-        <p className="text-[11px] font-medium px-1" style={{ color: importMsg.includes("failed") ? "#EF4444" : "#25D366" }}>
+        <p className="text-[11px] font-medium px-1" style={{ color: importFailed ? "#EF4444" : "#25D366" }}>
           {importMsg}
         </p>
       )}
@@ -197,6 +195,7 @@ function ConnectedCard({
 // ── Connect Platforms section ──────────────────────────────────────────────────
 
 function ConnectPlatforms() {
+  const t = useTranslations("integrationsSettings");
   const [connections, setConnections] = useState<PlatformConnection[]>([]);
   const [loading, setLoading]         = useState(true);
   const [expand, setExpand]           = useState<"instagram" | null>(null);
@@ -222,9 +221,9 @@ function ConnectPlatforms() {
 
       {/* Instagram connection */}
       <div className="rounded-2xl bg-[#0c0c0f] border border-white/[0.05] p-5">
-        <h2 className="text-[14px] font-bold mb-1">Live Integrations</h2>
+        <h2 className="text-[14px] font-bold mb-1">{t("liveIntegrations")}</h2>
         <p className="text-[11px] text-white/20 mb-4">
-          Optionally connect Instagram to receive DMs in real-time.
+          {t("liveIntegrationsDesc")}
         </p>
 
         {loading ? (
@@ -248,13 +247,13 @@ function ConnectPlatforms() {
                       <Instagram size={16} style={{ color: "#E1306C" }} />
                     </div>
                     <div className="text-left">
-                      <p className="text-[12px] font-semibold text-white">Instagram DMs</p>
-                      <p className="text-[10px] text-white/20 max-w-xs">Connect to receive real-time customer messages</p>
+                      <p className="text-[12px] font-semibold text-white">{t("igDmsLabel")}</p>
+                      <p className="text-[10px] text-white/20 max-w-xs">{t("igDmsDesc")}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 rounded-lg border border-white/[0.05] px-3 py-1.5 text-[11px] font-semibold text-white/30 group-hover:border-white/[0.08] flex-shrink-0">
                     <Link2 size={11} />
-                    {expand === "instagram" ? "Cancel" : "Connect"}
+                    {expand === "instagram" ? t("cancel") : t("connectCta")}
                   </div>
                 </button>
 
@@ -270,17 +269,31 @@ function ConnectPlatforms() {
 
 // ── Sections ───────────────────────────────────────────────────────────────────
 
-const SECTIONS = [
-  { id: "profile",   label: "Profile",    icon: User    },
-  { id: "platforms", label: "Platforms",  icon: Link2   },
-  { id: "api",       label: "API Keys",   icon: Shield  },
-  { id: "notif",     label: "Notifications", icon: Bell },
-];
-
 export function IntegrationsSettings() {
+  const t = useTranslations("integrationsSettings");
   const [lang, setLang]       = useState<"tr" | "en">("tr");
   const [prefs, setPrefs]     = useState({ push: true, sound: true, auto: false });
-  const [section, setSection] = useState("profile");
+  const [section, setSection] = useState<typeof SECTION_IDS[number]>("profile");
+
+  const API_FIELDS = API_FIELD_IDS.map((id, i) => ({
+    id,
+    label: t(API_FIELD_LABEL_KEYS[i]),
+    service: t(API_FIELD_SERVICE_KEYS[i]),
+    placeholder: t(API_FIELD_PH_KEYS[i]),
+    color: API_FIELD_COLORS[i],
+  }));
+
+  const PREFERENCES = PREF_IDS.map((id, i) => ({
+    id,
+    label: t(PREF_LABEL_KEYS[i]),
+    desc: t(PREF_DESC_KEYS[i]),
+  }));
+
+  const SECTIONS = SECTION_IDS.map((id, i) => ({
+    id,
+    label: t(SECTION_LABEL_KEYS[i]),
+    icon: SECTION_ICONS[i],
+  }));
   // Pull the logged-in user so the Profile panel shows THEIR name/email/phone
   // instead of the hardcoded placeholder that used to live here.
   const [me, setMe]           = useState<Me | null>(null);
@@ -305,8 +318,8 @@ export function IntegrationsSettings() {
   return (
     <div className="p-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-black tracking-tight">Settings</h1>
-        <p className="mt-0.5 text-[13px] text-white/30">Manage your agency preferences and integrations</p>
+        <h1 className="text-2xl font-black tracking-tight">{t("pageTitle")}</h1>
+        <p className="mt-0.5 text-[13px] text-white/30">{t("pageSubtitle")}</p>
       </div>
 
       <div className="flex gap-5">
@@ -333,7 +346,7 @@ export function IntegrationsSettings() {
           {section === "profile" && (
             <div className="space-y-4">
               <div className="rounded-2xl bg-[#0c0c0f] border border-white/[0.05] p-6">
-                <h2 className="text-[14px] font-bold mb-4">Profile</h2>
+                <h2 className="text-[14px] font-bold mb-4">{t("profile")}</h2>
                 <div className="flex items-center gap-4 mb-5">
                   <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FF6B35]/10 border border-[#FF6B35]/30 overflow-hidden">
                     {me?.avatarUrl ? (
@@ -347,31 +360,31 @@ export function IntegrationsSettings() {
                   </div>
                   <div>
                     <p className="text-[15px] font-bold">
-                      {meLoading ? "Loading…" : me?.name || "—"}
+                      {meLoading ? t("loading") : me?.name || t("empty")}
                     </p>
                     <p className="text-[12px] text-white/20">
                       {me?.authProvider === "whatsapp"
-                        ? "WhatsApp account"
+                        ? t("providerWhatsapp")
                         : me?.authProvider === "instagram"
-                        ? "Instagram account"
-                        : "Email account"}
+                        ? t("providerInstagram")
+                        : t("providerEmail")}
                     </p>
                   </div>
                   <button className="ml-auto rounded-lg border border-white/[0.05] px-3 py-1.5 text-[12px] font-semibold text-white/30 hover:bg-white/[0.04]">
-                    Edit
+                    {t("edit")}
                   </button>
                 </div>
                 <div className="space-y-3">
                   {[
-                    { label: "Name",  value: meLoading ? "…" : (me?.name  || "—") },
-                    { label: "Email", value: meLoading ? "…" : (me?.email || "—") },
+                    { label: t("fieldName"),  value: meLoading ? t("loadingShort") : (me?.name  || t("empty")) },
+                    { label: t("fieldEmail"), value: meLoading ? t("loadingShort") : (me?.email || t("empty")) },
                     {
-                      label: "Phone",
+                      label: t("fieldPhone"),
                       value: meLoading
-                        ? "…"
+                        ? t("loadingShort")
                         : me?.phone
                           ? me.phone + (me.phoneVerified ? "  ✓" : "")
-                          : "—",
+                          : t("empty"),
                     },
                   ].map((f) => (
                     <div key={f.label} className="flex items-center justify-between py-2 border-b border-white/[0.05] last:border-0">
@@ -383,7 +396,7 @@ export function IntegrationsSettings() {
               </div>
 
               <div className="rounded-2xl bg-[#0c0c0f] border border-white/[0.05] p-5">
-                <h2 className="text-[14px] font-bold mb-3">Language</h2>
+                <h2 className="text-[14px] font-bold mb-3">{t("language")}</h2>
                 <div className="flex gap-2 rounded-xl border border-white/[0.05] bg-white/[0.04] p-1 w-fit">
                   {(["tr", "en"] as const).map((l) => (
                     <button key={l} onClick={() => setLang(l)}
@@ -392,7 +405,7 @@ export function IntegrationsSettings() {
                         lang === l ? "bg-[#111114] text-white shadow-sm border border-white/[0.05]" : "text-white/30",
                       ].join(" ")}
                     >
-                      {l === "tr" ? "🇹🇷 Türkçe" : "🇺🇸 English"}
+                      {l === "tr" ? t("langTr") : t("langEn")}
                     </button>
                   ))}
                 </div>
@@ -404,7 +417,7 @@ export function IntegrationsSettings() {
 
           {section === "api" && (
             <div className="rounded-2xl bg-white/[0.04] border border-white/[0.05] p-5">
-              <h2 className="text-[14px] font-bold mb-4">API Integrations</h2>
+              <h2 className="text-[14px] font-bold mb-4">{t("apiIntegrations")}</h2>
               <div className="grid grid-cols-1 gap-3">
                 {API_FIELDS.map((f) => (
                   <ApiKeyField key={f.id} label={f.label} service={f.service} placeholder={f.placeholder} color={f.color} />
@@ -416,7 +429,7 @@ export function IntegrationsSettings() {
           {section === "notif" && (
             <div className="rounded-2xl bg-[#0c0c0f] border border-white/[0.05] overflow-hidden">
               <div className="px-5 py-4 border-b border-white/[0.05]">
-                <h2 className="text-[14px] font-bold">Notification Preferences</h2>
+                <h2 className="text-[14px] font-bold">{t("notifTitle")}</h2>
               </div>
               {PREFERENCES.map((pref, i) => (
                 <div key={pref.id}

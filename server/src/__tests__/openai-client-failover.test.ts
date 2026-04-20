@@ -253,3 +253,81 @@ describe("createChatCompletion — per-provider max_tokens clamping", () => {
     expect(createSpy.mock.calls[0][0].max_tokens).toBe(32_000);
   });
 });
+
+/**
+ * Real bug this locks in: the Shopify theme generator asks for 32k
+ * output. With DeepSeek primary (8k cap), the original chain would hit
+ * DeepSeek first, silently clamp 32k → 8k, and return a truncated Liquid
+ * file that blew up validation with `LiquidBundleValidationError at col
+ * 4523`. The capacity-aware partition in `resolveProviderChain` is
+ * supposed to demote any provider whose ceiling is below the requested
+ * size, so the caller's first hop is a provider that can actually
+ * deliver.
+ *
+ * These tests verify the partition kicks in when (and only when) the
+ * caller signals a large output — small requests should still follow the
+ * configured primary (DeepSeek) to keep the cheap path cheap.
+ */
+describe("createChatCompletion — capacity-aware provider routing", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    script = [];
+    createSpy.mockClear();
+  });
+
+  it("routes a 32k request to OpenRouter first, skipping DeepSeek's 8k cap", async () => {
+    const { createChatCompletion } = await loadClient();
+    script = [{ ok: "full-size from openrouter" }];
+
+    const result = await createChatCompletion(
+      "sys",
+      [{ role: "user", content: "hi" }],
+      { maxTokens: 32_000 },
+    );
+
+    expect(result.text).toBe("full-size from openrouter");
+    // Exactly one SDK call — DeepSeek was bypassed, not tried-and-failed.
+    expect(createSpy).toHaveBeenCalledTimes(1);
+    // The call landed on OpenRouter's model, not DeepSeek's.
+    expect(createSpy.mock.calls[0][0].model).toBe("google/gemini-2.5-flash-lite");
+    // And the max_tokens survived intact (no clamp needed — OpenRouter fits).
+    expect(createSpy.mock.calls[0][0].max_tokens).toBe(32_000);
+  });
+
+  it("still uses DeepSeek first for small requests that fit both providers", async () => {
+    const { createChatCompletion } = await loadClient();
+    script = [{ ok: "cheap path" }];
+
+    await createChatCompletion(
+      "sys",
+      [{ role: "user", content: "hi" }],
+      { maxTokens: 4000 },
+    );
+
+    // A 4k request fits DeepSeek's 8k ceiling — don't bypass the cheap
+    // provider just because OpenRouter also has a key.
+    expect(createSpy).toHaveBeenCalledTimes(1);
+    expect(createSpy.mock.calls[0][0].model).toBe("deepseek-chat");
+  });
+
+  it("falls back to a too-small provider only if no larger one is available", async () => {
+    // No OpenRouter key → DeepSeek is the only option even for 32k.
+    // We should still try it (truncation beats total failure) rather
+    // than refusing to call at all.
+    const { createChatCompletion } = await loadClient({
+      openrouterApiKey: "",
+    });
+    script = [{ ok: "clamped but succeeded" }];
+
+    await createChatCompletion(
+      "sys",
+      [{ role: "user", content: "hi" }],
+      { maxTokens: 32_000 },
+    );
+
+    expect(createSpy).toHaveBeenCalledTimes(1);
+    expect(createSpy.mock.calls[0][0].model).toBe("deepseek-chat");
+    // max_tokens clamped to DeepSeek's 8192 hard ceiling.
+    expect(createSpy.mock.calls[0][0].max_tokens).toBe(8192);
+  });
+});

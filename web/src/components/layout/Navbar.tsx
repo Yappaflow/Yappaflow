@@ -18,7 +18,7 @@ export function Navbar() {
       <Container className="flex h-14 items-center justify-between">
         {/* Logo */}
         <Link href="/" className="flex items-center">
-          <span className="font-heading text-lg uppercase tracking-tight text-white">Yappaflow</span>
+          <span className="font-heading text-lg uppercase tracking-tight text-white">{t("brand")}</span>
         </Link>
 
         {/* Desktop Nav */}
@@ -51,7 +51,7 @@ export function Navbar() {
             locale={pathname === "/" ? "tr" : "en"}
             className="text-[11px] uppercase tracking-widest text-white/30 hover:text-white transition-colors"
           >
-            TR / EN
+            {t("langSwitch")}
           </Link>
           <a
             href={pathname === "/" ? "/en/auth" : "/tr/auth"}

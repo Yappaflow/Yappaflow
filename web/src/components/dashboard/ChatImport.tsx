@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Upload, FileText, MessageCircle, Instagram, Send, X, Check, Loader2,
@@ -13,38 +14,42 @@ import {
 
 const ACCEPTED_TYPES = ".txt,.json,.csv";
 
-const PLATFORM_INFO: Record<string, { icon: React.ReactNode; label: string; color: string; howTo: string }> = {
-  whatsapp: {
-    icon: <MessageCircle size={16} />,
-    label: "WhatsApp",
-    color: "#25D366",
-    howTo: "Open chat → ⋮ Menu → More → Export chat → Without media",
-  },
-  instagram: {
-    icon: <Instagram size={16} />,
-    label: "Instagram",
-    color: "#E1306C",
-    howTo: "Settings → Your activity → Download your information → Messages (JSON)",
-  },
-  telegram: {
-    icon: <Send size={16} />,
-    label: "Telegram",
-    color: "#0088CC",
-    howTo: "Desktop: Open chat → ⋮ Menu → Export chat history → JSON format",
-  },
-  csv: {
-    icon: <FileText size={16} />,
-    label: "CSV",
-    color: "#737373",
-    howTo: "CSV with columns: timestamp, sender, message",
-  },
-};
-
 interface Props {
   onImportComplete?: (result: ChatImportResult) => void;
 }
 
 export default function ChatImport({ onImportComplete }: Props) {
+  const t = useTranslations("chatImport");
+
+  // Platform info with translated labels & how-tos. The `color` stays as a
+  // brand hex since it's visual, not copy.
+  const PLATFORM_INFO: Record<string, { icon: React.ReactNode; label: string; color: string; howTo: string }> = {
+    whatsapp: {
+      icon: <MessageCircle size={16} />,
+      label: t("whatsapp"),
+      color: "#25D366",
+      howTo: t("whatsappHow"),
+    },
+    instagram: {
+      icon: <Instagram size={16} />,
+      label: t("instagram"),
+      color: "#E1306C",
+      howTo: t("instagramHow"),
+    },
+    telegram: {
+      icon: <Send size={16} />,
+      label: t("telegram"),
+      color: "#0088CC",
+      howTo: t("telegramHow"),
+    },
+    csv: {
+      icon: <FileText size={16} />,
+      label: t("csv"),
+      color: "#737373",
+      howTo: t("csvHow"),
+    },
+  };
+
   const [file, setFile]           = useState<File | null>(null);
   const [preview, setPreview]     = useState<ChatPreview | null>(null);
   const [ownerName, setOwnerName] = useState<string | null>(null); // null = not chosen yet; "" = "none" (group view)
@@ -68,11 +73,11 @@ export default function ChatImport({ onImportComplete }: Props) {
       // Auto-default for 1-participant files (nothing to pick)
       if (p.participants.length <= 1) setOwnerName("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't read the file");
+      setError(err instanceof Error ? err.message : t("errorRead"));
     } finally {
       setPreviewing(false);
     }
-  }, []);
+  }, [t]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -90,7 +95,7 @@ export default function ChatImport({ onImportComplete }: Props) {
       setResult(res);
       onImportComplete?.(res);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Import failed");
+      setError(err instanceof Error ? err.message : t("errorImport"));
     } finally {
       setLoading(false);
     }
@@ -113,9 +118,9 @@ export default function ChatImport({ onImportComplete }: Props) {
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-green-500/10 border border-green-500/20 mb-4">
             <Check size={28} className="text-green-400" />
           </div>
-          <h3 className="text-[15px] font-bold text-white">Import Complete</h3>
+          <h3 className="text-[15px] font-bold text-white">{t("completeTitle")}</h3>
           <p className="mt-2 text-[13px] text-white/40">
-            {result.messagesCreated} messages from {result.participants.length} contact{result.participants.length !== 1 ? "s" : ""}
+            {t("completeSummary", { count: result.messagesCreated, participants: result.participants.length })}
           </p>
           <div className="mt-3 flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium"
@@ -125,26 +130,26 @@ export default function ChatImport({ onImportComplete }: Props) {
             </span>
             {result.encrypted && (
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-400">
-                <Shield size={10} /> Encrypted
+                <Shield size={10} /> {t("encrypted")}
               </span>
             )}
           </div>
           {result.participants.length > 0 && (
             <div className="mt-4 w-full text-left">
-              <p className="text-[10px] font-semibold text-white/20 uppercase tracking-wide mb-1.5">Contacts imported</p>
+              <p className="text-[10px] font-semibold text-white/20 uppercase tracking-wide mb-1.5">{t("contactsImported")}</p>
               <div className="flex flex-wrap gap-1.5">
                 {result.participants.slice(0, 10).map((p) => (
                   <span key={p} className="rounded-md bg-white/[0.04] px-2 py-0.5 text-[11px] text-white/40">{p}</span>
                 ))}
                 {result.participants.length > 10 && (
-                  <span className="text-[11px] text-white/20">+{result.participants.length - 10} more</span>
+                  <span className="text-[11px] text-white/20">{t("morePlus", { n: result.participants.length - 10 })}</span>
                 )}
               </div>
             </div>
           )}
           <button onClick={reset}
             className="mt-5 rounded-lg bg-white/[0.05] px-4 py-2 text-[12px] font-medium text-white/50 hover:bg-white/[0.08] transition-colors">
-            Import another file
+            {t("importAnother")}
           </button>
         </div>
       </motion.div>
@@ -155,15 +160,14 @@ export default function ChatImport({ onImportComplete }: Props) {
   return (
     <div className="rounded-2xl border border-white/[0.05] bg-[#0c0c0f] p-6">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-[15px] font-bold text-white">Import Conversations</h3>
+        <h3 className="text-[15px] font-bold text-white">{t("title")}</h3>
         <div className="flex items-center gap-1 text-[10px] text-emerald-400/60">
           <Shield size={10} />
-          <span>E2E encrypted</span>
+          <span>{t("encryptionBadge")}</span>
         </div>
       </div>
       <p className="text-[12px] text-white/30 mb-5 leading-relaxed">
-        Export your chats from WhatsApp, Instagram, Telegram, or any app — then upload here.
-        Messages are encrypted at rest.
+        {t("description")}
       </p>
 
       {/* Platform quick-guide */}
@@ -205,7 +209,7 @@ export default function ChatImport({ onImportComplete }: Props) {
               </div>
               <div className="text-left">
                 <p className="text-[13px] font-medium text-white/80">{file.name}</p>
-                <p className="text-[11px] text-white/30">{(file.size / 1024).toFixed(1)} KB</p>
+                <p className="text-[11px] text-white/30">{t("kbSize", { kb: (file.size / 1024).toFixed(1) })}</p>
               </div>
               <button onClick={(e) => { e.stopPropagation(); reset(); }}
                 className="ml-2 text-white/20 hover:text-white/50">
@@ -216,10 +220,10 @@ export default function ChatImport({ onImportComplete }: Props) {
             <motion.div key="empty" initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}>
               <Upload size={24} className="mx-auto text-white/15 mb-2" />
               <p className="text-[13px] text-white/40">
-                Drop your chat export here, or <span className="text-[#FF6B35]">browse</span>
+                {t("dropzoneTitle")}
               </p>
               <p className="text-[10px] text-white/15 mt-1">
-                Supports .txt, .json, .csv — max 25 MB
+                {t("dropzoneSupports")}
               </p>
             </motion.div>
           )}
@@ -229,7 +233,7 @@ export default function ChatImport({ onImportComplete }: Props) {
       {/* Preview loading */}
       {previewing && (
         <div className="mt-4 flex items-center gap-2 text-[12px] text-white/40">
-          <Loader2 size={12} className="animate-spin" /> Reading file…
+          <Loader2 size={12} className="animate-spin" /> {t("readingFile")}
         </div>
       )}
 
@@ -237,7 +241,7 @@ export default function ChatImport({ onImportComplete }: Props) {
       {preview && preview.participants.length >= 2 && !result && (
         <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="mt-5">
           <label className="text-[11px] font-semibold text-white/30 uppercase tracking-wide mb-2 block">
-            Which side is you?
+            {t("whichSideIsYou")}
           </label>
           <div className="space-y-1.5">
             {preview.participants.map((p) => {
@@ -261,7 +265,7 @@ export default function ChatImport({ onImportComplete }: Props) {
                     </div>
                     <div>
                       <p className={`text-[13px] font-medium ${active ? "text-white" : "text-white/70"}`}>{p.name}</p>
-                      <p className="text-[10px] text-white/25">{p.messageCount} message{p.messageCount !== 1 ? "s" : ""}</p>
+                      <p className="text-[10px] text-white/25">{t("messageCount", { n: p.messageCount })}</p>
                     </div>
                   </div>
                   {active && <Check size={14} className="text-[#FF6B35]" />}
@@ -285,15 +289,15 @@ export default function ChatImport({ onImportComplete }: Props) {
                   <Users size={13} />
                 </div>
                 <div>
-                  <p className={`text-[13px] font-medium ${ownerName === "" ? "text-white" : "text-white/50"}`}>I'm not in this chat</p>
-                  <p className="text-[10px] text-white/25">Keep each person as a separate conversation</p>
+                  <p className={`text-[13px] font-medium ${ownerName === "" ? "text-white" : "text-white/50"}`}>{t("notInChat")}</p>
+                  <p className="text-[10px] text-white/25">{t("notInChatHint")}</p>
                 </div>
               </div>
               {ownerName === "" && <Check size={14} className="text-white/70" />}
             </button>
           </div>
           <p className="mt-2 text-[10px] text-white/20">
-            Your messages will appear as outbound; the other side&apos;s will appear as inbound — like a normal chat app.
+            {t("outboundNote")}
           </p>
         </motion.div>
       )}
@@ -314,11 +318,11 @@ export default function ChatImport({ onImportComplete }: Props) {
           className="mt-4 w-full flex items-center justify-center gap-2 rounded-lg bg-[#FF6B35] py-3 text-[13px] font-semibold text-white hover:bg-[#FF6B35]/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
         >
           {loading ? (
-            <><Loader2 size={14} className="animate-spin" /> Importing…</>
+            <><Loader2 size={14} className="animate-spin" /> {t("importing")}</>
           ) : ownerName === null && preview && preview.participants.length >= 2 ? (
-            <>Pick which side is you to continue</>
+            <>{t("pickSideHint")}</>
           ) : (
-            <><Upload size={14} /> Import Messages</>
+            <><Upload size={14} /> {t("importMessages")}</>
           )}
         </button>
       )}

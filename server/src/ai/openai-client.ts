@@ -134,7 +134,12 @@ export async function createChatCompletion(
     return { text: mock.text, usage: toLegacyUsage(mock.usage), rawUsage: mock.usage };
   }
 
-  const chain = resolveProviderChain(options?.providerChain);
+  // Capacity-aware routing: if the caller asks for more output tokens
+  // than a provider can physically deliver, we'd rather start on a
+  // provider that fits. Otherwise we risk a silently-truncated response
+  // (e.g. DeepSeek caps at 8k; a 32k Shopify theme request comes back as
+  // a half-written Liquid file that fails validation downstream).
+  const chain = resolveProviderChain(options?.providerChain, options?.maxTokens);
   if (chain.length === 0) {
     throw new YappaflowAIError(
       "No AI provider is configured. Set DEEPSEEK_API_KEY or OPENROUTER_API_KEY in your .env file.",
@@ -254,7 +259,10 @@ export async function createStreamingChatCompletion(
     return { text: mock.text, usage: toLegacyUsage(mock.usage), rawUsage: mock.usage };
   }
 
-  const chain = resolveProviderChain(options?.providerChain);
+  // Same capacity-aware routing as the non-streaming path — prefer a
+  // provider that can actually fit the requested output size before
+  // falling back to smaller-capacity providers.
+  const chain = resolveProviderChain(options?.providerChain, options?.maxTokens);
   if (chain.length === 0) {
     throw new YappaflowAIError(
       "No AI provider is configured. Set DEEPSEEK_API_KEY or OPENROUTER_API_KEY in your .env file.",

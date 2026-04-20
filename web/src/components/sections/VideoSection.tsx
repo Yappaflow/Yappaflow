@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef } from "react";
+import { useTranslations } from "next-intl";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { Play } from "lucide-react";
 
@@ -21,6 +22,7 @@ function AnimatedLine({ scrollYProgress, text, start, isOrange }: {
 }
 
 export function VideoSection() {
+  const t = useTranslations("videoSection");
   const containerRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
     target: containerRef,
@@ -48,16 +50,16 @@ export function VideoSection() {
         {/* Heading */}
         <motion.div style={{ opacity: textOpacity }} className="absolute top-8 sm:top-12 left-0 right-0 px-4 sm:px-6 z-20">
           <h2 className="font-heading text-3xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl uppercase tracking-tight leading-[1.0]">
-            <AnimatedLine scrollYProgress={scrollYProgress} text="Innovation is connection." start={0} />
+            <AnimatedLine scrollYProgress={scrollYProgress} text={t("line1")} start={0} />
             <br />
-            <AnimatedLine scrollYProgress={scrollYProgress} text="We bridge the gap between" start={0.04} />
+            <AnimatedLine scrollYProgress={scrollYProgress} text={t("line2")} start={0.04} />
             <br />
-            <AnimatedLine scrollYProgress={scrollYProgress} text="complex infrastructure" start={0.08} />
+            <AnimatedLine scrollYProgress={scrollYProgress} text={t("line3")} start={0.08} />
             <br />
-            <AnimatedLine scrollYProgress={scrollYProgress} text="and human experience to" start={0.12} />
+            <AnimatedLine scrollYProgress={scrollYProgress} text={t("line4")} start={0.12} />
             <br />
-            <AnimatedLine scrollYProgress={scrollYProgress} text="turn vision into " start={0.16} />
-            <AnimatedLine scrollYProgress={scrollYProgress} text="momentum." start={0.16} isOrange />
+            <AnimatedLine scrollYProgress={scrollYProgress} text={t("line5")} start={0.16} />
+            <AnimatedLine scrollYProgress={scrollYProgress} text={t("line6")} start={0.16} isOrange />
           </h2>
         </motion.div>
 
@@ -68,10 +70,10 @@ export function VideoSection() {
         >
           <div className="w-full h-full bg-[#111114] relative">
             <div className="absolute top-0 left-0 right-0 h-7 bg-black/70 z-10 flex items-center justify-between px-4">
-              <span className="text-[9px] text-white/30 font-mono">00:02:30</span>
+              <span className="text-[9px] text-white/30 font-mono">{t("timecode")}</span>
               <div className="flex items-center gap-3">
-                <span className="text-[9px] text-white/25 font-mono">4K 60fps</span>
-                <span className="text-[9px] text-white/15 font-mono">Res: 1920x1080</span>
+                <span className="text-[9px] text-white/25 font-mono">{t("format")}</span>
+                <span className="text-[9px] text-white/15 font-mono">{t("resolution")}</span>
               </div>
             </div>
             <div className="absolute top-7 left-0 right-0 h-[2px] bg-white/10 z-10">
@@ -84,7 +86,7 @@ export function VideoSection() {
                 <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white/[0.06] backdrop-blur-sm flex items-center justify-center cursor-pointer hover:bg-white/[0.1] transition-colors group">
                   <Play className="h-6 w-6 sm:h-7 sm:w-7 text-white/80 ml-1 group-hover:text-white transition-colors" fill="currentColor" />
                 </div>
-                <span className="text-[9px] uppercase tracking-[0.3em] text-white/20">Watch the demo</span>
+                <span className="text-[9px] uppercase tracking-[0.3em] text-white/20">{t("watchDemo")}</span>
               </motion.div>
             </div>
           </div>

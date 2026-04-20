@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   MessageCircle, Instagram, Send, X, Loader2, Lock, ChevronRight, Zap,
@@ -20,18 +21,19 @@ function formatTime(ts: string) {
 
 // ── No signal selected ────────────────────────────────────────────────────────
 function EmptyState({ setView }: { setView: (v: DashboardView) => void }) {
+  const t = useTranslations("engineRoom");
   return (
     <div className="flex h-full flex-col items-center justify-center gap-4 text-center p-8 bg-[#0A0A0A]">
       <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#111114] border border-white/[0.05]">
         <MessageCircle size={22} className="text-white/20" />
       </div>
       <div>
-        <p className="text-[15px] font-bold text-white">No conversation selected</p>
-        <p className="mt-1 text-[13px] text-white/30">Click a signal on the dashboard to open its chat thread</p>
+        <p className="text-[15px] font-bold text-white">{t("emptyTitle")}</p>
+        <p className="mt-1 text-[13px] text-white/30">{t("emptyDesc")}</p>
       </div>
       <button onClick={() => setView("command")}
         className="rounded-xl border border-white/[0.05] bg-[#111114] px-5 py-2 text-[13px] font-semibold text-white/30 hover:bg-white/[0.04]">
-        ← Back to Dashboard
+        {t("backToDashboard")}
       </button>
     </div>
   );
@@ -39,13 +41,13 @@ function EmptyState({ setView }: { setView: (v: DashboardView) => void }) {
 
 // ── Consent notice ────────────────────────────────────────────────────────────
 function ConsentNotice() {
+  const t = useTranslations("engineRoom");
   return (
     <div className="flex items-start gap-2.5 rounded-xl border border-blue-500/20 bg-blue-500/10 px-4 py-3 mx-4 mt-3">
       <Lock size={13} className="text-blue-400 flex-shrink-0 mt-0.5" />
       <p className="text-[11px] text-blue-300 leading-relaxed">
-        <strong>Data with your permission.</strong> These messages are fetched from your connected
-        WhatsApp / Instagram account. You authorized Yappaflow to access them during login.
-        You can disconnect at any time in <strong>Settings → Platforms</strong>.
+        <strong>{t("consentLeader")}</strong> {t("consentBody")}{" "}
+        <strong>{t("consentSettingsLink")}</strong>.
       </p>
     </div>
   );
@@ -53,6 +55,7 @@ function ConsentNotice() {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export function EngineRoom({ setView, signalId }: Props) {
+  const t = useTranslations("engineRoom");
   const [messages,  setMessages]  = useState<ChatMessage[]>([]);
   const [signal,    setSignal]    = useState<Signal | null>(null);
   const [loading,   setLoading]   = useState(false);
@@ -122,7 +125,7 @@ export function EngineRoom({ setView, signalId }: Props) {
       signalId,
       platform:    signal?.platform ?? "whatsapp",
       direction:   "outbound",
-      senderName:  "Agency",
+      senderName:  t("agency"),
       text,
       messageType: "text",
       timestamp:   new Date().toISOString(),
@@ -134,7 +137,7 @@ export function EngineRoom({ setView, signalId }: Props) {
       // Replace optimistic with real
       setMessages((prev) => prev.map((m) => m.id === optimistic.id ? sent : m));
     } catch (e: unknown) {
-      setSendErr(e instanceof Error ? e.message : "Failed to send");
+      setSendErr(e instanceof Error ? e.message : t("failedToSend"));
       // Remove optimistic on error
       setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
     } finally { setSending(false); inputRef.current?.focus(); }
@@ -156,13 +159,13 @@ export function EngineRoom({ setView, signalId }: Props) {
             <PlatformIcon size={17} style={{ color: platformColor }} />
           </div>
           <div>
-            <h2 className="text-[15px] font-black leading-none text-white">{signal?.senderName ?? "Loading…"}</h2>
+            <h2 className="text-[15px] font-black leading-none text-white">{signal?.senderName ?? t("loading")}</h2>
             <p className="text-[11px] text-white/20 mt-0.5">{signal?.sender ?? ""}</p>
           </div>
           <span className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold ml-1"
             style={{ backgroundColor: platformColor + "10", borderColor: platformColor + "30", color: platformColor }}>
             <span className="h-1.5 w-1.5 rounded-full animate-pulse" style={{ backgroundColor: platformColor }} />
-            Live
+            {t("live")}
           </span>
         </div>
 
@@ -170,7 +173,7 @@ export function EngineRoom({ setView, signalId }: Props) {
           <button onClick={() => setView("deploy")}
             className="flex items-center gap-1.5 rounded-xl bg-[#FF6B35] px-3.5 py-1.5 text-[12px] font-bold text-white hover:opacity-90 transition-opacity">
             <Zap size={12} />
-            Deploy
+            {t("deploy")}
             <ChevronRight size={12} />
           </button>
           <button onClick={() => setView("command")}
@@ -194,19 +197,19 @@ export function EngineRoom({ setView, signalId }: Props) {
 
         {serverErr && (
           <div className="flex flex-col items-center justify-center py-10 gap-3 text-center">
-            <p className="text-[13px] text-white/30">Could not load messages — server offline</p>
+            <p className="text-[13px] text-white/30">{t("loadError")}</p>
             <button onClick={loadMessages}
               className="rounded-lg border border-white/[0.05] bg-[#111114] px-4 py-1.5 text-[12px] font-semibold text-white/30 hover:bg-white/[0.04]">
-              Retry
+              {t("retry")}
             </button>
           </div>
         )}
 
         {!loading && !serverErr && messages.length === 0 && (
           <div className="flex flex-col items-center justify-center py-10 gap-2 text-center">
-            <p className="text-[13px] text-white/30">No messages yet</p>
+            <p className="text-[13px] text-white/30">{t("emptyMessagesTitle")}</p>
             <p className="text-[11px] text-white/20">
-              Messages will appear here when {signal?.senderName ?? "the customer"} writes to you
+              {t("emptyMessagesDesc", { name: signal?.senderName ?? t("senderFallback") })}
             </p>
           </div>
         )}
@@ -252,7 +255,7 @@ export function EngineRoom({ setView, signalId }: Props) {
             value={reply}
             onChange={(e) => setReply(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-            placeholder={`Reply to ${signal?.senderName ?? "customer"}…`}
+            placeholder={t("replyPlaceholder", { name: signal?.senderName ?? t("senderFallback") })}
             className="flex-1 bg-transparent text-[13px] text-white placeholder-white/20 outline-none"
           />
           <button onClick={handleSend} disabled={!reply.trim() || sending}
@@ -261,7 +264,7 @@ export function EngineRoom({ setView, signalId }: Props) {
           </button>
         </div>
         <p className="mt-1.5 text-center text-[10px] text-white/15">
-          Requires WhatsApp Business API token in Settings → Platforms
+          {t("whatsappRequiresToken")}
         </p>
       </div>
     </div>

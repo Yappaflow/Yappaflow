@@ -1,10 +1,16 @@
 import { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
+import { useTranslations } from "next-intl";
 
-export const metadata: Metadata = {
-  title: "Privacy Policy | Yappaflow",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("privacy");
+  return { title: t("metaTitle") };
+}
 
 export default function PrivacyPage() {
+  const t = useTranslations("privacy");
+  const email = t("contactEmail");
+
   return (
     <div className="min-h-screen bg-brand-dark text-white">
       {/* Atmosphere */}
@@ -20,114 +26,95 @@ export default function PrivacyPage() {
       {/* Nav */}
       <div className="relative z-10 px-6 py-6">
         <a href="/" className="font-heading text-lg uppercase tracking-tight text-white hover:text-brand-orange transition-colors">
-          Yappaflow
+          {t("brand")}
         </a>
       </div>
 
       <div className="relative z-10 max-w-3xl mx-auto px-6 pb-32">
         <h1 className="font-heading text-4xl sm:text-5xl uppercase tracking-tight mb-4">
-          Privacy <span className="text-brand-orange">Policy</span>
+          {t("titleLead")} <span className="text-brand-orange">{t("titleAccent")}</span>
         </h1>
-        <p className="text-xs text-white/25 mb-12">Last updated: April 15, 2026</p>
+        <p className="text-xs text-white/25 mb-12">{t("lastUpdated")}</p>
 
         <div className="space-y-10 text-sm text-white/50 leading-relaxed">
           <section>
-            <h2 className="font-heading text-lg uppercase tracking-tight text-white mb-3">1. Information We Collect</h2>
-            <p>When you use Yappaflow, we collect the following information:</p>
+            <h2 className="font-heading text-lg uppercase tracking-tight text-white mb-3">{t("s1Title")}</h2>
+            <p>{t("s1Intro")}</p>
             <ul className="list-disc list-inside mt-3 space-y-1.5">
-              <li><strong className="text-white/70">Account information:</strong> Phone number, name, and email address provided during registration.</li>
-              <li><strong className="text-white/70">Platform data:</strong> WhatsApp and Instagram messages, contact names, and conversation metadata that you authorize us to access through Meta&apos;s APIs.</li>
-              <li><strong className="text-white/70">Usage data:</strong> Pages viewed, features used, and interactions within the dashboard.</li>
-              <li><strong className="text-white/70">Device information:</strong> Browser type, IP address, and device identifiers for security and analytics.</li>
+              <li><strong className="text-white/70">{t("s1Item1Bold")}</strong>{t("s1Item1Body")}</li>
+              <li><strong className="text-white/70">{t("s1Item2Bold")}</strong>{t("s1Item2Body")}</li>
+              <li><strong className="text-white/70">{t("s1Item3Bold")}</strong>{t("s1Item3Body")}</li>
+              <li><strong className="text-white/70">{t("s1Item4Bold")}</strong>{t("s1Item4Body")}</li>
             </ul>
           </section>
 
           <section>
-            <h2 className="font-heading text-lg uppercase tracking-tight text-white mb-3">2. How We Use Your Information</h2>
+            <h2 className="font-heading text-lg uppercase tracking-tight text-white mb-3">{t("s2Title")}</h2>
             <ul className="list-disc list-inside space-y-1.5">
-              <li>To provide and maintain the Yappaflow platform and its features.</li>
-              <li>To display your WhatsApp and Instagram messages in your dashboard.</li>
-              <li>To send messages on your behalf through connected platforms.</li>
-              <li>To improve our services and develop new features.</li>
-              <li>To communicate with you about your account and service updates.</li>
+              <li>{t("s2Item1")}</li>
+              <li>{t("s2Item2")}</li>
+              <li>{t("s2Item3")}</li>
+              <li>{t("s2Item4")}</li>
+              <li>{t("s2Item5")}</li>
             </ul>
           </section>
 
           <section>
-            <h2 className="font-heading text-lg uppercase tracking-tight text-white mb-3">3. Data from Meta Platforms</h2>
-            <p>
-              Yappaflow accesses your WhatsApp and Instagram data only with the permissions you grant during login.
-              We use Meta&apos;s official APIs (WhatsApp Cloud API and Instagram Graph API) to retrieve and send messages.
-              We do not sell, share, or use your Meta platform data for advertising purposes.
-              You can revoke access at any time from Settings &rarr; Platforms.
-            </p>
+            <h2 className="font-heading text-lg uppercase tracking-tight text-white mb-3">{t("s3Title")}</h2>
+            <p>{t("s3Body")}</p>
           </section>
 
           <section>
-            <h2 className="font-heading text-lg uppercase tracking-tight text-white mb-3">4. Data Storage and Security</h2>
-            <p>
-              Your data is stored on encrypted servers hosted by trusted cloud providers.
-              We use industry-standard security measures including TLS encryption in transit, encrypted databases at rest,
-              and access controls to protect your information. We retain your data only as long as your account is active
-              or as needed to provide services.
-            </p>
+            <h2 className="font-heading text-lg uppercase tracking-tight text-white mb-3">{t("s4Title")}</h2>
+            <p>{t("s4Body")}</p>
           </section>
 
           <section>
-            <h2 className="font-heading text-lg uppercase tracking-tight text-white mb-3">5. Data Sharing</h2>
-            <p>We do not sell your personal information. We may share data only in the following cases:</p>
+            <h2 className="font-heading text-lg uppercase tracking-tight text-white mb-3">{t("s5Title")}</h2>
+            <p>{t("s5Intro")}</p>
             <ul className="list-disc list-inside mt-3 space-y-1.5">
-              <li>With service providers who help us operate the platform (hosting, analytics).</li>
-              <li>When required by law or to protect our legal rights.</li>
-              <li>With your explicit consent.</li>
+              <li>{t("s5Item1")}</li>
+              <li>{t("s5Item2")}</li>
+              <li>{t("s5Item3")}</li>
             </ul>
           </section>
 
           <section>
-            <h2 className="font-heading text-lg uppercase tracking-tight text-white mb-3">6. Your Rights</h2>
-            <p>You have the right to:</p>
+            <h2 className="font-heading text-lg uppercase tracking-tight text-white mb-3">{t("s6Title")}</h2>
+            <p>{t("s6Intro")}</p>
             <ul className="list-disc list-inside mt-3 space-y-1.5">
-              <li>Access and download your personal data.</li>
-              <li>Request correction of inaccurate data.</li>
-              <li>Request deletion of your account and associated data.</li>
-              <li>Disconnect platform integrations at any time.</li>
-              <li>Withdraw consent for data processing.</li>
+              <li>{t("s6Item1")}</li>
+              <li>{t("s6Item2")}</li>
+              <li>{t("s6Item3")}</li>
+              <li>{t("s6Item4")}</li>
+              <li>{t("s6Item5")}</li>
             </ul>
           </section>
 
           <section>
-            <h2 className="font-heading text-lg uppercase tracking-tight text-white mb-3">7. Data Deletion</h2>
+            <h2 className="font-heading text-lg uppercase tracking-tight text-white mb-3">{t("s7Title")}</h2>
             <p>
-              You can request deletion of your data at any time by contacting us at{" "}
-              <a href="mailto:privacy@yappaflow.com" className="text-brand-orange hover:underline">privacy@yappaflow.com</a>.
-              Upon request, we will delete your account and all associated data within 30 days,
-              unless retention is required by law.
+              {t("s7BodyLead")}
+              <a href={`mailto:${email}`} className="text-brand-orange hover:underline">{email}</a>
+              {t("s7BodyTail")}
             </p>
           </section>
 
           <section>
-            <h2 className="font-heading text-lg uppercase tracking-tight text-white mb-3">8. Cookies</h2>
-            <p>
-              We use essential cookies to maintain your session and authentication state.
-              We do not use third-party advertising cookies. Analytics cookies are used only to
-              improve the platform experience and can be disabled in your browser settings.
-            </p>
+            <h2 className="font-heading text-lg uppercase tracking-tight text-white mb-3">{t("s8Title")}</h2>
+            <p>{t("s8Body")}</p>
           </section>
 
           <section>
-            <h2 className="font-heading text-lg uppercase tracking-tight text-white mb-3">9. Changes to This Policy</h2>
-            <p>
-              We may update this privacy policy from time to time. We will notify you of significant changes
-              via email or an in-app notification. Continued use of Yappaflow after changes constitutes
-              acceptance of the updated policy.
-            </p>
+            <h2 className="font-heading text-lg uppercase tracking-tight text-white mb-3">{t("s9Title")}</h2>
+            <p>{t("s9Body")}</p>
           </section>
 
           <section>
-            <h2 className="font-heading text-lg uppercase tracking-tight text-white mb-3">10. Contact Us</h2>
+            <h2 className="font-heading text-lg uppercase tracking-tight text-white mb-3">{t("s10Title")}</h2>
             <p>
-              If you have questions about this privacy policy or your data, contact us at:{" "}
-              <a href="mailto:privacy@yappaflow.com" className="text-brand-orange hover:underline">privacy@yappaflow.com</a>
+              {t("s10BodyLead")}
+              <a href={`mailto:${email}`} className="text-brand-orange hover:underline">{email}</a>
             </p>
           </section>
         </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTranslations } from "next-intl";
 import {
   MessageCircle, Instagram, ArrowUpRight, Clock, Rocket, CheckCircle2,
   Radio, Plus, TrendingUp, Pin, PinOff, Trash2, X, Loader2, Zap, BookUser, Upload, Send,
@@ -15,11 +16,11 @@ import {
 } from "@/lib/dashboard-api";
 import { useRealtimeSignals, type RealtimeSignalEvent } from "@/lib/hooks/useRealtimeSignals";
 
-const PHASE_STYLE: Record<string, { label: string; cls: string }> = {
-  listening: { label: "Listening",  cls: "bg-blue-500/10 text-blue-400"     },
-  building:  { label: "Building",   cls: "bg-amber-500/10 text-amber-400"   },
-  deploying: { label: "Deploying",  cls: "bg-[#FF6B35]/10 text-[#FF6B35]"  },
-  live:      { label: "Live",       cls: "bg-green-500/10 text-green-400"   },
+const PHASE_STYLE: Record<string, { labelKey: string; cls: string }> = {
+  listening: { labelKey: "phaseListening",  cls: "bg-blue-500/10 text-blue-400"     },
+  building:  { labelKey: "phaseBuilding",   cls: "bg-amber-500/10 text-amber-400"   },
+  deploying: { labelKey: "phaseDeploying",  cls: "bg-[#FF6B35]/10 text-[#FF6B35]"  },
+  live:      { labelKey: "phaseLive",       cls: "bg-green-500/10 text-green-400"   },
 };
 
 const PHASE_BAR: Record<string, string> = {
@@ -39,12 +40,13 @@ const PLATFORM_COLOR: Record<string, string> = {
 
 // ── Add Signal modal ───────────────────────────────────────────────────────────
 function AddSignalModal({ onClose, onAdd }: { onClose: () => void; onAdd: (s: Signal) => void }) {
+  const t = useTranslations("commandCenter");
   const [form, setForm] = useState({ platform: "whatsapp", senderName: "", sender: "", preview: "" });
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
 
   const submit = async () => {
-    if (!form.senderName || !form.sender || !form.preview) { setErr("All fields required"); return; }
+    if (!form.senderName || !form.sender || !form.preview) { setErr(t("addSignalFieldsRequired")); return; }
     setLoading(true);
     try {
       const sig = await createSignal(form);
@@ -59,12 +61,12 @@ function AddSignalModal({ onClose, onAdd }: { onClose: () => void; onAdd: (s: Si
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
         className="w-full max-w-sm rounded-2xl bg-[#0c0c0f] border border-white/[0.05] p-6 shadow-xl">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-[15px] font-bold">Add Signal</h2>
+          <h2 className="text-[15px] font-bold">{t("addSignalTitle")}</h2>
           <button onClick={onClose}><X size={16} className="text-white/30" /></button>
         </div>
         <div className="space-y-3">
           <div>
-            <label className="text-[11px] font-semibold text-white/30 uppercase tracking-wide">Platform</label>
+            <label className="text-[11px] font-semibold text-white/30 uppercase tracking-wide">{t("addSignalPlatform")}</label>
             <div className="mt-1.5 flex gap-2">
               {["whatsapp", "instagram"].map((p) => (
                 <button key={p} onClick={() => setForm({ ...form, platform: p })}
@@ -75,12 +77,12 @@ function AddSignalModal({ onClose, onAdd }: { onClose: () => void; onAdd: (s: Si
             </div>
           </div>
           {[
-            { key: "senderName", label: "Client Name",    placeholder: "Ahmet Yılmaz" },
-            { key: "sender",     label: "Handle / Phone", placeholder: form.platform === "whatsapp" ? "+905551234567" : "@butikmode" },
-            { key: "preview",    label: "Message",        placeholder: "First message from the client..." },
-          ].map(({ key, label, placeholder }) => (
+            { key: "senderName", labelKey: "addSignalClientName",    placeholder: t("addSignalClientNamePh") },
+            { key: "sender",     labelKey: "addSignalHandle", placeholder: form.platform === "whatsapp" ? t("addSignalWhatsappPh") : t("addSignalInstagramPh") },
+            { key: "preview",    labelKey: "addSignalMessage",        placeholder: t("addSignalMessagePh") },
+          ].map(({ key, labelKey, placeholder }) => (
             <div key={key}>
-              <label className="text-[11px] font-semibold text-white/30 uppercase tracking-wide">{label}</label>
+              <label className="text-[11px] font-semibold text-white/30 uppercase tracking-wide">{t(labelKey)}</label>
               <input value={form[key as keyof typeof form]}
                 onChange={(e) => setForm({ ...form, [key]: e.target.value })}
                 placeholder={placeholder}
@@ -91,7 +93,7 @@ function AddSignalModal({ onClose, onAdd }: { onClose: () => void; onAdd: (s: Si
           <button onClick={submit} disabled={loading}
             className="w-full rounded-xl bg-white py-2.5 text-[13px] font-bold text-[#0A0A0A] hover:opacity-80 disabled:opacity-50 transition-opacity flex items-center justify-center gap-2">
             {loading ? <Loader2 size={14} className="animate-spin" /> : null}
-            {loading ? "Adding..." : "Add Signal"}
+            {loading ? t("addSignalAdding") : t("addSignalSubmit")}
           </button>
         </div>
       </motion.div>
@@ -101,12 +103,13 @@ function AddSignalModal({ onClose, onAdd }: { onClose: () => void; onAdd: (s: Si
 
 // ── Add Project modal ──────────────────────────────────────────────────────────
 function AddProjectModal({ signals, onClose, onAdd }: { signals: Signal[]; onClose: () => void; onAdd: (p: Project) => void }) {
+  const t = useTranslations("commandCenter");
   const [form, setForm] = useState({ name: "", clientName: "", platform: "shopify", dueDate: "", notes: "", signalId: "" });
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
 
   const submit = async () => {
-    if (!form.name || !form.clientName) { setErr("Name and client name are required"); return; }
+    if (!form.name || !form.clientName) { setErr(t("addProjectNameClientRequired")); return; }
     setLoading(true);
     try {
       const proj = await createProject({
@@ -128,16 +131,16 @@ function AddProjectModal({ signals, onClose, onAdd }: { signals: Signal[]; onClo
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
         className="w-full max-w-sm rounded-2xl bg-[#0c0c0f] border border-white/[0.05] p-6 shadow-xl">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-[15px] font-bold">New Project</h2>
+          <h2 className="text-[15px] font-bold">{t("addProjectTitle")}</h2>
           <button onClick={onClose}><X size={16} className="text-white/30" /></button>
         </div>
         <div className="space-y-3">
           {[
-            { key: "name",       label: "Project Name",   placeholder: "Butik Mode Website" },
-            { key: "clientName", label: "Client Name",    placeholder: "Ahmet Yılmaz"       },
-          ].map(({ key, label, placeholder }) => (
+            { key: "name",       labelKey: "addProjectNameLabel",   placeholder: t("addProjectNamePh") },
+            { key: "clientName", labelKey: "addProjectClientLabel",    placeholder: t("addProjectClientPh")       },
+          ].map(({ key, labelKey, placeholder }) => (
             <div key={key}>
-              <label className="text-[11px] font-semibold text-white/30 uppercase tracking-wide">{label}</label>
+              <label className="text-[11px] font-semibold text-white/30 uppercase tracking-wide">{t(labelKey)}</label>
               <input value={form[key as keyof typeof form]}
                 onChange={(e) => setForm({ ...form, [key]: e.target.value })}
                 placeholder={placeholder}
@@ -145,7 +148,7 @@ function AddProjectModal({ signals, onClose, onAdd }: { signals: Signal[]; onClo
             </div>
           ))}
           <div>
-            <label className="text-[11px] font-semibold text-white/30 uppercase tracking-wide">Platform</label>
+            <label className="text-[11px] font-semibold text-white/30 uppercase tracking-wide">{t("addProjectPlatform")}</label>
             <select value={form.platform} onChange={(e) => setForm({ ...form, platform: e.target.value })}
               className="mt-1.5 w-full rounded-lg border border-white/[0.05] bg-white/[0.04] px-3 py-2 text-[13px] outline-none focus:border-[#FF6B35]">
               {["shopify", "wordpress", "webflow", "ikas", "custom"].map((p) => (
@@ -155,10 +158,10 @@ function AddProjectModal({ signals, onClose, onAdd }: { signals: Signal[]; onClo
           </div>
           {signals.length > 0 && (
             <div>
-              <label className="text-[11px] font-semibold text-white/30 uppercase tracking-wide">Link Signal (optional)</label>
+              <label className="text-[11px] font-semibold text-white/30 uppercase tracking-wide">{t("addProjectLinkSignal")}</label>
               <select value={form.signalId} onChange={(e) => setForm({ ...form, signalId: e.target.value })}
                 className="mt-1.5 w-full rounded-lg border border-white/[0.05] bg-white/[0.04] px-3 py-2 text-[13px] outline-none focus:border-[#FF6B35]">
-                <option value="">— None —</option>
+                <option value="">{t("addProjectLinkNone")}</option>
                 {signals.map((s) => (
                   <option key={s.id} value={s.id}>{s.senderName} ({s.platform})</option>
                 ))}
@@ -166,7 +169,7 @@ function AddProjectModal({ signals, onClose, onAdd }: { signals: Signal[]; onClo
             </div>
           )}
           <div>
-            <label className="text-[11px] font-semibold text-white/30 uppercase tracking-wide">Due Date</label>
+            <label className="text-[11px] font-semibold text-white/30 uppercase tracking-wide">{t("addProjectDueDate")}</label>
             <input type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
               className="mt-1.5 w-full rounded-lg border border-white/[0.05] bg-white/[0.04] px-3 py-2 text-[13px] outline-none focus:border-[#FF6B35]" />
           </div>
@@ -174,7 +177,7 @@ function AddProjectModal({ signals, onClose, onAdd }: { signals: Signal[]; onClo
           <button onClick={submit} disabled={loading}
             className="w-full rounded-xl bg-white py-2.5 text-[13px] font-bold text-[#0A0A0A] hover:opacity-80 disabled:opacity-50 transition-opacity flex items-center justify-center gap-2">
             {loading ? <Loader2 size={14} className="animate-spin" /> : null}
-            {loading ? "Creating..." : "Create Project"}
+            {loading ? t("addProjectCreating") : t("addProjectSubmit")}
           </button>
         </div>
       </motion.div>
@@ -207,10 +210,11 @@ function StartConversationModal({
   onStarted: (sig: Signal) => void;
   knownContacts: Signal[];
 }) {
+  const t = useTranslations("commandCenter");
   const [search,       setSearch]       = useState("");
   const [phone,        setPhone]        = useState("");
   const [name,         setName]         = useState("");
-  const [message,      setMessage]      = useState("Hi! I wanted to reach out about our services. Are you available for a quick chat?");
+  const [message,      setMessage]      = useState(t("startConvDefaultMessage"));
   const [loading,      setLoading]      = useState(false);
   const [err,          setErr]          = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
@@ -244,7 +248,7 @@ function StartConversationModal({
   };
 
   const submit = async () => {
-    if (!phone.trim() || !name.trim() || !message.trim()) { setErr("All fields are required"); return; }
+    if (!phone.trim() || !name.trim() || !message.trim()) { setErr(t("startConvAllRequired")); return; }
     const normalized = phone.startsWith("+") ? phone.replace(/\s/g, "") : "+" + phone.replace(/\s/g, "");
     setLoading(true); setErr("");
     try {
@@ -261,7 +265,7 @@ function StartConversationModal({
       await sendMessage(sig.id, message);
       onStarted(sig);
     } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : "Failed to start session");
+      setErr(e instanceof Error ? e.message : t("startConvFailed"));
     } finally { setLoading(false); }
   };
 
@@ -273,8 +277,8 @@ function StartConversationModal({
         className="w-full max-w-sm rounded-2xl bg-[#0c0c0f] border border-white/[0.05] p-6 shadow-xl">
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h2 className="text-[15px] font-bold">Start WhatsApp Session</h2>
-            <p className="text-[11px] text-white/20 mt-0.5">Pick a contact or enter a number</p>
+            <h2 className="text-[15px] font-bold">{t("startConvTitle")}</h2>
+            <p className="text-[11px] text-white/20 mt-0.5">{t("startConvSubtitle")}</p>
           </div>
           <button onClick={onClose}><X size={16} className="text-white/30" /></button>
         </div>
@@ -287,12 +291,12 @@ function StartConversationModal({
               <div className="relative">
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="text-[11px] font-semibold text-white/30 uppercase tracking-wide">
-                    Recent Customers
+                    {t("startConvRecentCustomers")}
                   </label>
                   {hasContactApi && (
                     <button onClick={handleDevicePick}
                       className="flex items-center gap-1 text-[10px] font-semibold text-[#FF6B35] hover:underline">
-                      <BookUser size={11} /> Pick from device
+                      <BookUser size={11} /> {t("startConvPickFromDevice")}
                     </button>
                   )}
                 </div>
@@ -302,7 +306,7 @@ function StartConversationModal({
                     onChange={(e) => { setSearch(e.target.value); setShowDropdown(true); }}
                     onFocus={() => setShowDropdown(true)}
                     onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
-                    placeholder="Search by name or number…"
+                    placeholder={t("startConvSearch")}
                     className="w-full rounded-lg border border-white/[0.05] bg-white/[0.04] pl-9 pr-3 py-2.5 text-[13px] outline-none focus:border-[#25D366] transition-colors"
                   />
                   <MessageCircle size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#25D366]" />
@@ -335,13 +339,13 @@ function StartConversationModal({
                       <div className="px-4 py-4 text-center">
                         <p className="text-[12px] font-semibold text-white/30">
                           {waContacts.length === 0
-                            ? "No customers yet"
-                            : "No match found"}
+                            ? t("startConvNoCustomers")
+                            : t("startConvNoMatch")}
                         </p>
                         <p className="mt-0.5 text-[10px] text-white/20 leading-relaxed">
                           {waContacts.length === 0
-                            ? "Customers appear here as they message your WhatsApp Business number"
-                            : "Enter name and number below to add a new contact"}
+                            ? t("startConvNoCustomersDesc")
+                            : t("startConvManualAddDesc")}
                         </p>
                       </div>
                     )}
@@ -352,11 +356,11 @@ function StartConversationModal({
               {/* Manual entry */}
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { key: "name",  label: "Name",   value: name,  set: setName,  placeholder: "Ahmet Yılmaz"  },
-                  { key: "phone", label: "Number", value: phone, set: setPhone, placeholder: "+905551234567" },
-                ].map(({ key, label, value, set, placeholder }) => (
+                  { key: "name",  labelKey: "startConvNameLabel",   value: name,  set: setName,  placeholder: t("startConvNamePh")  },
+                  { key: "phone", labelKey: "startConvNumberLabel", value: phone, set: setPhone, placeholder: t("startConvNumberPh") },
+                ].map(({ key, labelKey, value, set, placeholder }) => (
                   <div key={key}>
-                    <label className="text-[11px] font-semibold text-white/30 uppercase tracking-wide">{label}</label>
+                    <label className="text-[11px] font-semibold text-white/30 uppercase tracking-wide">{t(labelKey)}</label>
                     <input value={value} onChange={(e) => set(e.target.value)} placeholder={placeholder}
                       className="mt-1.5 w-full rounded-lg border border-white/[0.05] bg-white/[0.04] px-3 py-2 text-[12px] outline-none focus:border-[#25D366]" />
                   </div>
@@ -382,13 +386,13 @@ function StartConversationModal({
 
           {/* Opening message */}
           <div>
-            <label className="text-[11px] font-semibold text-white/30 uppercase tracking-wide">Opening Message</label>
+            <label className="text-[11px] font-semibold text-white/30 uppercase tracking-wide">{t("startConvOpeningMessage")}</label>
             <textarea rows={3} value={message} onChange={(e) => setMessage(e.target.value)}
               className="mt-1.5 w-full rounded-lg border border-white/[0.05] bg-white/[0.04] px-3 py-2 text-[13px] outline-none focus:border-[#25D366] resize-none" />
           </div>
 
           <p className="text-[10px] text-white/20 leading-relaxed">
-            The recipient must have messaged your business in the last 24 hours, or you must use an approved WhatsApp template message.
+            {t("startConvWindowNote")}
           </p>
 
           {err && <p className="text-[11px] text-red-500">{err}</p>}
@@ -397,7 +401,7 @@ function StartConversationModal({
             className="w-full rounded-xl py-2.5 text-[13px] font-bold text-white hover:opacity-90 disabled:opacity-40 transition-opacity flex items-center justify-center gap-2"
             style={{ background: "#25D366" }}>
             {loading ? <Loader2 size={14} className="animate-spin" /> : <MessageCircle size={14} />}
-            {loading ? "Starting session…" : "Start Session"}
+            {loading ? t("startConvStarting") : t("startConvSubmit")}
           </button>
         </div>
       </motion.div>
@@ -412,6 +416,7 @@ interface Props {
 }
 
 export function CommandCenter({ setView, setSignalId }: Props) {
+  const t = useTranslations("commandCenter");
   const [signals,     setSignals]     = useState<Signal[]>([]);
   const [projects,    setProjects]    = useState<Project[]>([]);
   const [stats,       setStats]       = useState<DashboardStats | null>(null);
@@ -507,10 +512,10 @@ export function CommandCenter({ setView, setSignalId }: Props) {
   const igConnected       = platforms.some((p) => p.platform === "instagram_dm" || p.platform === "instagram");
 
   const STAT_CARDS = [
-    { label: "Total Signals",    value: stats?.totalSignals      ?? "—", sub: "All incoming",       dark: true  },
-    { label: "New",              value: stats?.newSignals         ?? "—", sub: "Needs attention",    dark: false },
-    { label: "Active Projects",  value: stats?.activeProjects     ?? "—", sub: "In progress",        dark: false },
-    { label: "Live Sites",       value: stats?.liveProjects       ?? "—", sub: "Successfully deployed", dark: false },
+    { labelKey: "statTotalSignals",    value: stats?.totalSignals      ?? "—", subKey: "statTotalSignalsSub",       dark: true  },
+    { labelKey: "statNew",              value: stats?.newSignals         ?? "—", subKey: "statNewSub",    dark: false },
+    { labelKey: "statActiveProjects",  value: stats?.activeProjects     ?? "—", subKey: "statActiveProjectsSub",        dark: false },
+    { labelKey: "statLiveSites",       value: stats?.liveProjects       ?? "—", subKey: "statLiveSitesSub", dark: false },
   ];
 
   if (loading) return (
@@ -525,12 +530,12 @@ export function CommandCenter({ setView, setSignalId }: Props) {
         <Radio size={22} className="text-[#FF6B35]" />
       </div>
       <div>
-        <p className="text-[15px] font-bold text-white">API server is offline</p>
-        <p className="mt-1 text-[13px] text-white/30">Start the server with <code className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[11px] font-mono">npm run dev</code> in the <code className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[11px] font-mono">server</code> package</p>
+        <p className="text-[15px] font-bold text-white">{t("serverOfflineTitle")}</p>
+        <p className="mt-1 text-[13px] text-white/30">{t("serverOfflineHint", { cmd: t("serverOfflineCmd"), pkg: t("serverOfflinePkg") })}</p>
       </div>
       <button onClick={load}
         className="rounded-xl border border-white/[0.05] bg-[#111114] px-5 py-2 text-[13px] font-semibold text-white/30 hover:bg-white/[0.04]">
-        Retry
+        {t("retry")}
       </button>
     </div>
   );
@@ -541,8 +546,8 @@ export function CommandCenter({ setView, setSignalId }: Props) {
         {/* Header */}
         <div className="mb-6 flex items-end justify-between">
           <div>
-            <h1 className="text-2xl font-black tracking-tight">Dashboard</h1>
-            <p className="mt-0.5 text-[13px] text-white/30">Real-time agency overview</p>
+            <h1 className="text-2xl font-black tracking-tight">{t("pageTitle")}</h1>
+            <p className="mt-0.5 text-[13px] text-white/30">{t("pageSubtitle")}</p>
           </div>
 
           {/* Live flash toast */}
@@ -560,18 +565,18 @@ export function CommandCenter({ setView, setSignalId }: Props) {
                   <span className="relative inline-flex h-2 w-2 rounded-full bg-[#FF6B35]" />
                 </span>
                 <Zap size={12} className="text-[#FF6B35]" />
-                <span className="text-[12px] font-semibold text-white">New message from <strong>{liveFlash}</strong></span>
+                <span className="text-[12px] font-semibold text-white">{t("liveFlash", { name: liveFlash || "" })}</span>
               </motion.div>
             )}
           </AnimatePresence>
           <div className="flex items-center gap-2">
             <button onClick={() => setShowAddProject(true)}
               className="flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-[13px] font-bold text-[#0A0A0A] hover:opacity-80 transition-opacity">
-              <Plus size={14} />New Project
+              <Plus size={14} />{t("newProject")}
             </button>
             <button onClick={() => { setSignalId(null); setView("engine"); }}
               className="flex items-center gap-2 rounded-xl border border-white/[0.05] bg-[#0c0c0f] px-4 py-2 text-[13px] font-medium text-white/30 hover:bg-white/[0.04] transition-colors">
-              Open Engine Room
+              {t("openEngineRoom")}
             </button>
           </div>
         </div>
@@ -579,16 +584,16 @@ export function CommandCenter({ setView, setSignalId }: Props) {
         {/* Stats */}
         <div className="mb-5 grid grid-cols-4 gap-4">
           {STAT_CARDS.map((s, i) => (
-            <motion.div key={s.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
+            <motion.div key={s.labelKey} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
               className={`relative rounded-2xl p-5 ${s.dark ? "bg-[#0A0A0A] text-white" : "bg-[#0c0c0f] border border-white/[0.05]"}`}>
               <button className={`absolute right-4 top-4 flex h-6 w-6 items-center justify-center rounded-full ${s.dark ? "bg-white/10" : "bg-white/[0.06]"}`}>
                 <ArrowUpRight size={12} className={s.dark ? "text-white" : "text-white/30"} />
               </button>
-              <p className={`text-[12px] font-semibold mb-2 ${s.dark ? "text-white/60" : "text-white/30"}`}>{s.label}</p>
+              <p className={`text-[12px] font-semibold mb-2 ${s.dark ? "text-white/60" : "text-white/30"}`}>{t(s.labelKey)}</p>
               <p className="text-4xl font-black tracking-tight">{s.value}</p>
               <div className={`mt-3 flex items-center gap-1.5 text-[11px] ${s.dark ? "text-white/50" : "text-white/20"}`}>
                 <TrendingUp size={11} className="text-green-400" />
-                <span>{s.sub}</span>
+                <span>{t(s.subKey)}</span>
               </div>
             </motion.div>
           ))}
@@ -602,15 +607,15 @@ export function CommandCenter({ setView, setSignalId }: Props) {
               <Upload size={22} className="text-[#FF6B35]" />
             </div>
             <div className="flex-1">
-              <p className="text-[14px] font-bold text-white">Import your conversations</p>
+              <p className="text-[14px] font-bold text-white">{t("importBannerTitle")}</p>
               <p className="mt-0.5 text-[12px] text-white/40 leading-relaxed">
-                Export chats from WhatsApp, Instagram, Telegram, or any messaging app and upload them here. All messages are encrypted at rest.
+                {t("importBannerDesc")}
               </p>
             </div>
             <button onClick={() => setShowImport(true)}
               className="flex-shrink-0 flex items-center gap-1.5 rounded-xl bg-[#FF6B35] px-4 py-2.5 text-[13px] font-bold text-white hover:opacity-90 transition-opacity">
               <Upload size={13} />
-              Import Chats
+              {t("importChats")}
             </button>
           </motion.div>
         )}
@@ -620,22 +625,22 @@ export function CommandCenter({ setView, setSignalId }: Props) {
           <div className="col-span-1 rounded-2xl bg-[#0c0c0f] border border-white/[0.05] p-5 flex flex-col">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <h2 className="text-[14px] font-bold">Conversations</h2>
+                <h2 className="text-[14px] font-bold">{t("conversations")}</h2>
                 {signals.filter((s) => s.status === "new").length > 0 && (
                   <span className="rounded-full bg-[#FF6B35]/10 px-2 py-0.5 text-[10px] font-bold text-[#FF6B35]">
-                    {signals.filter((s) => s.status === "new").length} new
+                    {t("newCount", { n: signals.filter((s) => s.status === "new").length })}
                   </span>
                 )}
               </div>
               <div className="flex items-center gap-1.5">
                 <button onClick={() => setShowImport(true)}
                   className="flex items-center gap-1 rounded-lg border border-[#FF6B35]/20 px-2.5 py-1 text-[11px] font-semibold text-[#FF6B35] bg-[#FF6B35]/10 hover:bg-[#FF6B35]/20 transition-colors">
-                  <Upload size={11} />Import
+                  <Upload size={11} />{t("import")}
                 </button>
                 {waConnected && (
                   <button onClick={() => setShowStartConversation(true)}
                     className="flex items-center gap-1 rounded-lg border border-green-500/20 px-2.5 py-1 text-[11px] font-semibold text-[#25D366] bg-green-500/10 hover:bg-green-500/20 transition-colors">
-                    <MessageCircle size={11} />Start
+                    <MessageCircle size={11} />{t("startBtn")}
                   </button>
                 )}
               </div>
@@ -650,14 +655,14 @@ export function CommandCenter({ setView, setSignalId }: Props) {
                     <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-green-500/10 border border-green-500/20">
                       <MessageCircle size={20} className="text-green-500" />
                     </div>
-                    <p className="text-[13px] font-bold text-white">WhatsApp is live</p>
+                    <p className="text-[13px] font-bold text-white">{t("whatsappLive")}</p>
                     <p className="mt-1 text-[11px] text-white/20 leading-relaxed max-w-[160px]">
-                      Waiting for customers to message your WhatsApp Business number
+                      {t("whatsappLiveDesc")}
                     </p>
                     <button onClick={() => setShowStartConversation(true)}
                       className="mt-4 flex items-center gap-1.5 rounded-xl px-4 py-2 text-[12px] font-bold text-white hover:opacity-90 transition-opacity"
                       style={{ background: "#25D366" }}>
-                      <MessageCircle size={13} />Start a Session
+                      <MessageCircle size={13} />{t("startSession")}
                     </button>
                   </>
                 ) : (
@@ -665,13 +670,13 @@ export function CommandCenter({ setView, setSignalId }: Props) {
                     <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-white/[0.04]">
                       <Upload size={18} className="text-white/20" />
                     </div>
-                    <p className="text-[13px] font-semibold text-white/30">No conversations yet</p>
+                    <p className="text-[13px] font-semibold text-white/30">{t("noConversations")}</p>
                     <p className="mt-1 text-[11px] text-white/20 max-w-[180px]">
-                      Import chat exports from WhatsApp, Instagram, Telegram, or any messaging app
+                      {t("noConversationsDesc")}
                     </p>
                     <button onClick={() => setShowImport(true)}
                       className="mt-4 flex items-center gap-1.5 rounded-xl bg-[#FF6B35] px-4 py-2 text-[12px] font-bold text-white hover:opacity-90 transition-opacity">
-                      <Upload size={13} />Import Chats
+                      <Upload size={13} />{t("importChats")}
                     </button>
                   </>
                 )}
@@ -705,11 +710,11 @@ export function CommandCenter({ setView, setSignalId }: Props) {
                         <p className="text-[11px] text-white/20 truncate">{sig.preview}</p>
                       </div>
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                        <button onClick={(e) => { e.stopPropagation(); handleTogglePin(sig); }} title={sig.isOnDashboard ? "Unpin" : "Pin"}
+                        <button onClick={(e) => { e.stopPropagation(); handleTogglePin(sig); }} title={sig.isOnDashboard ? t("unpinTip") : t("pinTip")}
                           className="flex h-6 w-6 items-center justify-center rounded hover:bg-white/[0.06]">
                           {sig.isOnDashboard ? <PinOff size={11} className="text-[#FF6B35]" /> : <Pin size={11} className="text-white/20" />}
                         </button>
-                        <button onClick={(e) => { e.stopPropagation(); handleDeleteSignal(sig.id); }} title="Delete"
+                        <button onClick={(e) => { e.stopPropagation(); handleDeleteSignal(sig.id); }} title={t("deleteTip")}
                           className="flex h-6 w-6 items-center justify-center rounded hover:bg-red-500/10">
                           <Trash2 size={11} className="text-red-400" />
                         </button>
@@ -724,10 +729,10 @@ export function CommandCenter({ setView, setSignalId }: Props) {
           {/* Pipeline */}
           <div className="col-span-2 rounded-2xl bg-[#0c0c0f] border border-white/[0.05] p-5">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-[14px] font-bold">Project Pipeline</h2>
+              <h2 className="text-[14px] font-bold">{t("pipeline")}</h2>
               <button onClick={() => setShowAddProject(true)}
                 className="flex items-center gap-1 rounded-lg border border-white/[0.05] px-2.5 py-1 text-[11px] font-semibold text-white/30 hover:bg-white/[0.04]">
-                <Plus size={11} />New
+                <Plus size={11} />{t("pipelineNew")}
               </button>
             </div>
 
@@ -736,18 +741,18 @@ export function CommandCenter({ setView, setSignalId }: Props) {
                 <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-white/[0.04]">
                   <Rocket size={20} className="text-white/20" />
                 </div>
-                <p className="text-[13px] font-semibold text-white/30">No projects yet</p>
-                <p className="mt-1 text-[11px] text-white/20">Create your first project to track it here</p>
+                <p className="text-[13px] font-semibold text-white/30">{t("noProjectsTitle")}</p>
+                <p className="mt-1 text-[11px] text-white/20">{t("noProjectsDesc")}</p>
                 <button onClick={() => setShowAddProject(true)}
                   className="mt-4 flex items-center gap-1.5 rounded-xl bg-white px-4 py-2 text-[12px] font-bold text-[#0A0A0A] hover:opacity-80">
-                  <Plus size={13} /> New Project
+                  <Plus size={13} /> {t("newProject")}
                 </button>
               </div>
             ) : (
               <div className="space-y-3">
                 <AnimatePresence>
                   {projects.map((proj, i) => {
-                    const meta = PHASE_STYLE[proj.phase] ?? { label: proj.phase, cls: "bg-white/[0.03] text-white/30" };
+                    const meta = PHASE_STYLE[proj.phase] ?? { labelKey: "phaseLive", cls: "bg-white/[0.03] text-white/30" };
                     const barCls = PHASE_BAR[proj.phase] ?? "bg-white/25";
                     const color  = PLATFORM_COLOR[proj.platform] ?? "#737373";
                     return (
@@ -761,7 +766,7 @@ export function CommandCenter({ setView, setSignalId }: Props) {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1.5">
                             <p className="text-[13px] font-semibold truncate">{proj.name}</p>
-                            <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${meta.cls}`}>{meta.label}</span>
+                            <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${meta.cls}`}>{t(meta.labelKey)}</span>
                           </div>
                           <div className="flex items-center gap-3">
                             <div className="flex-1 h-1 rounded-full bg-white/[0.06] overflow-hidden">
@@ -772,7 +777,7 @@ export function CommandCenter({ setView, setSignalId }: Props) {
                             <span className="text-[10px] font-bold text-white/20 flex-shrink-0">{proj.progress}%</span>
                           </div>
                           <p className="mt-1 text-[11px] text-white/20">
-                            {proj.clientName}{proj.dueDate ? ` · Due ${new Date(proj.dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : ""}
+                            {proj.clientName}{proj.dueDate ? ` · ${t("dueLabel", { date: new Date(proj.dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) })}` : ""}
                           </p>
                         </div>
                         <button onClick={() => handleDeleteProject(proj.id)}
@@ -792,17 +797,17 @@ export function CommandCenter({ setView, setSignalId }: Props) {
         {stats && (
           <div className="mt-4 grid grid-cols-3 gap-4">
             {[
-              { icon: Clock,        label: "Completed this week", value: stats.completedThisWeek, color: "bg-green-500/10 text-green-400" },
-              { icon: Radio,        label: "Active signals",      value: signals.filter((s) => s.status !== "ignored").length, color: "bg-blue-500/10 text-blue-400" },
-              { icon: CheckCircle2, label: "Live sites",          value: stats.liveProjects,      color: "bg-[#FF6B35]/10 text-[#FF6B35]" },
-            ].map(({ icon: Icon, label, value, color }) => (
-              <div key={label} className="flex items-center gap-4 rounded-2xl bg-[#0c0c0f] border border-white/[0.05] px-5 py-4">
+              { icon: Clock,        labelKey: "quickStatCompleted", value: stats.completedThisWeek, color: "bg-green-500/10 text-green-400" },
+              { icon: Radio,        labelKey: "quickStatActive",      value: signals.filter((s) => s.status !== "ignored").length, color: "bg-blue-500/10 text-blue-400" },
+              { icon: CheckCircle2, labelKey: "quickStatLive",          value: stats.liveProjects,      color: "bg-[#FF6B35]/10 text-[#FF6B35]" },
+            ].map(({ icon: Icon, labelKey, value, color }) => (
+              <div key={labelKey} className="flex items-center gap-4 rounded-2xl bg-[#0c0c0f] border border-white/[0.05] px-5 py-4">
                 <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${color}`}>
                   <Icon size={16} />
                 </div>
                 <div>
                   <p className="text-xl font-black">{value}</p>
-                  <p className="text-[11px] text-white/20">{label}</p>
+                  <p className="text-[11px] text-white/20">{t(labelKey)}</p>
                 </div>
               </div>
             ))}

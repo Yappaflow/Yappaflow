@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect } from "react";
+import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { useSearchParams } from "next/navigation";
 import { establishSession } from "@/lib/auth-api";
 
 export default function InstagramSuccessPage() {
+  const t = useTranslations("auth");
   const router = useRouter();
   const params = useSearchParams();
 
@@ -34,7 +36,7 @@ export default function InstagramSuccessPage() {
     <div className="min-h-screen flex items-center justify-center">
       <div className="text-center">
         <div className="h-10 w-10 rounded-full border-2 border-brand-black border-t-transparent animate-spin mx-auto" />
-        <p className="mt-4 text-sm text-gray-500">Signing you in…</p>
+        <p className="mt-4 text-sm text-gray-500">{t("signingIn")}</p>
       </div>
     </div>
   );

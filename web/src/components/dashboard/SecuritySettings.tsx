@@ -17,6 +17,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   Shield,
   ShieldCheck,
@@ -57,6 +58,7 @@ function useAuthToken(): string | null {
 }
 
 export function SecuritySettings() {
+  const t = useTranslations("securitySettings");
   const token = useAuthToken();
   const [mode, setMode] = useState<Mode>("loading");
   const [me, setMe] = useState<AuthUser | null>(null);
@@ -86,7 +88,7 @@ export function SecuritySettings() {
       setMe(data.me);
       setMode(data.me?.mfaEnabled ? "idle-on" : "idle-off");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load account");
+      setError(err instanceof Error ? err.message : t("errorLoadAccount"));
     }
   }, [token]);
 
@@ -105,7 +107,7 @@ export function SecuritySettings() {
       setEnrollCode("");
       setMode("enrolling");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to start enrollment");
+      setError(err instanceof Error ? err.message : t("errorStartEnrollment"));
     } finally {
       setBusy(false);
     }
@@ -124,7 +126,7 @@ export function SecuritySettings() {
       setMode("codes");
       await refreshMe();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Invalid code");
+      setError(err instanceof Error ? err.message : t("errorInvalidCode"));
     } finally {
       setBusy(false);
     }
@@ -140,7 +142,7 @@ export function SecuritySettings() {
       setConfirmCode("");
       await refreshMe();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Invalid code");
+      setError(err instanceof Error ? err.message : t("errorInvalidCode"));
     } finally {
       setBusy(false);
     }
@@ -158,7 +160,7 @@ export function SecuritySettings() {
       setMode("codes");
       await refreshMe();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Invalid code");
+      setError(err instanceof Error ? err.message : t("errorInvalidCode"));
     } finally {
       setBusy(false);
     }
@@ -175,11 +177,10 @@ export function SecuritySettings() {
   function downloadCodes() {
     if (!backupCodes) return;
     const body =
-      `Yappaflow — Multi-Factor Authentication Backup Codes\n` +
-      `Generated ${new Date().toISOString()}\n` +
-      `Account: ${me?.email || me?.phone || ""}\n\n` +
-      `Each code can be used ONCE. Store them somewhere safe — anyone\n` +
-      `with a code can bypass your authenticator app.\n\n` +
+      `${t("backupFileHeader")}\n` +
+      `${t("backupFileGenerated", { date: new Date().toISOString() })}\n` +
+      `${t("backupFileAccount", { account: me?.email || me?.phone || "" })}\n\n` +
+      `${t("backupFileWarning")}\n\n` +
       backupCodes.map((c, i) => `${String(i + 1).padStart(2, "0")}.  ${c}`).join("\n") +
       `\n`;
     const blob = new Blob([body], { type: "text/plain" });
@@ -213,10 +214,10 @@ export function SecuritySettings() {
       <header className="mb-8">
         <h1 className="text-2xl font-bold text-white flex items-center gap-2">
           <Shield size={20} className="text-brand-orange" />
-          Security
+          {t("pageTitle")}
         </h1>
         <p className="mt-1 text-sm text-white/40">
-          Protect your account with multi-factor authentication.
+          {t("pageSubtitle")}
         </p>
       </header>
 
@@ -236,14 +237,12 @@ export function SecuritySettings() {
             </div>
             <div>
               <p className="text-[15px] font-semibold text-white">
-                Two-factor authentication (TOTP)
+                {t("mfaTitle")}
               </p>
               <p className="mt-0.5 text-[12px] text-white/40">
                 {me?.mfaEnabled
-                  ? `Active — ${me.mfaBackupCodesRemaining ?? 0} backup code${
-                      (me.mfaBackupCodesRemaining ?? 0) === 1 ? "" : "s"
-                    } remaining`
-                  : "Not enabled — your account is protected only by your password."}
+                  ? t("mfaActiveSummary", { n: me.mfaBackupCodesRemaining ?? 0, s: (me.mfaBackupCodesRemaining ?? 0) === 1 ? "" : "s" })
+                  : t("mfaNotEnabled")}
               </p>
             </div>
           </div>
@@ -255,7 +254,7 @@ export function SecuritySettings() {
                 : "bg-white/[0.04] text-white/30",
             ].join(" ")}
           >
-            {me?.mfaEnabled ? "On" : "Off"}
+            {me?.mfaEnabled ? t("mfaStatusOn") : t("mfaStatusOff")}
           </span>
         </div>
 
@@ -263,17 +262,14 @@ export function SecuritySettings() {
         {mode === "idle-off" && (
           <div className="mt-6">
             <p className="text-[13px] text-white/50 leading-relaxed">
-              Use an authenticator app (Google Authenticator, Authy, 1Password,
-              Microsoft Authenticator) to generate a rotating 6-digit code
-              that&apos;s required at every login. You&apos;ll also get 10
-              single-use backup codes in case you lose your phone.
+              {t("mfaEnableBlurb")}
             </p>
             <button
               onClick={startEnrollment}
               disabled={busy}
               className="mt-4 rounded-lg bg-brand-orange text-white px-4 py-2.5 text-[13px] font-medium hover:bg-brand-orange-dark transition-colors disabled:opacity-50"
             >
-              {busy ? "..." : "Enable MFA"}
+              {busy ? t("mfaBusyDots") : t("mfaEnableCta")}
             </button>
           </div>
         )}
@@ -282,11 +278,11 @@ export function SecuritySettings() {
         {mode === "enrolling" && setup && (
           <div className="mt-6 space-y-5">
             <ol className="text-[13px] text-white/60 space-y-2 list-decimal list-inside">
-              <li>Open your authenticator app and add a new account.</li>
+              <li>{t("mfaEnrollStep1")}</li>
               <li>
-                Scan the QR code below, or paste the secret manually.
+                {t("mfaEnrollStep2")}
               </li>
-              <li>Enter the 6-digit code the app generates.</li>
+              <li>{t("mfaEnrollStep3")}</li>
             </ol>
 
             <div className="flex items-start gap-5">
@@ -294,14 +290,14 @@ export function SecuritySettings() {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={setup.qrDataUrl}
-                  alt="Scan with your authenticator app"
+                  alt={t("mfaQrAlt")}
                   width={200}
                   height={200}
                 />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-[11px] font-medium uppercase tracking-wider text-white/40">
-                  Or paste this secret
+                  {t("mfaSecretLabel")}
                 </p>
                 <div className="mt-2 flex items-center gap-2 rounded-lg bg-black/40 border border-white/[0.06] px-3 py-2.5">
                   <code className="flex-1 font-mono text-[12px] text-white break-all">
@@ -310,22 +306,22 @@ export function SecuritySettings() {
                   <button
                     onClick={() => navigator.clipboard.writeText(setup.secret)}
                     className="text-white/30 hover:text-white transition-colors flex-shrink-0"
-                    title="Copy secret"
+                    title={t("mfaCopySecret")}
                   >
                     <Copy size={14} />
                   </button>
                 </div>
                 <p className="mt-3 text-[11px] text-white/30 leading-relaxed">
-                  Account: <span className="text-white/60">{me?.email || me?.phone}</span>
+                  {t("mfaAccount")} <span className="text-white/60">{me?.email || me?.phone}</span>
                   <br />
-                  Issuer: <span className="text-white/60">Yappaflow</span>
+                  {t("mfaIssuer")} <span className="text-white/60">{t("mfaIssuerValue")}</span>
                 </p>
               </div>
             </div>
 
             <form onSubmit={confirmEnrollment} className="space-y-3">
               <label className="block text-[11px] font-medium uppercase tracking-wider text-white/40">
-                Verification code
+                {t("mfaVerificationCodeLabel")}
               </label>
               <input
                 type="text"
@@ -336,7 +332,7 @@ export function SecuritySettings() {
                 autoFocus
                 value={enrollCode}
                 onChange={(e) => setEnrollCode(e.target.value.replace(/\D/g, ""))}
-                placeholder="123456"
+                placeholder={t("mfaEnrollPh")}
                 className="w-48 rounded-lg bg-black/40 border border-white/[0.08] px-4 py-3 text-center font-mono text-xl tracking-[0.4em] text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-brand-orange/30"
               />
               {error && (
@@ -350,14 +346,14 @@ export function SecuritySettings() {
                   disabled={busy || enrollCode.length !== 6}
                   className="rounded-lg bg-brand-orange text-white px-4 py-2.5 text-[13px] font-medium hover:bg-brand-orange-dark transition-colors disabled:opacity-50"
                 >
-                  {busy ? "Verifying..." : "Verify & enable"}
+                  {busy ? t("mfaVerifying") : t("mfaVerifyEnable")}
                 </button>
                 <button
                   type="button"
                   onClick={() => { setMode("idle-off"); setSetup(null); setError(""); }}
                   className="rounded-lg bg-white/[0.04] text-white/60 px-4 py-2.5 text-[13px] font-medium hover:bg-white/[0.08] transition-colors"
                 >
-                  Cancel
+                  {t("cancel")}
                 </button>
               </div>
             </form>
@@ -373,9 +369,9 @@ export function SecuritySettings() {
             >
               <RefreshCw size={15} className="text-white/50" />
               <div className="flex-1">
-                <p className="text-[13px] font-medium text-white">Regenerate backup codes</p>
+                <p className="text-[13px] font-medium text-white">{t("mfaRegenerateTitle")}</p>
                 <p className="text-[11px] text-white/30">
-                  Invalidates your current codes and issues 10 new ones.
+                  {t("mfaRegenerateDesc")}
                 </p>
               </div>
             </button>
@@ -385,9 +381,9 @@ export function SecuritySettings() {
             >
               <X size={15} className="text-red-400" />
               <div className="flex-1">
-                <p className="text-[13px] font-medium text-red-400">Disable MFA</p>
+                <p className="text-[13px] font-medium text-red-400">{t("mfaDisableTitle")}</p>
                 <p className="text-[11px] text-red-400/50">
-                  Removes the second factor from your account.
+                  {t("mfaDisableDesc")}
                 </p>
               </div>
             </button>
@@ -398,8 +394,7 @@ export function SecuritySettings() {
         {mode === "confirm-off" && (
           <form onSubmit={doDisable} className="mt-6 space-y-3">
             <p className="text-[13px] text-white/60">
-              Enter a current 6-digit code from your authenticator to confirm
-              disabling MFA.
+              {t("mfaConfirmDisableBody")}
             </p>
             <input
               type="text"
@@ -410,7 +405,7 @@ export function SecuritySettings() {
               autoFocus
               value={confirmCode}
               onChange={(e) => setConfirmCode(e.target.value.replace(/\D/g, ""))}
-              placeholder="123456"
+              placeholder={t("mfaEnrollPh")}
               className="w-48 rounded-lg bg-black/40 border border-white/[0.08] px-4 py-3 text-center font-mono text-xl tracking-[0.4em] text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-red-400/30"
             />
             {error && (
@@ -424,14 +419,14 @@ export function SecuritySettings() {
                 disabled={busy || confirmCode.length !== 6}
                 className="rounded-lg bg-red-500 text-white px-4 py-2.5 text-[13px] font-medium hover:bg-red-600 transition-colors disabled:opacity-50"
               >
-                {busy ? "Disabling..." : "Disable MFA"}
+                {busy ? t("mfaDisabling") : t("mfaDisableTitle")}
               </button>
               <button
                 type="button"
                 onClick={() => { setMode("idle-on"); setConfirmCode(""); setError(""); }}
                 className="rounded-lg bg-white/[0.04] text-white/60 px-4 py-2.5 text-[13px] font-medium hover:bg-white/[0.08] transition-colors"
               >
-                Cancel
+                {t("cancel")}
               </button>
             </div>
           </form>
@@ -441,8 +436,7 @@ export function SecuritySettings() {
         {mode === "regenerate" && (
           <form onSubmit={doRegenerate} className="mt-6 space-y-3">
             <p className="text-[13px] text-white/60">
-              Enter a current 6-digit code from your authenticator to
-              generate fresh backup codes. Your existing codes will stop working.
+              {t("mfaConfirmRegenerateBody")}
             </p>
             <input
               type="text"
@@ -453,7 +447,7 @@ export function SecuritySettings() {
               autoFocus
               value={confirmCode}
               onChange={(e) => setConfirmCode(e.target.value.replace(/\D/g, ""))}
-              placeholder="123456"
+              placeholder={t("mfaEnrollPh")}
               className="w-48 rounded-lg bg-black/40 border border-white/[0.08] px-4 py-3 text-center font-mono text-xl tracking-[0.4em] text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-brand-orange/30"
             />
             {error && (
@@ -467,14 +461,14 @@ export function SecuritySettings() {
                 disabled={busy || confirmCode.length !== 6}
                 className="rounded-lg bg-brand-orange text-white px-4 py-2.5 text-[13px] font-medium hover:bg-brand-orange-dark transition-colors disabled:opacity-50"
               >
-                {busy ? "..." : "Generate new codes"}
+                {busy ? t("mfaBusyDots") : t("mfaGenerateNewCodes")}
               </button>
               <button
                 type="button"
                 onClick={() => { setMode("idle-on"); setConfirmCode(""); setError(""); }}
                 className="rounded-lg bg-white/[0.04] text-white/60 px-4 py-2.5 text-[13px] font-medium hover:bg-white/[0.08] transition-colors"
               >
-                Cancel
+                {t("cancel")}
               </button>
             </div>
           </form>
@@ -488,13 +482,11 @@ export function SecuritySettings() {
             <div className="flex items-center gap-2 text-brand-orange mb-3">
               <AlertTriangle size={16} />
               <h3 className="text-[14px] font-bold uppercase tracking-wider">
-                Save these codes now
+                {t("mfaSaveCodesTitle")}
               </h3>
             </div>
             <p className="text-[13px] text-white/60 leading-relaxed">
-              These backup codes will <strong>not be shown again</strong>.
-              Store them somewhere safe — a password manager is ideal. Each
-              code can be used once if you lose access to your authenticator.
+              {t("mfaSaveCodesBody")}
             </p>
 
             <div className="mt-4 grid grid-cols-2 gap-2 font-mono text-[13px] text-white bg-black/40 border border-white/[0.06] rounded-lg p-4">
@@ -511,14 +503,14 @@ export function SecuritySettings() {
                 className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-white/[0.04] border border-white/[0.06] text-white/80 px-4 py-2.5 text-[13px] font-medium hover:bg-white/[0.08] transition-colors"
               >
                 {copiedAll ? <Check size={14} /> : <Copy size={14} />}
-                {copiedAll ? "Copied" : "Copy all"}
+                {copiedAll ? t("mfaCopied") : t("mfaCopyAll")}
               </button>
               <button
                 onClick={downloadCodes}
                 className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-white/[0.04] border border-white/[0.06] text-white/80 px-4 py-2.5 text-[13px] font-medium hover:bg-white/[0.08] transition-colors"
               >
                 <Download size={14} />
-                Download
+                {t("mfaDownload")}
               </button>
             </div>
 
@@ -526,7 +518,7 @@ export function SecuritySettings() {
               onClick={acknowledgeCodes}
               className="mt-3 w-full rounded-lg bg-brand-orange text-white px-4 py-2.5 text-[13px] font-medium hover:bg-brand-orange-dark transition-colors"
             >
-              I&apos;ve saved my codes
+              {t("mfaAckCodes")}
             </button>
           </div>
         </div>

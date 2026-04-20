@@ -1,21 +1,29 @@
 "use client";
 
 import { useRef } from "react";
+import { useTranslations } from "next-intl";
 import { motion, useScroll, useTransform } from "framer-motion";
 
-const LINKS = [
-  { label: "Github", href: "#" },
-  { label: "X", href: "#" },
-  { label: "LinkedIn", href: "#" },
-  { label: "Contact", href: "#" },
-  { label: "Privacy", href: "/privacy" },
-  { label: "Terms", href: "/terms" },
-];
+const LINK_HREFS = ["#", "#", "#", "#", "/privacy", "/terms"];
+const LINK_KEYS = [
+  "linkGithub",
+  "linkX",
+  "linkLinkedIn",
+  "linkContact",
+  "linkPrivacy",
+  "linkTerms",
+] as const;
 
 export function Footer() {
+  const t = useTranslations("footer");
   const footerRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: footerRef, offset: ["start end", "end end"] });
   const textOpacity = useTransform(scrollYProgress, [0, 0.5], [0.05, 0.12]);
+
+  const links = LINK_KEYS.map((key, i) => ({
+    label: t(key),
+    href: LINK_HREFS[i],
+  }));
 
   return (
     <footer ref={footerRef} className="relative bg-brand-dark overflow-hidden">
@@ -23,7 +31,7 @@ export function Footer() {
       <div className="relative z-10 px-4 sm:px-6 lg:px-8 py-8 border-t border-white/[0.04]">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 max-w-7xl mx-auto">
           <div className="flex flex-wrap gap-6">
-            {LINKS.map((link) => (
+            {links.map((link) => (
               <a
                 key={link.label}
                 href={link.href}
@@ -34,7 +42,7 @@ export function Footer() {
             ))}
           </div>
           <p className="text-[10px] uppercase tracking-widest text-white/10">
-            © 2026 Yappaflow. All rights reserved.
+            {t("copyright")}
           </p>
         </div>
       </div>
@@ -47,7 +55,7 @@ export function Footer() {
           // Font so large it overflows — intentional, only top portion visible
         >
           <span className="text-[clamp(8rem,22vw,25rem)]">
-            YAPPAFLOW
+            {t("bigWord")}
           </span>
         </motion.h2>
       </div>

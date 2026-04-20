@@ -221,7 +221,7 @@ export async function requestWhatsappOtp(phone: string) {
 export async function verifyWhatsappOtp(phone: string, code: string) {
   return gql(
     `mutation Verify($phone: String!, $code: String!) {
-      verifyWhatsappOtp(phone: $phone, code: $code) { token user { id name phone phoneVerified authProvider } }
+      verifyWhatsappOtp(phone: $phone, code: $code) { ${AUTH_RESULT_FIELDS} }
     }`,
     { phone, code }
   );

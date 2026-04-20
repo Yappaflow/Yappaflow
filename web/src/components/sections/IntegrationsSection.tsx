@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef } from "react";
+import { useTranslations } from "next-intl";
 import { motion, useScroll, useTransform } from "framer-motion";
 import {
   MessageCircle,
@@ -13,18 +14,30 @@ import {
   Globe2,
 } from "lucide-react";
 
-const PLATFORMS = [
-  { name: "WhatsApp\nListening", icon: MessageCircle },
-  { name: "Instagram\nIntake", icon: Instagram },
-  { name: "Shopify\nDeploy", icon: ShoppingBag },
-  { name: "WordPress\nGeneration", icon: Globe },
-  { name: "Webflow\nProjects", icon: Layout },
-  { name: "IKAS\nCommerce", icon: Store },
-  { name: "Namecheap\nDomains", icon: Globe2 },
-  { name: "Hostinger\nHosting", icon: Server },
+const PLATFORM_ICONS = [
+  MessageCircle,
+  Instagram,
+  ShoppingBag,
+  Globe,
+  Layout,
+  Store,
+  Globe2,
+  Server,
 ];
 
+const PLATFORM_KEYS = [
+  "platformWhatsapp",
+  "platformInstagram",
+  "platformShopify",
+  "platformWordpress",
+  "platformWebflow",
+  "platformIkas",
+  "platformNamecheap",
+  "platformHostinger",
+] as const;
+
 export function IntegrationsSection() {
+  const t = useTranslations("integrationsSection");
   const sectionRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
     target: sectionRef,
@@ -32,6 +45,11 @@ export function IntegrationsSection() {
   });
   const headingO = useTransform(scrollYProgress, [0, 1], [0, 1]);
   const headingY = useTransform(scrollYProgress, [0, 1], [60, 0]);
+
+  const platforms = PLATFORM_ICONS.map((Icon, i) => ({
+    name: t(PLATFORM_KEYS[i]),
+    icon: Icon,
+  }));
 
   return (
     <section
@@ -54,25 +72,23 @@ export function IntegrationsSection() {
           className="mb-24 w-full"
         >
           <p className="text-2xl sm:text-3xl md:text-4xl lg:text-[2.75rem] xl:text-5xl font-medium text-white leading-[1.25]">
-            <span className="pl-36"></span> We are an AI-powered agency
-            platform. Not just automation, not isolated tools. We provide{" "}
-            <span className="font-bold">
-              client listening, code generation, multi-platform deployment
-            </span>{" "}
-            and <span className="font-bold">system integration</span> as one
-            connected approach. An end-to-end ecosystem designed to{" "}
-            <span className="font-bold">scale, perform and integrate</span>{" "}
-            seamlessly with existing platforms.
+            <span className="pl-36"></span> {t("bigCopyLead")}{" "}
+            <span className="font-bold">{t("bigCopyBold1")}</span>{" "}
+            {t("bigCopyMid")}{" "}
+            <span className="font-bold">{t("bigCopyBold2")}</span>{" "}
+            {t("bigCopyMid2")}{" "}
+            <span className="font-bold">{t("bigCopyBold3")}</span>{" "}
+            {t("bigCopyEnd")}
           </p>
         </motion.div>
 
         {/* Label row */}
         <div className="flex items-center justify-between mb-5">
           <p className="text-[11px] uppercase tracking-widest text-white/20">
-            Our Integrations
+            {t("eyebrow")}
           </p>
           <p className="text-[11px] uppercase tracking-widest text-white/20">
-            Est. 2026
+            {t("est")}
           </p>
         </div>
 
@@ -82,7 +98,7 @@ export function IntegrationsSection() {
           <div>
             {/* Row 1 */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {PLATFORMS.slice(0, 4).map((platform, i) => (
+              {platforms.slice(0, 4).map((platform, i) => (
                 <motion.div
                   key={platform.name}
                   initial={{ opacity: 0, y: 15 }}
@@ -106,7 +122,7 @@ export function IntegrationsSection() {
 
             {/* Row 2 */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
-              {PLATFORMS.slice(4).map((platform, i) => (
+              {platforms.slice(4).map((platform, i) => (
                 <motion.div
                   key={platform.name}
                   initial={{ opacity: 0, y: 15 }}
@@ -132,17 +148,15 @@ export function IntegrationsSection() {
           {/* Right: Description text — separated */}
           <div className="max-w-md pt-2">
             <p className="text-xs text-white/30 leading-relaxed">
-              Yappaflow connects to your existing tools silently. It listens to
-              client conversations on WhatsApp and Instagram, extracts
-              requirements in real-time, generates production-ready code, and
-              deploys to your preferred platform. We don&apos;t add complexity.{" "}
-              <span className="text-white/60 font-medium">We remove it.</span>
+              {t("rightCopy1Lead")}{" "}
+              <span className="text-white/60 font-medium">
+                {t("rightCopy1Bold")}
+              </span>
             </p>
             <p className="text-xs text-white/30 leading-relaxed mt-5">
-              Your conversations become code, your meetings become live
-              products.{" "}
+              {t("rightCopy2Lead")}{" "}
               <span className="text-white/60 font-medium">
-                That&apos;s the difference.
+                {t("rightCopy2Bold")}
               </span>
             </p>
           </div>

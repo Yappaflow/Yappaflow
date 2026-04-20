@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, Suspense } from "react";
+import { useTranslations } from "next-intl";
 import { motion, useScroll, useTransform, useMotionValueEvent } from "framer-motion";
 import { Canvas, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
@@ -8,20 +9,7 @@ import { FaultyTerminal } from "@/components/ui/FaultyTerminal";
 
 /* ── Manifesto Data ── */
 
-const MANIFESTO = [
-  { text: "We started Yappaflow because we were tired of watching brilliant agencies drown in busywork.", accent: true },
-  { text: "Tired of conversations lost between WhatsApp and email.", accent: false },
-  { text: "Tired of the same boilerplate. Again and again.", accent: true },
-  { text: "Tired of deploys that take days instead of seconds.", accent: false },
-  { text: "So we built something different.", accent: true },
-  { text: "An AI that listens to your clients.", accent: false },
-  { text: "Writes production-ready code.", accent: true },
-  { text: "Ships to any platform with one click.", accent: false },
-  { text: "We don't replace your team.", accent: false },
-  { text: "We give them superpowers.", accent: true },
-  { text: "This is Yappaflow.", accent: false },
-  { text: "From conversation to code.", accent: true },
-];
+const MANIFESTO_ACCENTS = [true, false, true, false, true, false, true, false, false, true, false, true];
 
 /* ── Manifesto Line ── */
 
@@ -148,16 +136,17 @@ function ExplodingCubeScene({ progress }: { progress: number }) {
 /* ── Deployment Process (appears from the zoomed cube) ── */
 
 function DeploymentProcess({ progress }: { progress: number }) {
+  const t = useTranslations("manifesto");
   if (progress <= 0) return null;
 
   const steps = [
-    { label: "Analyzing client requirements", pct: 100 },
-    { label: "Generating Shopify storefront", pct: 100 },
-    { label: "Building production assets", pct: 100 },
-    { label: "Configuring DNS — butikmode.com", pct: 100 },
-    { label: "Provisioning SSL certificate", pct: Math.min(100, progress * 300) },
-    { label: "Deploying to CDN", pct: Math.min(100, Math.max(0, (progress - 0.3) * 300)) },
-    { label: "Running health checks", pct: Math.min(100, Math.max(0, (progress - 0.5) * 400)) },
+    { label: t("stepAnalyzing"),  pct: 100 },
+    { label: t("stepGenerating"), pct: 100 },
+    { label: t("stepBuilding"),   pct: 100 },
+    { label: t("stepDns"),        pct: 100 },
+    { label: t("stepSsl"),        pct: Math.min(100, progress * 300) },
+    { label: t("stepCdn"),        pct: Math.min(100, Math.max(0, (progress - 0.3) * 300)) },
+    { label: t("stepHealth"),     pct: Math.min(100, Math.max(0, (progress - 0.5) * 400)) },
   ];
 
   const isLive = progress > 0.85;
@@ -176,12 +165,12 @@ function DeploymentProcess({ progress }: { progress: number }) {
               <div className="w-2 h-2 rounded-full bg-[#febc2e]" />
               <div className="w-2 h-2 rounded-full bg-[#28c840]" />
             </div>
-            <span className="text-[10px] text-white/20 font-mono ml-2">yappaflow deploy</span>
+            <span className="text-[10px] text-white/20 font-mono ml-2">{t("deployCmd")}</span>
           </div>
           {isLive && (
             <div className="flex items-center gap-1.5">
               <div className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
-              <span className="text-[10px] text-green-400 uppercase tracking-wider font-medium">Live</span>
+              <span className="text-[10px] text-green-400 uppercase tracking-wider font-medium">{t("live")}</span>
             </div>
           )}
         </div>
@@ -212,19 +201,19 @@ function DeploymentProcess({ progress }: { progress: number }) {
           {isLive && (
             <div className="mt-4 pt-3 border-t border-white/[0.05] space-y-1.5">
               <div className="text-green-400">
-                <span className="text-white/30">$ </span>
-                Deploy complete
+                <span className="text-white/30">{t("deployCompletePrompt")}</span>
+                {t("deployComplete")}
               </div>
               <div className="text-white/30">
-                <span className="text-white/15">→ </span>
-                https://butikmode.com
+                <span className="text-white/15">{t("arrow")}</span>
+                {t("deployUrl")}
               </div>
               <div className="text-white/30">
-                <span className="text-white/15">→ </span>
-                Platform: Shopify · Region: EU-West · Build: 34 components
+                <span className="text-white/15">{t("arrow")}</span>
+                {t("meta")}
               </div>
               <div className="text-white/20 mt-2">
-                Total time: 4m 12s
+                {t("totalTime")}
               </div>
             </div>
           )}
@@ -291,6 +280,13 @@ function ZoomTransition() {
 /* ── Main Export ── */
 
 export function ManifestoSection() {
+  const t = useTranslations("manifesto");
+  const lines = MANIFESTO_ACCENTS.map((accent, i) => ({
+    text: t(`line${i + 1}` as
+      | "line1" | "line2" | "line3" | "line4" | "line5" | "line6"
+      | "line7" | "line8" | "line9" | "line10" | "line11" | "line12"),
+    accent,
+  }));
   return (
     <>
       {/* Part 1: Manifesto text */}
@@ -307,10 +303,10 @@ export function ManifestoSection() {
         <div className="relative z-10 px-6 sm:px-10 lg:px-16 py-32 sm:py-40">
           <motion.p initial={{ opacity: 0 }} whileInView={{ opacity: 0.6 }} viewport={{ once: true }}
             className="text-[10px] uppercase tracking-[0.5em] text-brand-orange mb-10">
-            Manifesto
+            {t("eyebrow")}
           </motion.p>
           <div className="space-y-1">
-            {MANIFESTO.map((line, i) => (
+            {lines.map((line, i) => (
               <ManifestoLine key={i} text={line.text} accent={line.accent} />
             ))}
           </div>

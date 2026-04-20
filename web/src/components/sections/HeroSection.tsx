@@ -90,7 +90,7 @@ export function HeroSection() {
             className="font-heading uppercase leading-[0.85] tracking-tighter text-white"
             style={{ fontSize: "clamp(3rem, 11vw, 12rem)" }}
           >
-            From Conversation
+            {t("h1Line1")}
           </motion.h1>
           <motion.h1
             initial={{ opacity: 0, y: 60 }}
@@ -99,8 +99,8 @@ export function HeroSection() {
             className="font-heading uppercase leading-[0.85] tracking-tighter"
             style={{ fontSize: "clamp(3rem, 11vw, 12rem)" }}
           >
-            <span className="text-white">To </span>
-            <span className="text-brand-orange">Code</span>
+            <span className="text-white">{t("h1Line2")} </span>
+            <span className="text-brand-orange">{t("h1Code")}</span>
           </motion.h1>
         </div>
       </motion.div>
@@ -128,7 +128,7 @@ export function HeroSection() {
             transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
             className="text-[10px] uppercase tracking-[0.4em] text-white/20"
           >
-            Scroll
+            {t("scroll")}
           </motion.p>
         </div>
       </motion.div>

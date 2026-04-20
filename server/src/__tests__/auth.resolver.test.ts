@@ -245,6 +245,32 @@ describe("authResolvers", () => {
       );
       expect(result.user.id).toBe("new-wa-user");
     });
+
+    it("issues MFA challenge (no session token) when existing user has MFA enabled", async () => {
+      // Attacker does a SIM swap + receives WA OTP. Server must still
+      // require the TOTP second factor before handing out a session.
+      vi.mocked(verifyOtp).mockResolvedValueOnce(true);
+      const mfaUser = {
+        ...mockUser,
+        phone: "+905551234567",
+        authProvider: "whatsapp" as const,
+        id: "wa-mfa-user",
+        mfaEnabled: true,
+      };
+      vi.mocked(User.findOne).mockResolvedValueOnce(mfaUser as never);
+
+      const result = await authResolvers.Mutation.verifyWhatsappOtp(
+        undefined,
+        { phone: "+905551234567", code: "123456" }
+      );
+
+      expect(result.mfaRequired).toBe(true);
+      expect(result.token).toBeNull();
+      expect(result.user).toBeNull();
+      expect(result.mfaChallengeToken).toBe("mock-mfa-challenge-token");
+      // No session JWT should be issued on this leg.
+      expect(signToken).not.toHaveBeenCalled();
+    });
   });
 
   // ── Mutation.requestPhoneVerification ─────────────────────────────────────

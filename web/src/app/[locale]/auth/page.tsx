@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -130,10 +130,39 @@ export default function AuthPage() {
     try {
       const data = await verifyWhatsappOtp(phone, otp);
       const result = data.verifyWhatsappOtp;
+
+      // Existing users who previously turned on TOTP must still prove
+      // their second factor here — WhatsApp OTP by itself isn't enough.
+      if (result.mfaRequired) {
+        setMfaChallengeToken(result.mfaChallengeToken);
+        setMfaCode("");
+        setMfaUseBackup(false);
+        setStep("mfa_challenge");
+        return;
+      }
+
       storeTokenAndRedirect(result.token);
     } catch (err: unknown) { setError(err instanceof Error ? err.message : t("errorInvalid")); }
     finally { setLoading(false); }
   }
+
+  // Instagram OAuth bounces back to /auth?mfaChallenge=<token> when the
+  // account has MFA enabled. Pick it up and jump straight to the MFA step.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const challenge = params.get("mfaChallenge");
+    if (challenge) {
+      setMfaChallengeToken(challenge);
+      setMfaCode("");
+      setMfaUseBackup(false);
+      setStep("mfa_challenge");
+      // Drop the param from the URL so a refresh doesn't re-trigger.
+      const url = new URL(window.location.href);
+      url.searchParams.delete("mfaChallenge");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, []);
 
   async function handleSendPhoneOtp(e: React.FormEvent) {
     e.preventDefault(); clearError(); setLoading(true);
@@ -193,11 +222,11 @@ export default function AuthPage() {
       <div className="hidden lg:flex flex-1 items-center justify-center relative z-10 p-12">
         <div>
           <h1 className="font-heading text-6xl xl:text-7xl uppercase tracking-tight text-white leading-[0.9]">
-            From<br />Conversation<br />
-            <span className="text-brand-orange">To Code.</span>
+            {t("sidebarHeadlineLine1")}<br />{t("sidebarHeadlineLine2")}<br />
+            <span className="text-brand-orange">{t("sidebarHeadlineAccent")}</span>
           </h1>
           <p className="mt-6 text-sm text-white/25 max-w-xs leading-relaxed">
-            The entire web agency pipeline — automated by AI. Listen. Build. Ship.
+            {t("sidebarDescription")}
           </p>
         </div>
       </div>
@@ -210,9 +239,9 @@ export default function AuthPage() {
             <div className="flex justify-center mb-8">
               <div className="flex items-center gap-2">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-orange">
-                  <span className="text-sm font-bold text-white">Y</span>
+                  <span className="text-sm font-bold text-white">{t("brandInitial")}</span>
                 </div>
-                <span className="font-heading text-lg uppercase tracking-tight text-white">Yappaflow</span>
+                <span className="font-heading text-lg uppercase tracking-tight text-white">{t("brand")}</span>
               </div>
             </div>
           </a>
@@ -314,18 +343,16 @@ export default function AuthPage() {
                   <Shield className="h-5 w-5" />
                 </div>
                 <h2 className="text-xl font-bold text-white">
-                  {mfaUseBackup ? "Enter a backup code" : "Two-factor verification"}
+                  {mfaUseBackup ? t("mfaBackupTitle") : t("mfaTotpTitle")}
                 </h2>
                 <p className="mt-1 text-sm text-white/30">
-                  {mfaUseBackup
-                    ? "Paste one of the single-use recovery codes you saved when you enabled MFA."
-                    : "Open your authenticator app and enter the 6-digit code for Yappaflow."}
+                  {mfaUseBackup ? t("mfaBackupSubtitle") : t("mfaTotpSubtitle")}
                 </p>
 
                 <form onSubmit={handleMfaChallenge} className="mt-6 space-y-4">
                   <div>
                     <label className="block text-xs font-medium text-white/40 mb-1.5">
-                      {mfaUseBackup ? "Backup code" : "Authenticator code"}
+                      {mfaUseBackup ? t("mfaBackupLabel") : t("mfaTotpLabel")}
                     </label>
                     <input
                       type="text"
@@ -343,7 +370,7 @@ export default function AuthPage() {
                             : e.target.value.replace(/\D/g, "")
                         )
                       }
-                      placeholder={mfaUseBackup ? "XXXX-XXXX-XX" : "123456"}
+                      placeholder={mfaUseBackup ? t("mfaBackupPlaceholder") : t("mfaTotpPlaceholder")}
                       className={`${inputCls} text-center font-mono ${mfaUseBackup ? "text-lg tracking-[0.3em]" : "text-2xl tracking-[0.5em]"}`}
                     />
                   </div>
@@ -358,9 +385,7 @@ export default function AuthPage() {
                   onClick={() => { setMfaUseBackup(!mfaUseBackup); setMfaCode(""); clearError(); }}
                   className="mt-3 w-full text-center text-sm text-white/30 hover:text-brand-orange"
                 >
-                  {mfaUseBackup
-                    ? "Use authenticator app instead"
-                    : "Can't access your authenticator? Use a backup code"}
+                  {mfaUseBackup ? t("mfaUseAppInstead") : t("mfaBackupToggle")}
                 </button>
               </motion.div>
             )}

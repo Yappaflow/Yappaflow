@@ -9,7 +9,7 @@ import {
 import { importInstagramConversations } from "../services/import-conversations.service";
 import { User } from "../models/User.model";
 import { PlatformConnection } from "../models/PlatformConnection.model";
-import { signToken } from "../services/jwt.service";
+import { signToken, signMfaChallengeToken } from "../services/jwt.service";
 import { env } from "../config/env";
 import { logError } from "../utils/logger";
 import { encryptAccessToken } from "../services/encryption.service";
@@ -86,6 +86,19 @@ router.get("/instagram/callback", async (req: Request, res: Response): Promise<v
       }
     } catch {
       // Non-blocking — personal Instagram accounts won't have a Business account
+    }
+
+    // If this user has TOTP enabled, don't hand out a full session yet —
+    // redirect back to the auth page with an MFA challenge token so the
+    // client can prompt for the second factor. Same contract as email /
+    // WhatsApp logins; Instagram OAuth alone should not be enough once
+    // MFA is on.
+    if (user.mfaEnabled) {
+      const mfaChallenge = signMfaChallengeToken(user.id);
+      res.redirect(
+        `${env.frontendUrl}/en/auth?mfaChallenge=${encodeURIComponent(mfaChallenge)}`
+      );
+      return;
     }
 
     const token = signToken({ userId: user.id });
