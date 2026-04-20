@@ -80,6 +80,36 @@ export interface DashboardStats {
   completedThisWeek: number;
 }
 
+// ── Current user ───────────────────────────────────────────────────────────────
+
+export interface Me {
+  id:            string;
+  name:          string;
+  email:         string | null;
+  phone:         string | null;
+  phoneVerified: boolean;
+  authProvider:  string;
+  avatarUrl:     string | null;
+  locale:        string;
+  createdAt:     string;
+}
+
+/**
+ * Resolve the logged-in user from the JWT currently in localStorage.
+ * Returns null when no token is present or the token is invalid/expired —
+ * callers should treat null as "not signed in" and bounce to /auth.
+ */
+export async function getMe(): Promise<Me | null> {
+  const token = getToken();
+  if (!token) return null;
+  const data = await gql<{ me: Me | null }>(
+    `query Me {
+      me { id name email phone phoneVerified authProvider avatarUrl locale createdAt }
+    }`
+  );
+  return data.me ?? null;
+}
+
 // ── Signal queries ─────────────────────────────────────────────────────────────
 
 const SIGNAL_FIELDS = `id platform sender senderName preview isOnDashboard status createdAt`;

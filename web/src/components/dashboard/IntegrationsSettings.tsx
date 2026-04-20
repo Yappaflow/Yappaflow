@@ -4,7 +4,9 @@ import { useState, useEffect, useCallback } from "react";
 import { Eye, EyeOff, Check, User, Bell, Shield, Link2, Loader2, Unlink, MessageCircle, Instagram, Download, Upload } from "lucide-react";
 import {
   getPlatformConnections, disconnectPlatform, importPlatformMessages,
+  getMe,
   type PlatformConnection,
+  type Me,
 } from "@/lib/dashboard-api";
 import ChatImport from "./ChatImport";
 
@@ -279,6 +281,26 @@ export function IntegrationsSettings() {
   const [lang, setLang]       = useState<"tr" | "en">("tr");
   const [prefs, setPrefs]     = useState({ push: true, sound: true, auto: false });
   const [section, setSection] = useState("profile");
+  // Pull the logged-in user so the Profile panel shows THEIR name/email/phone
+  // instead of the hardcoded placeholder that used to live here.
+  const [me, setMe]           = useState<Me | null>(null);
+  const [meLoading, setMeLoading] = useState(true);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const user = await getMe();
+        if (!cancelled) setMe(user);
+      } catch {
+        // Silently degrade — show em-dashes rather than crashing the settings
+        // page if the token happens to be stale. Middleware will bounce them
+        // to /auth on the next navigation.
+      } finally {
+        if (!cancelled) setMeLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   return (
     <div className="p-6">
@@ -311,14 +333,29 @@ export function IntegrationsSettings() {
           {section === "profile" && (
             <div className="space-y-4">
               <div className="rounded-2xl bg-[#0c0c0f] border border-white/[0.05] p-6">
-                <h2 className="text-[14px] font-bold mb-4">Agency Profile</h2>
+                <h2 className="text-[14px] font-bold mb-4">Profile</h2>
                 <div className="flex items-center gap-4 mb-5">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FF6B35]/10 border border-[#FF6B35]/30">
-                    <span className="text-xl font-black text-[#FF6B35]">A</span>
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FF6B35]/10 border border-[#FF6B35]/30 overflow-hidden">
+                    {me?.avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={me.avatarUrl} alt={me.name} className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="text-xl font-black text-[#FF6B35]">
+                        {(me?.name?.trim()?.charAt(0) || "?").toUpperCase()}
+                      </span>
+                    )}
                   </div>
                   <div>
-                    <p className="text-[15px] font-bold">Agency</p>
-                    <p className="text-[12px] text-white/20">yappaflow.com</p>
+                    <p className="text-[15px] font-bold">
+                      {meLoading ? "Loading…" : me?.name || "—"}
+                    </p>
+                    <p className="text-[12px] text-white/20">
+                      {me?.authProvider === "whatsapp"
+                        ? "WhatsApp account"
+                        : me?.authProvider === "instagram"
+                        ? "Instagram account"
+                        : "Email account"}
+                    </p>
                   </div>
                   <button className="ml-auto rounded-lg border border-white/[0.05] px-3 py-1.5 text-[12px] font-semibold text-white/30 hover:bg-white/[0.04]">
                     Edit
@@ -326,9 +363,16 @@ export function IntegrationsSettings() {
                 </div>
                 <div className="space-y-3">
                   {[
-                    { label: "Agency Name", value: "Yappaflow Agency" },
-                    { label: "Email",       value: "agency@yappaflow.com" },
-                    { label: "Phone",       value: "+90 555 000 00 00" },
+                    { label: "Name",  value: meLoading ? "…" : (me?.name  || "—") },
+                    { label: "Email", value: meLoading ? "…" : (me?.email || "—") },
+                    {
+                      label: "Phone",
+                      value: meLoading
+                        ? "…"
+                        : me?.phone
+                          ? me.phone + (me.phoneVerified ? "  ✓" : "")
+                          : "—",
+                    },
                   ].map((f) => (
                     <div key={f.label} className="flex items-center justify-between py-2 border-b border-white/[0.05] last:border-0">
                       <span className="text-[12px] text-white/30">{f.label}</span>
