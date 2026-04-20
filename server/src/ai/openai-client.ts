@@ -95,6 +95,7 @@ function getClient(provider: ProviderConfig): OpenAI {
 export function resetClientCache(): void {
   clientCache.clear();
   clampWarnCache.clear();
+  modelSwapWarnCache.clear();
 }
 
 // ── Cost estimation ───────────────────────────────────────────────────
@@ -185,7 +186,7 @@ async function callOnce(
   messages:     ChatMessage[],
   options?:     ChatCompletionOptions
 ): Promise<{ text: string; usage: AIUsageMetrics; rawUsage: ProviderUsage }> {
-  const model       = options?.model       ?? provider.defaultModel;
+  const model       = resolveModel(provider, options?.model);
   const maxTokens   = clampMaxTokens(provider, options?.maxTokens ?? env.aiMaxTokens);
   const temperature = options?.temperature ?? env.aiTemperature;
 
@@ -303,7 +304,7 @@ async function streamOnce(
   onChunk:      (text: string) => void,
   options?:     ChatCompletionOptions
 ): Promise<{ text: string; usage: AIUsageMetrics; rawUsage: ProviderUsage }> {
-  const model       = options?.model       ?? provider.defaultModel;
+  const model       = resolveModel(provider, options?.model);
   const maxTokens   = clampMaxTokens(provider, options?.maxTokens ?? env.aiMaxTokens);
   const temperature = options?.temperature ?? env.aiTemperature;
 
@@ -457,6 +458,49 @@ function clampMaxTokens(provider: ProviderConfig, requested: number): number {
     log(`[AI] ${provider.name} max_tokens clamped from ${requested} → ${ceiling} (provider hard limit). If you need larger outputs, route this call to OpenRouter or split the generation.`);
   }
   return ceiling;
+}
+
+// ── Per-provider model normalization ─────────────────────────────────
+
+/**
+ * Model IDs are provider-scoped. DeepSeek accepts bare names
+ * (`deepseek-chat`, `deepseek-reasoner`); OpenRouter requires
+ * namespaced IDs (`vendor/model`, e.g. `deepseek/deepseek-chat`,
+ * `google/gemini-2.5-flash-lite`).
+ *
+ * The phase resolver hands the chain a model picked for the PRIMARY
+ * provider. When the chain pivots — either via capacity-aware routing
+ * or mid-flight failover — that model string can end up being sent to
+ * a provider it wasn't meant for:
+ *   - OpenRouter receiving bare `deepseek-chat` → 400 "ambiguous, matches
+ *     deepseek/deepseek-chat AND deepseek/deepseek-chat-v2.5".
+ *   - DeepSeek receiving `google/gemini-2.5-flash-lite` → 400 "model not
+ *     found".
+ *
+ * Rather than track a cross-provider name-translation table, we detect
+ * the mismatch by shape (slash → namespaced → OpenRouter-native) and
+ * fall back to the current provider's own default model. This is the
+ * correct semantic: "we tried to use the preferred model but it wasn't
+ * available here, so use whatever this provider offers natively."
+ */
+const modelSwapWarnCache = new Set<string>();
+
+function resolveModel(provider: ProviderConfig, requested: string | undefined): string {
+  if (!requested) return provider.defaultModel;
+
+  const hasNamespace = requested.includes("/");
+  const belongsHere  =
+    (provider.id === "deepseek"   && !hasNamespace) ||
+    (provider.id === "openrouter" &&  hasNamespace);
+
+  if (belongsHere) return requested;
+
+  const key = `${provider.id}:${requested}`;
+  if (!modelSwapWarnCache.has(key)) {
+    modelSwapWarnCache.add(key);
+    log(`[AI] ${provider.name} doesn't accept model "${requested}" (wrong provider namespace); falling back to ${provider.defaultModel}.`);
+  }
+  return provider.defaultModel;
 }
 
 // ── Terminal error builder (shared by both loops) ────────────────────

@@ -331,3 +331,105 @@ describe("createChatCompletion — capacity-aware provider routing", () => {
     expect(createSpy.mock.calls[0][0].max_tokens).toBe(8192);
   });
 });
+
+/**
+ * Real bug this locks in: capacity-aware routing sent a 32k Shopify
+ * request to OpenRouter, but the caller (phase resolver) had already
+ * chosen `model: "deepseek-chat"` — a DeepSeek-native name. OpenRouter
+ * fuzzy-matched it across its catalog and 400'd with:
+ *
+ *   "Model ID 'deepseek-chat' is ambiguous — it matches multiple models:
+ *    deepseek/deepseek-chat, deepseek/deepseek-chat-v2.5."
+ *
+ * The client must detect that the requested model doesn't match the
+ * provider it's about to hit and swap to that provider's default rather
+ * than send an invalid ID. Same risk in reverse — if a caller asks for
+ * `google/gemini-2.5-flash-lite` and the chain lands on DeepSeek,
+ * DeepSeek would 400 with "model not found".
+ */
+describe("createChatCompletion — per-provider model normalization", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    script = [];
+    createSpy.mockClear();
+  });
+
+  it("swaps DeepSeek-native name for OpenRouter's default when chain pivots to OpenRouter", async () => {
+    // 32k request → capacity-aware routing picks OpenRouter first.
+    // Caller asks for 'deepseek-chat' (DeepSeek bare name).
+    // OpenRouter should receive its own default model instead.
+    const { createChatCompletion } = await loadClient();
+    script = [{ ok: "ok on openrouter" }];
+
+    await createChatCompletion(
+      "sys",
+      [{ role: "user", content: "hi" }],
+      { model: "deepseek-chat", maxTokens: 32_000 },
+    );
+
+    expect(createSpy).toHaveBeenCalledTimes(1);
+    // NOT the caller-supplied 'deepseek-chat' — swapped to OpenRouter's default.
+    expect(createSpy.mock.calls[0][0].model).toBe("google/gemini-2.5-flash-lite");
+  });
+
+  it("swaps OpenRouter-namespaced name for DeepSeek's default when call lands on DeepSeek", async () => {
+    // Only DeepSeek has a key, so the call must land on DeepSeek even if
+    // the caller passes an OpenRouter-namespaced model.
+    const { createChatCompletion } = await loadClient({
+      openrouterApiKey: "",
+    });
+    script = [{ ok: "ok on deepseek" }];
+
+    await createChatCompletion(
+      "sys",
+      [{ role: "user", content: "hi" }],
+      { model: "google/gemini-2.5-flash-lite" },
+    );
+
+    expect(createSpy).toHaveBeenCalledTimes(1);
+    // Swapped to DeepSeek's default because the namespaced ID would 400.
+    expect(createSpy.mock.calls[0][0].model).toBe("deepseek-chat");
+  });
+
+  it("passes caller-supplied model through when it matches the provider's namespace convention", async () => {
+    // Caller asks for a valid OpenRouter model and we land on OpenRouter
+    // (DeepSeek has no key) — model should pass through untouched.
+    const { createChatCompletion } = await loadClient({
+      deepseekApiKey: "",
+    });
+    script = [{ ok: "ok" }];
+
+    await createChatCompletion(
+      "sys",
+      [{ role: "user", content: "hi" }],
+      { model: "qwen/qwen-2.5-coder-32b-instruct" },
+    );
+
+    expect(createSpy.mock.calls[0][0].model).toBe("qwen/qwen-2.5-coder-32b-instruct");
+  });
+
+  it("failover from DeepSeek 402 → OpenRouter swaps the model too", async () => {
+    // The original regression: DeepSeek 402s, chain fails over to
+    // OpenRouter, but the caller-supplied DeepSeek model was being
+    // carried across → 400 ambiguous. Verify both calls use the right
+    // per-provider model.
+    const { createChatCompletion } = await loadClient();
+    script = [
+      { throw: { status: 402, message: "Insufficient Balance" } },
+      { ok: "recovered on openrouter" },
+    ];
+
+    const result = await createChatCompletion(
+      "sys",
+      [{ role: "user", content: "hi" }],
+      { model: "deepseek-chat" },
+    );
+
+    expect(result.text).toBe("recovered on openrouter");
+    expect(createSpy).toHaveBeenCalledTimes(2);
+    // First attempt: DeepSeek with the DeepSeek-native name.
+    expect(createSpy.mock.calls[0][0].model).toBe("deepseek-chat");
+    // Second attempt: OpenRouter, model swapped to its own default.
+    expect(createSpy.mock.calls[1][0].model).toBe("google/gemini-2.5-flash-lite");
+  });
+});
