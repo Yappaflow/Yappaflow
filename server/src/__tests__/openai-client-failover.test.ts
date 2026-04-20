@@ -504,6 +504,34 @@ describe("createChatCompletion — large-output routing on OpenRouter", () => {
     expect(createSpy.mock.calls[0][0].model).toBe("meta-llama/llama-3.3-70b-instruct");
   });
 
+  it("upgrades explicit OpenRouter default model to large-context model on big requests", async () => {
+    // Production case we hit: env set AI_GENERATION_PROVIDER=openrouter
+    // so the phase resolver returned
+    //   { providerChain: ["openrouter"], model: "google/gemini-2.5-flash-lite" }
+    // directly. The namespace was correct, so the namespace-mismatch
+    // branch didn't fire, and we sent the huge request to Flash Lite —
+    // whose OpenRouter upstream endpoint caps combined context at 32k,
+    // 400ing on "maximum context length is 32768 tokens".
+    //
+    // The upgrade branch must catch this: if the caller lands on the
+    // provider's SMALL default with a generation-size output, promote.
+    const { createChatCompletion } = await loadClient({ deepseekApiKey: "" });
+    script = [{ ok: "upgraded" }];
+
+    await createChatCompletion(
+      "sys",
+      [{ role: "user", content: "hi" }],
+      {
+        model:     "google/gemini-2.5-flash-lite",
+        maxTokens: 32_000,
+      },
+    );
+
+    expect(createSpy).toHaveBeenCalledTimes(1);
+    // Upgraded away from the default even though caller named it.
+    expect(createSpy.mock.calls[0][0].model).toBe("qwen/qwen-2.5-coder-32b-instruct");
+  });
+
   it("DeepSeek-native model on a big request → swapped to Qwen Coder on OpenRouter", async () => {
     // This is the exact prod scenario. Shopify generator asks for
     // model="deepseek-chat" and maxTokens=32000. Capacity-aware

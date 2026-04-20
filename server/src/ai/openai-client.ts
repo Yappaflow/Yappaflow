@@ -514,6 +514,9 @@ function resolveModel(
   requested: string | undefined,
   maxTokens: number,
 ): string {
+  const isLargeOutput = maxTokens > LARGE_OUTPUT_THRESHOLD && !!provider.largeOutputModel;
+
+  // No model asked for → pick the provider's default sized for the request.
   if (!requested) return pickProviderDefault(provider, maxTokens);
 
   const hasNamespace = requested.includes("/");
@@ -521,15 +524,36 @@ function resolveModel(
     (provider.id === "deepseek"   && !hasNamespace) ||
     (provider.id === "openrouter" &&  hasNamespace);
 
-  if (belongsHere) return requested;
-
-  const fallback = pickProviderDefault(provider, maxTokens);
-  const key = `${provider.id}:${requested}→${fallback}`;
-  if (!modelSwapWarnCache.has(key)) {
-    modelSwapWarnCache.add(key);
-    log(`[AI] ${provider.name} doesn't accept model "${requested}" (wrong provider namespace); swapping to ${fallback}.`);
+  // Namespace mismatch → swap to the provider's correctly-sized default.
+  if (!belongsHere) {
+    const fallback = pickProviderDefault(provider, maxTokens);
+    const key = `${provider.id}:swap:${requested}→${fallback}`;
+    if (!modelSwapWarnCache.has(key)) {
+      modelSwapWarnCache.add(key);
+      log(`[AI] ${provider.name} doesn't accept model "${requested}" (wrong provider namespace); swapping to ${fallback}.`);
+    }
+    return fallback;
   }
-  return fallback;
+
+  // Model is valid for this provider, but if it's the small analysis
+  // default and we're asking for a generation-size output, upgrade to
+  // `largeOutputModel`. Production case: env.AI_GENERATION_PROVIDER set
+  // to "openrouter" made the phase resolver hand us "google/gemini-2.5-
+  // flash-lite" directly — namespace was correct, so the earlier swap
+  // branch didn't trigger, but OpenRouter's upstream Flash Lite endpoint
+  // caps combined context at 32k and 400s on 27k-input + 32k-output
+  // Shopify generations. A caller picking a non-default model (e.g.
+  // llama-3.3-70b) keeps it — they chose it for a reason.
+  if (isLargeOutput && requested === provider.defaultModel) {
+    const key = `${provider.id}:upgrade:${requested}→${provider.largeOutputModel}`;
+    if (!modelSwapWarnCache.has(key)) {
+      modelSwapWarnCache.add(key);
+      log(`[AI] ${provider.name} upgrading ${requested} → ${provider.largeOutputModel} for ${maxTokens}-token output (default model's upstream endpoint context is too small for generation-size calls).`);
+    }
+    return provider.largeOutputModel!;
+  }
+
+  return requested;
 }
 
 // ── Terminal error builder (shared by both loops) ────────────────────
