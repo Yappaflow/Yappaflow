@@ -193,7 +193,11 @@ function productsForPrompt(identity: IProjectIdentity): ShopifyProductForPrompt[
 }
 
 const BASE_EXPECTED_FILES = 17; // see prompt's required layout
-const SHOPIFY_MAX_TOKENS  = 16_384;
+// 17 full theme files (Liquid + JSON + CSS + JS) easily exceeds 16 k tokens.
+// 32 k sits safely inside Claude Sonnet 4's per-response cap and gives the
+// model headroom to finish the last file's closing fence — previously we were
+// truncating mid-output and parseArtifacts returned 0 blocks.
+const SHOPIFY_MAX_TOKENS  = 32_000;
 
 /**
  * Generate the Shopify-import bundle for a project.
@@ -259,24 +263,49 @@ export async function generateShopifyBundle(
     `(${identity.businessName}${promptProducts.length ? `, ${promptProducts.length} products` : ""})`
   );
 
-  let raw: string;
-  try {
-    const { text, usage } = await analyzeOnce(systemPrompt, userContent, {
-      maxTokens: SHOPIFY_MAX_TOKENS,
-    });
-    raw = text;
-    await trackUsage(sessionId.toString(), usage);
-  } catch (err) {
-    logError("Shopify bundle generation AI call failed", err);
-    await Project.findByIdAndUpdate(projectId, {
-      buildJobStatus: "failed",
-      buildError:     (err as Error).message,
-    });
-    await AISession.findByIdAndUpdate(sessionId, { phase: "failed", status: "failed", error: (err as Error).message });
-    throw err;
+  // We try twice. Generating 17 full theme files is long and stochastic;
+  // a single stumble (missed closing fence, stray prose) shouldn't sink the
+  // whole build. Second attempt tacks a short reminder onto the user content
+  // so the model re-reads the output contract.
+  let raw = "";
+  let themeFiles: ReturnType<typeof parseArtifacts> = [];
+
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const attemptUserContent = attempt === 1
+      ? userContent
+      : userContent +
+        "\n\nREMINDER: emit EVERY file as a separate fenced block of the form " +
+        "```filepath:<path>\\n<content>\\n```  — no prose outside the fences, " +
+        "and make sure the FINAL file's closing fence is present before you stop.";
+
+    try {
+      const { text, usage } = await analyzeOnce(systemPrompt, attemptUserContent, {
+        maxTokens: SHOPIFY_MAX_TOKENS,
+      });
+      raw = text;
+      await trackUsage(sessionId.toString(), usage);
+    } catch (err) {
+      logError(`Shopify bundle generation AI call failed (attempt ${attempt})`, err);
+      await Project.findByIdAndUpdate(projectId, {
+        buildJobStatus: "failed",
+        buildError:     (err as Error).message,
+      });
+      await AISession.findByIdAndUpdate(sessionId, { phase: "failed", status: "failed", error: (err as Error).message });
+      throw err;
+    }
+
+    themeFiles = parseArtifacts(raw);
+    if (themeFiles.length > 0) break;
+
+    // Diagnostic snapshot BEFORE we retry/fail — without this we're flying
+    // blind on future parse failures. Head+tail so the log doesn't balloon.
+    log(
+      `⚠️  Shopify gen attempt ${attempt}: parseArtifacts found 0 blocks in ${raw.length} chars. ` +
+      `Output head: ${JSON.stringify(raw.slice(0, 400))} … ` +
+      `tail: ${JSON.stringify(raw.slice(-400))}`
+    );
   }
 
-  const themeFiles = parseArtifacts(raw);
   if (themeFiles.length === 0) {
     const msg = "Shopify model output contained no filepath-fenced blocks";
     await Project.findByIdAndUpdate(projectId, {

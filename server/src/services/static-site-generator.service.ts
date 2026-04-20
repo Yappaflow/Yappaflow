@@ -38,18 +38,49 @@ function languageForPath(p: string): string {
  *   ```filepath:<relative/path>
  *   <contents>
  *   ```
+ *
+ * We accept a few real-world variations the model sometimes produces:
+ *   • A trailing language hint after the path ("```filepath:foo.liquid liquid")
+ *   • Windows line endings (CRLF)
+ *   • A final fence that never closes — happens when max_tokens truncates
+ *     the response mid-file. Better to salvage whatever arrived than to
+ *     throw away the whole generation.
+ *   • Leading/trailing whitespace on the filepath.
  */
 export function parseArtifacts(raw: string): ParsedFile[] {
+  // Normalize CRLF → LF so the regex doesn't have to care.
+  const text = raw.replace(/\r\n/g, "\n");
   const out: ParsedFile[] = [];
-  const re = /```filepath:([^\n]+)\n([\s\S]*?)\n```/g;
+
+  // Locate every opening fence. We walk manually instead of a single monster
+  // regex so we can handle the "unclosed final fence" case (model truncated).
+  const openRe = /```filepath:\s*([^\s`\n][^\n]*?)\s*\n/g;
   let match: RegExpExecArray | null;
-  while ((match = re.exec(raw)) !== null) {
-    const filePath = match[1].trim();
-    const content  = match[2];
+  const openings: Array<{ start: number; bodyStart: number; filePath: string }> = [];
+  while ((match = openRe.exec(text)) !== null) {
+    const raw = match[1].trim();
+    // Strip an optional trailing language hint ("foo.liquid liquid").
+    // A real filepath has no whitespace — if there is any, the part before
+    // the first space is the path, the rest is a hint we ignore.
+    const filePath = raw.split(/\s+/)[0];
     if (!filePath) continue;
     if (filePath.includes("..") || filePath.startsWith("/")) continue; // path traversal guard
+    openings.push({ start: match.index, bodyStart: openRe.lastIndex, filePath });
+  }
+
+  for (let i = 0; i < openings.length; i++) {
+    const { bodyStart, filePath } = openings[i];
+    const nextOpeningStart = i + 1 < openings.length ? openings[i + 1].start : text.length;
+    // Slice from body start up to next opening (or EOF), then look for the
+    // closing fence inside that slice.
+    const slice = text.slice(bodyStart, nextOpeningStart);
+    const closeMatch = /\n```\s*(?:\n|$)/.exec(slice);
+    // If the fence was never closed (truncation) use the whole slice; we
+    // still get partial content which is better than zero files.
+    const content = closeMatch ? slice.slice(0, closeMatch.index) : slice.replace(/\s+$/, "");
     out.push({ filePath, content, language: languageForPath(filePath) });
   }
+
   return out;
 }
 
