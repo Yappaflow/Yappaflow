@@ -47,4 +47,12 @@ export const env = {
   // Deploy Hub — registrar + host affiliate deep-links (no API integration)
   namecheapAffiliateId: process.env.NAMECHEAP_AFFILIATE_ID || "",
   hostingerAffiliateUrl: process.env.HOSTINGER_AFFILIATE_URL || "https://www.hostinger.com/web-hosting",
+
+  // Shopify OAuth (Public/Custom app credentials — Partner dashboard)
+  // Redirect URI must be registered in the Shopify Partner app settings.
+  shopifyApiKey:      process.env.SHOPIFY_API_KEY     || "",
+  shopifyApiSecret:   process.env.SHOPIFY_API_SECRET  || "",
+  shopifyScopes:      process.env.SHOPIFY_SCOPES      || "write_themes,read_themes,write_products,read_products",
+  shopifyRedirectUri: process.env.SHOPIFY_REDIRECT_URI || "http://localhost:4000/auth/shopify/callback",
+  shopifyApiVersion:  process.env.SHOPIFY_API_VERSION  || "2024-10",
 } as const;

@@ -2,7 +2,10 @@ import { Project, IProjectIdentity } from "../models/Project.model";
 import { GeneratedArtifact } from "../models/GeneratedArtifact.model";
 import { AISession } from "../models/AISession.model";
 import { analyzeOnce, trackUsage } from "./ai-client.service";
-import { getGenerateStaticSitePrompt } from "../ai/prompts/generate-static-site.prompt";
+import {
+  getGenerateStaticSitePrompt,
+  type ProductForPrompt,
+} from "../ai/prompts/generate-static-site.prompt";
 import { log, logError } from "../utils/logger";
 
 interface ParsedFile {
@@ -11,7 +14,9 @@ interface ParsedFile {
   language: string;
 }
 
-const EXPECTED_FILES = 5;
+const BASE_EXPECTED_FILES     = 5; // index / about / contact / style / script
+const ECOMMERCE_MAX_TOKENS    = 12_288;
+const NON_ECOMMERCE_MAX_TOKENS = 8_192;
 
 const LANG_BY_EXT: Record<string, string> = {
   ".html": "html",
@@ -48,6 +53,19 @@ export function parseArtifacts(raw: string): ParsedFile[] {
   return out;
 }
 
+function productsForPrompt(identity: IProjectIdentity): ProductForPrompt[] {
+  if (!identity.products?.length) return [];
+  return identity.products.map((p) => ({
+    name:        p.name,
+    price:       p.price,
+    currency:    p.currency,
+    description: p.description,
+    images:      p.images,
+    variantKind: p.variantKind,
+    variants:    p.variants?.map((v) => ({ label: v.label, price: v.price })),
+  }));
+}
+
 export async function generateStaticSite(
   projectId: string,
   agencyId: string
@@ -57,11 +75,13 @@ export async function generateStaticSite(
   if (!project.identity) throw new Error("Project has no identity — run extraction first");
 
   const identity = project.identity as IProjectIdentity;
+  const products = productsForPrompt(identity);
+  const hasProducts = products.length > 0;
 
   await Project.findByIdAndUpdate(projectId, {
     buildJobStatus:  "running",
     buildFilesDone:  0,
-    buildFilesTotal: EXPECTED_FILES,
+    buildFilesTotal: BASE_EXPECTED_FILES,
     buildError:      null,
   });
 
@@ -74,7 +94,7 @@ export async function generateStaticSite(
   });
   const sessionId = session._id;
 
-  const systemPrompt = getGenerateStaticSitePrompt();
+  const systemPrompt = getGenerateStaticSitePrompt({ products });
 
   const identityForPrompt = {
     businessName:      identity.businessName,
@@ -90,14 +110,23 @@ export async function generateStaticSite(
     "```json\n" +
     JSON.stringify(identityForPrompt, null, 2) +
     "\n```\n\n" +
+    (hasProducts
+      ? "## Product Catalog (render in `#shop` section)\n\n" +
+        "```json\n" +
+        JSON.stringify(products, null, 2) +
+        "\n```\n\n"
+      : "") +
     "Generate the five files now. No prose outside the fenced blocks.";
 
-  log(`🏗  Generating static site for project ${projectId} (${identity.businessName})`);
+  log(
+    `🏗  Generating static site for project ${projectId} ` +
+    `(${identity.businessName}${hasProducts ? `, ${products.length} products` : ""})`
+  );
 
   let raw: string;
   try {
     const { text, usage } = await analyzeOnce(systemPrompt, userContent, {
-      maxTokens: 8192,
+      maxTokens: hasProducts ? ECOMMERCE_MAX_TOKENS : NON_ECOMMERCE_MAX_TOKENS,
     });
     raw = text;
     await trackUsage(sessionId.toString(), usage);

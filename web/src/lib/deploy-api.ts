@@ -152,3 +152,104 @@ export async function downloadZip(projectId: string): Promise<void> {
   a.remove();
   URL.revokeObjectURL(url);
 }
+
+// ── Shopify deploy flow ──────────────────────────────────────────────────────
+
+export interface ShopifyProjectState extends DeployProjectState {
+  platform: "shopify";
+}
+
+export interface ShopifyConnection {
+  connected:   boolean;
+  shopDomain?: string | null;
+  scopes?:     string | null;
+  isActive?:   boolean;
+}
+
+export interface ShopifyPublishResult {
+  ok:              true;
+  shopDomain:      string;
+  themeId:         number;
+  themeName:       string;
+  themeFiles:      number;
+  productsCreated: number;
+  productIds:      string[];
+  previewUrl:      string;
+}
+
+export function startShopifyDeploy(signalId: string) {
+  return request<{ projectId: string }>("/deploy/shopify/start", {
+    method: "POST",
+    body:   JSON.stringify({ signalId }),
+  });
+}
+
+export function extractShopifyIdentity(projectId: string) {
+  return request<{ identity: ProjectIdentity }>(
+    `/deploy/shopify/${projectId}/extract`,
+    { method: "POST" }
+  );
+}
+
+export function getShopifyProject(projectId: string) {
+  return request<ShopifyProjectState>(`/deploy/shopify/${projectId}`);
+}
+
+export function startShopifyBuild(projectId: string) {
+  return request<{ status: string }>(`/deploy/shopify/${projectId}/build`, {
+    method: "POST",
+  });
+}
+
+export function getShopifyConnection() {
+  return request<ShopifyConnection>("/deploy/shopify/connection");
+}
+
+export function publishToShopify(projectId: string) {
+  return request<ShopifyPublishResult>(`/deploy/shopify/${projectId}/publish`, {
+    method: "POST",
+  });
+}
+
+/**
+ * Returns the absolute URL the user's browser should navigate to in order
+ * to start the Shopify OAuth install flow. The server-side route requires
+ * an Authorization header OR `?token=` — since a top-level navigation can't
+ * set headers, we pass the JWT as a query param.
+ */
+export function getShopifyAuthorizeUrl(shop: string): string {
+  const token = getToken();
+  if (!token) throw new Error("Not authenticated");
+  const qs = new URLSearchParams({ shop, token });
+  return `${getApiBase()}/auth/shopify/authorize?${qs.toString()}`;
+}
+
+/** Trigger download for the Shopify bundle ZIP (theme + products.csv). */
+export async function downloadShopifyZip(projectId: string): Promise<void> {
+  const token = getToken();
+  if (!token) throw new Error("Not authenticated");
+
+  const res = await fetch(
+    `${getApiBase()}/deploy/shopify/${projectId}/download`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  if (!res.ok) {
+    let msg = res.statusText;
+    try { msg = (await res.json()).error || msg; } catch {}
+    throw new Error(msg);
+  }
+
+  const blob = await res.blob();
+  const cd = res.headers.get("content-disposition") || "";
+  const match = /filename="?([^";]+)"?/i.exec(cd);
+  const filename = match?.[1] || "shopify-bundle.zip";
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}

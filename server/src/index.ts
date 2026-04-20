@@ -11,6 +11,8 @@ import { log } from "./utils/logger";
 import { buildAuthContext } from "./middleware/auth";
 import { isMockMode } from "./ai/client";
 import instagramRouter from "./routes/instagram.route";
+import shopifyRouter         from "./routes/shopify.route";
+import shopifyWebhooksRouter from "./routes/shopify-webhooks.route";
 import webhooksRouter  from "./routes/webhooks.route";
 import sseRouter       from "./routes/sse.route";
 import aiStreamRouter  from "./routes/ai-stream.route";
@@ -94,7 +96,16 @@ async function main() {
   await connectDatabase();
 
   app.use("/auth",    cors(corsOptions), authLimiter, express.json(), instagramRouter);
+  app.use("/auth",    cors(corsOptions), authLimiter, express.json(), shopifyRouter);
   app.use("/auth",    cors(corsOptions), authLimiter, express.json(), authSessionRouter);
+  // Shopify webhooks MUST receive the raw body bytes (HMAC is computed over
+  // them exactly). Mount before `/webhook` + express.json() so nothing parses
+  // the body first.
+  app.use(
+    "/webhook/shopify",
+    express.raw({ type: "application/json", limit: "2mb" }),
+    shopifyWebhooksRouter
+  );
   app.use("/webhook", express.json(), webhooksRouter); // no CORS — server-to-server from Meta; no rate limit — Meta sends bursts
   app.use("/events",  cors(corsOptions), sseRouter);
   app.use("/ai",      cors(corsOptions), apiLimiter, express.json(), aiStreamRouter);
@@ -122,6 +133,7 @@ async function main() {
     log(`\n🚀 Server running at ${base}`);
     log(`   GraphQL        → ${base}/graphql`);
     log(`   Instagram OAuth→ ${base}/auth/instagram/authorize`);
+    log(`   Shopify OAuth  → ${base}/auth/shopify/authorize?shop=<shop>.myshopify.com`);
     log(`\n📡 Webhook endpoints:`);
     log(`   Meta Cloud API → POST ${base}/webhook`);
     log(`      Verify token: ${env.metaWebhookVerifyToken}`);
@@ -129,6 +141,11 @@ async function main() {
     log(`   Twilio WA      → POST ${base}/webhook/twilio`);
     log(`      Register at: https://console.twilio.com → Messaging → WhatsApp → Sandbox Settings`);
     log(`      "When a message comes in" → <your-ngrok-url>/webhook/twilio`);
+    log(`   Shopify        → POST ${base}/webhook/shopify/app/uninstalled`);
+    log(`                     POST ${base}/webhook/shopify/customers/data-request`);
+    log(`                     POST ${base}/webhook/shopify/customers/redact`);
+    log(`                     POST ${base}/webhook/shopify/shop/redact`);
+    log(`      Register at: https://partners.shopify.com → your app → App setup → GDPR mandatory webhooks`);
     log(`   Debug (dev)    → POST ${base}/webhook/debug`);
     log(`      curl -X POST ${base}/webhook/debug \\`);
     log(`           -H "Content-Type: application/json" \\`);

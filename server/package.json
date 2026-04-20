@@ -6,6 +6,9 @@
     "dev": "nodemon --exec tsx src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "lint": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
@@ -13,6 +16,9 @@
     "@anthropic-ai/sdk": "^0.88.0",
     "@apollo/server": "^4.12.0",
     "@as-integrations/express5": "^1.1.2",
+    "@shopify/admin-api-client": "^1.1.2",
+    "@shopify/liquid-html-parser": "^2.9.2",
+    "@shopify/shopify-api": "^13.0.0",
     "adm-zip": "^0.5.17",
     "axios": "^1.9.0",
     "bcryptjs": "^2.4.3",
@@ -40,8 +46,10 @@
     "@types/jsonwebtoken": "^9.0.0",
     "@types/multer": "^2.1.0",
     "@types/uuid": "^10.0.0",
+    "@vitest/coverage-v8": "^4.1.4",
     "nodemon": "^3.1.0",
     "tsx": "^4.19.0",
-    "typescript": "~5.9.2"
+    "typescript": "~5.9.2",
+    "vitest": "^4.1.4"
   }
 }

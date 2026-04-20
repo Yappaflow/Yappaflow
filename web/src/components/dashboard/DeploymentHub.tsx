@@ -27,8 +27,19 @@ import {
   startBuild,
   confirmPurchase,
   downloadZip,
+  // Shopify flow
+  startShopifyDeploy,
+  extractShopifyIdentity,
+  getShopifyProject,
+  startShopifyBuild,
+  getShopifyConnection,
+  getShopifyAuthorizeUrl,
+  publishToShopify,
+  downloadShopifyZip,
   type ProjectIdentity,
   type DomainAvailability,
+  type ShopifyConnection,
+  type ShopifyPublishResult,
 } from "@/lib/deploy-api";
 
 type Route = "cms" | "custom" | null;
@@ -571,6 +582,333 @@ function CustomWizard({ onExitToDashboard }: { onExitToDashboard: () => void }) 
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+//  Shopify flow wizard — end-to-end: pick signal → extract → build → push
+// ═══════════════════════════════════════════════════════════════════════════
+
+type ShopifyStep = "pick-signal" | "identity" | "build" | "publish";
+
+function ShopifyWizard({ onExitToDashboard }: { onExitToDashboard: () => void }) {
+  const [step, setStep] = useState<ShopifyStep>("pick-signal");
+  const [signalId, setSignalId] = useState<string | null>(null);
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [identity, setIdentity] = useState<ProjectIdentity | null>(null);
+  const [identityError, setIdentityError] = useState<string | null>(null);
+
+  const [buildStatus, setBuildStatus] = useState<{
+    status: "pending" | "running" | "done" | "failed" | null;
+    filesDone: number;
+    filesTotal: number;
+    error: string | null;
+  }>({ status: null, filesDone: 0, filesTotal: 0, error: null });
+  const buildStartedRef = useRef(false);
+
+  const [connection, setConnection] = useState<ShopifyConnection | null>(null);
+  const [shopInput, setShopInput]   = useState("");
+  const [publishing, setPublishing] = useState(false);
+  const [publishResult, setPublishResult] = useState<ShopifyPublishResult | null>(null);
+  const [downloading, setDownloading] = useState(false);
+  const [downloaded, setDownloaded]   = useState(false);
+  const [topError, setTopError] = useState<string | null>(null);
+
+  // Step 1 → Step 2: kick off identity extraction on the shopify-platform Project
+  const onPickSignalNext = async () => {
+    if (!signalId) return;
+    setTopError(null);
+    try {
+      const { projectId } = await startShopifyDeploy(signalId);
+      setProjectId(projectId);
+      setStep("identity");
+      setIdentityError(null);
+      const { identity } = await extractShopifyIdentity(projectId);
+      setIdentity(identity);
+    } catch (err) {
+      setIdentityError(err instanceof Error ? err.message : "Failed to analyze chat");
+    }
+  };
+
+  // Auto-fire the build when entering the build step
+  useEffect(() => {
+    if (!projectId || step !== "build" || buildStartedRef.current) return;
+    buildStartedRef.current = true;
+    startShopifyBuild(projectId).catch((err) => {
+      setTopError(err instanceof Error ? err.message : "Couldn't start build");
+    });
+  }, [projectId, step]);
+
+  // Poll build status
+  useEffect(() => {
+    if (!projectId || (step !== "build" && step !== "publish")) return;
+    if (buildStatus.status === "done" || buildStatus.status === "failed") return;
+
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const p = await getShopifyProject(projectId);
+        if (cancelled) return;
+        setBuildStatus({
+          status: p.buildJobStatus,
+          filesDone: p.buildFilesDone,
+          filesTotal: p.buildFilesTotal,
+          error: p.buildError,
+        });
+      } catch {
+        /* ignore polling errors */
+      }
+    };
+    poll();
+    const iv = setInterval(poll, 2000);
+    return () => { cancelled = true; clearInterval(iv); };
+  }, [projectId, step, buildStatus.status]);
+
+  // Load the current Shopify connection (so we know whether to show Connect vs Publish)
+  const refreshConnection = async () => {
+    try {
+      const c = await getShopifyConnection();
+      setConnection(c);
+    } catch {
+      setConnection({ connected: false });
+    }
+  };
+  useEffect(() => { refreshConnection(); }, []);
+
+  // Detect OAuth callback return: URL has ?shopify=connected&shop=…
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get("shopify");
+    if (status === "connected") {
+      refreshConnection();
+      // Clean the URL so a refresh doesn't re-trigger this.
+      const clean = new URL(window.location.href);
+      clean.searchParams.delete("shopify");
+      clean.searchParams.delete("shop");
+      window.history.replaceState({}, "", clean.toString());
+    } else if (status === "error") {
+      setTopError(`Shopify connect failed: ${params.get("reason") ?? "unknown"}`);
+    }
+  }, []);
+
+  // Auto-advance: identity ready → build, build done → publish
+  useEffect(() => {
+    if (step === "identity" && identity) setStep("build");
+  }, [step, identity]);
+  useEffect(() => {
+    if (step === "build" && buildStatus.status === "done") setStep("publish");
+  }, [step, buildStatus.status]);
+
+  const onConnectShopify = () => {
+    const shop = shopInput.trim().toLowerCase();
+    if (!/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(shop)) {
+      setTopError("Enter a valid <name>.myshopify.com domain");
+      return;
+    }
+    try {
+      window.location.href = getShopifyAuthorizeUrl(shop);
+    } catch (err) {
+      setTopError(err instanceof Error ? err.message : "Couldn't start OAuth");
+    }
+  };
+
+  const onPublish = async () => {
+    if (!projectId) return;
+    setTopError(null);
+    setPublishing(true);
+    try {
+      const result = await publishToShopify(projectId);
+      setPublishResult(result);
+    } catch (err) {
+      setTopError(err instanceof Error ? err.message : "Publish failed");
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const onDownload = async () => {
+    if (!projectId) return;
+    setTopError(null);
+    setDownloading(true);
+    try {
+      await downloadShopifyZip(projectId);
+      setDownloaded(true);
+    } catch (err) {
+      setTopError(err instanceof Error ? err.message : "Download failed");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  return (
+    <div className="max-w-xl">
+      {topError && (
+        <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-[12px] text-red-300">
+          {topError}
+        </div>
+      )}
+
+      {/* Step 1 — pick signal */}
+      {step === "pick-signal" && (
+        <div>
+          <h3 className="text-[18px] font-black text-white mb-2">Pick a chat signal</h3>
+          <p className="text-[13px] text-white/40 mb-5">
+            The messages will be analyzed to extract the business identity and products for your Shopify store.
+          </p>
+          <SignalPicker selectedId={signalId} onSelect={setSignalId} />
+          <button
+            onClick={onPickSignalNext}
+            disabled={!signalId}
+            className="mt-5 w-full rounded-xl bg-white py-3 text-[13px] font-bold text-[#0A0A0A] disabled:opacity-30 hover:opacity-80 transition-opacity"
+          >
+            Continue
+          </button>
+        </div>
+      )}
+
+      {/* Step 2 — identity */}
+      {step === "identity" && (
+        <div className="rounded-2xl border border-white/[0.05] bg-[#111114] p-6">
+          {!identity && !identityError && (
+            <div className="flex items-center gap-3 text-white/60">
+              <Loader2 className="animate-spin" size={16} />
+              <span className="text-[13px]">Analyzing the chat for business identity…</span>
+            </div>
+          )}
+          {identityError && (
+            <p className="text-[13px] text-red-400">{identityError}</p>
+          )}
+          {identity && (
+            <div>
+              <div className="mb-1 text-[11px] uppercase tracking-wider text-white/30">Business</div>
+              <h4 className="text-[20px] font-black text-white">{identity.businessName}</h4>
+              {identity.tagline && <p className="mt-1 text-[13px] text-white/50">{identity.tagline}</p>}
+              <p className="mt-2 text-[12px] text-white/30">
+                {[identity.industry, identity.tone, identity.city].filter(Boolean).join(" · ")}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Step 3 — build */}
+      {step === "build" && (
+        <div className="rounded-2xl border border-white/[0.05] bg-[#111114] p-6">
+          <h3 className="text-[16px] font-black text-white mb-1">Generating Shopify theme</h3>
+          <p className="text-[13px] text-white/40 mb-4">
+            A complete Liquid theme + Shopify-compatible products.csv will be built for you.
+          </p>
+          <div className="h-1.5 w-full rounded-full bg-white/[0.06] mb-3 overflow-hidden">
+            <motion.div
+              className="h-1.5 rounded-full bg-[#96BF48]"
+              style={{
+                width: `${buildStatus.filesTotal
+                  ? Math.min(100, (buildStatus.filesDone / buildStatus.filesTotal) * 100)
+                  : 10}%`,
+              }}
+            />
+          </div>
+          <p className="text-[12px] text-white/40">
+            {buildStatus.status === "failed"
+              ? <span className="text-red-400">Build failed: {buildStatus.error ?? "unknown error"}</span>
+              : buildStatus.filesTotal
+                ? `${buildStatus.filesDone} / ${buildStatus.filesTotal} files`
+                : "Starting…"}
+          </p>
+        </div>
+      )}
+
+      {/* Step 4 — publish */}
+      {step === "publish" && (
+        <div className="space-y-4">
+          {publishResult ? (
+            <div className="rounded-2xl border border-green-500/20 bg-green-500/5 p-6">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-500">
+                  <Check size={16} strokeWidth={3} className="text-white" />
+                </div>
+                <h3 className="text-[18px] font-black text-white">Pushed to Shopify</h3>
+              </div>
+              <p className="text-[13px] text-white/60">
+                Theme uploaded ({publishResult.themeFiles} files) and {publishResult.productsCreated} products created on{" "}
+                <strong className="text-white">{publishResult.shopDomain}</strong>.
+              </p>
+              <a
+                href={publishResult.previewUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-[13px] font-bold text-[#0A0A0A] hover:opacity-80 transition-opacity"
+              >
+                Open in Shopify admin
+                <ExternalLink size={14} />
+              </a>
+            </div>
+          ) : connection?.connected && connection.shopDomain ? (
+            <div className="rounded-2xl border border-white/[0.05] bg-[#111114] p-6">
+              <div className="mb-1 text-[11px] uppercase tracking-wider text-white/30">Connected store</div>
+              <h4 className="text-[16px] font-black text-white">{connection.shopDomain}</h4>
+              <p className="mt-1 text-[12px] text-white/40">Scopes: {connection.scopes}</p>
+              <button
+                onClick={onPublish}
+                disabled={publishing}
+                className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#96BF48] px-4 py-2.5 text-[13px] font-bold text-white hover:opacity-80 disabled:opacity-40 transition-opacity"
+              >
+                {publishing ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                {publishing ? "Pushing to Shopify…" : "Push to Shopify now"}
+              </button>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-white/[0.05] bg-[#111114] p-6">
+              <h3 className="text-[16px] font-black text-white mb-1">Connect your Shopify store</h3>
+              <p className="text-[13px] text-white/40 mb-4">
+                Authorize Yappaflow once, and we'll upload the theme + products straight to your store.
+              </p>
+              <input
+                type="text"
+                placeholder="your-store.myshopify.com"
+                value={shopInput}
+                onChange={(e) => setShopInput(e.target.value)}
+                className="w-full rounded-xl border border-white/[0.08] bg-[#0A0A0A] px-4 py-2.5 text-[14px] text-white placeholder:text-white/20 focus:outline-none focus:border-white/20"
+              />
+              <button
+                onClick={onConnectShopify}
+                className="mt-3 w-full rounded-xl bg-white py-3 text-[13px] font-bold text-[#0A0A0A] hover:opacity-80 transition-opacity"
+              >
+                Connect with Shopify
+              </button>
+            </div>
+          )}
+
+          {/* Always-available fallback: manual ZIP download */}
+          <div className="rounded-2xl border border-white/[0.05] bg-[#111114] p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h4 className="text-[14px] font-black text-white">Prefer to upload manually?</h4>
+                <p className="mt-1 text-[12px] text-white/40">
+                  Download the ZIP and upload it yourself (Online Store → Themes → Upload zip file).
+                </p>
+              </div>
+              <button
+                onClick={onDownload}
+                disabled={downloading || buildStatus.status !== "done"}
+                className="flex items-center gap-2 rounded-xl border border-white/[0.08] px-4 py-2 text-[12px] font-bold text-white/70 hover:text-white hover:bg-white/[0.04] disabled:opacity-30 transition-all"
+              >
+                {downloading ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+                {downloaded ? "Downloaded" : "Download ZIP"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <button
+        onClick={onExitToDashboard}
+        className="mt-6 w-full rounded-xl border border-white/[0.05] py-2.5 text-[13px] font-semibold text-white/40 hover:bg-white/[0.04] hover:text-white"
+      >
+        Back to dashboard
+      </button>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 
 interface Props { setView: (v: DashboardView) => void; }
 
@@ -649,8 +987,8 @@ export function DeploymentHub({ setView }: Props) {
           </motion.div>
         )}
 
-        {/* CMS route (placeholder — out of scope this phase) */}
-        {route === "cms" && !cmsDeploying && (
+        {/* CMS route — Shopify is the real flow; others are still placeholders */}
+        {route === "cms" && !cmsDeploying && cms !== "shopify" && (
           <motion.div key="cms" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="max-w-xl">
             <div className="grid grid-cols-2 gap-3 mb-6">
               {CMS_OPTIONS.map((opt) => (
@@ -679,6 +1017,13 @@ export function DeploymentHub({ setView }: Props) {
                 {t("cmsDeployCta", { cms: CMS_OPTIONS.find((c) => c.id === cms)?.label ?? "" })}
               </motion.button>
             )}
+          </motion.div>
+        )}
+
+        {/* Shopify — real wizard */}
+        {route === "cms" && cms === "shopify" && !cmsDeploying && (
+          <motion.div key="shopify" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+            <ShopifyWizard onExitToDashboard={() => { setRoute(null); setCms(null); setView("command"); }} />
           </motion.div>
         )}
 
