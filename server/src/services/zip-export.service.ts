@@ -19,10 +19,25 @@ export interface BuildZipOptions {
    *                           theme admin expects (liquid files at root)
    *     products.csv        ← if the project has products
    *
+   * When "wordpress", the download wraps the theme/* files into an inner
+   * wordpress-theme.zip that matches WordPress's "Upload Theme" expectations
+   * (the ZIP must contain a single top-level folder whose name becomes the
+   * theme slug):
+   *
+   *   download.zip/
+   *     README.txt
+   *     wordpress-theme.zip ← inner ZIP with a single  yappaflow-site/  folder
+   *                           at the root — uploadable at Appearance → Themes
+   *                           → Add New → Upload Theme
+   *     pages/*.html        ← editor-safe bodies for Home / About / Contact
+   *                           (also REST-pushable via /publish)
+   *     products.csv        ← WooCommerce Product CSV Importer template
+   *                           (when products exist)
+   *
    * When unset, we keep the flat layout (every artifact at its
    * `filePath`) — that's still what the non-Shopify flows want.
    */
-  repack?: "shopify";
+  repack?: "shopify" | "wordpress";
 }
 
 function slugify(s: string): string {
@@ -79,6 +94,66 @@ export function repackShopifyBundle(files: ZipFile[]): Buffer {
   return outer.toBuffer();
 }
 
+/**
+ * Build the inner theme ZIP that WordPress's "Upload Theme" expects.
+ *
+ * WordPress derives the theme slug from the NAME OF THE TOP-LEVEL FOLDER
+ * inside the uploaded ZIP (not from style.css). So the shape is:
+ *
+ *   wordpress-theme.zip/
+ *     {themeSlug}/
+ *       style.css
+ *       functions.php
+ *       theme.json
+ *       ...
+ *
+ * If two themes with the same folder name get uploaded, WordPress silently
+ * overwrites — so we use a unique, slugified base name per project.
+ */
+export function buildInnerWordPressThemeZip(
+  themeFiles: ZipFile[],
+  themeSlug: string
+): Buffer {
+  const inner = new AdmZip();
+  for (const f of themeFiles) {
+    // Strip "theme/" and put under "{themeSlug}/".
+    const stripped = f.filePath.startsWith("theme/")
+      ? f.filePath.slice("theme/".length)
+      : f.filePath;
+    inner.addFile(`${themeSlug}/${stripped}`, Buffer.from(f.content, "utf8"));
+  }
+  return inner.toBuffer();
+}
+
+/**
+ * Repack into the "WordPress download" layout. Mirrors repackShopifyBundle
+ * but the inner ZIP has a single named folder at the root (WordPress
+ * requires it) and non-theme artifacts (pages/*.html, products.csv, README)
+ * stay at the outer ZIP root so the merchant can grab them individually.
+ *
+ * Pure (no DB) so it can be unit-tested on fixtures.
+ */
+export function repackWordPressBundle(
+  files: ZipFile[],
+  themeSlug: string
+): Buffer {
+  const themeFiles = files.filter((f) => f.filePath.startsWith("theme/"));
+  const extras     = files.filter((f) => !f.filePath.startsWith("theme/"));
+  if (themeFiles.length === 0) {
+    throw new Error("WordPress repack requested but no theme/* files exist");
+  }
+
+  const outer = new AdmZip();
+  outer.addFile(
+    "wordpress-theme.zip",
+    buildInnerWordPressThemeZip(themeFiles, themeSlug)
+  );
+  for (const f of extras) {
+    outer.addFile(f.filePath, Buffer.from(f.content, "utf8"));
+  }
+  return outer.toBuffer();
+}
+
 export async function buildProjectZip(
   projectId: string,
   agencyId: string,
@@ -99,6 +174,23 @@ export async function buildProjectZip(
   if (opts.repack === "shopify") {
     const buffer = repackShopifyBundle(
       artifacts.map((a) => ({ filePath: a.filePath, content: a.content }))
+    );
+    const extras = artifacts.filter((a) => !a.filePath.startsWith("theme/"));
+    return {
+      buffer,
+      fileName:  `${base}.zip`,
+      fileCount: 1 + extras.length, // inner theme ZIP counts as one file
+    };
+  }
+
+  // ── WordPress-repack path ──────────────────────────────────────────────
+  if (opts.repack === "wordpress") {
+    // WordPress uses the top-level folder name inside the uploaded ZIP as
+    // the theme slug. Use the same slugified baseName for stability.
+    const themeSlug = base;
+    const buffer = repackWordPressBundle(
+      artifacts.map((a) => ({ filePath: a.filePath, content: a.content })),
+      themeSlug
     );
     const extras = artifacts.filter((a) => !a.filePath.startsWith("theme/"));
     return {

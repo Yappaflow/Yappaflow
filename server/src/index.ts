@@ -13,6 +13,12 @@ import { isMockMode } from "./ai/client";
 import instagramRouter from "./routes/instagram.route";
 import shopifyRouter         from "./routes/shopify.route";
 import shopifyWebhooksRouter from "./routes/shopify-webhooks.route";
+import webflowRouter         from "./routes/webflow.route";
+import webflowWebhooksRouter from "./routes/webflow-webhooks.route";
+import wordpressRouter          from "./routes/wordpress.route";
+import wordpressWebhooksRouter  from "./routes/wordpress-webhooks.route";
+import ikasRouter              from "./routes/ikas.route";
+import ikasWebhooksRouter      from "./routes/ikas-webhooks.route";
 import webhooksRouter  from "./routes/webhooks.route";
 import sseRouter       from "./routes/sse.route";
 import aiStreamRouter  from "./routes/ai-stream.route";
@@ -113,6 +119,18 @@ async function main() {
 
   app.use("/auth",    cors(corsOptions), authLimiter, express.json(), instagramRouter);
   app.use("/auth",    cors(corsOptions), authLimiter, express.json(), shopifyRouter);
+  // Webflow OAuth + push live on the same router; auth endpoints end up at
+  // `/auth/webflow/*` and the push endpoint at `/auth/webflow/push`. We
+  // deliberately keep the dashboard → server call under `/auth` to reuse the
+  // same CORS + rate-limit + JSON-parsing middleware chain as Shopify.
+  app.use("/auth",    cors(corsOptions), authLimiter, express.json(), webflowRouter);
+  // WordPress OAuth (WP.com) + self-hosted Application Password connect +
+  // push endpoint — all mounted under /auth so they share the same CORS +
+  // rate-limit + JSON chain as the other platform integrations.
+  app.use("/auth",    cors(corsOptions), authLimiter, express.json(), wordpressRouter);
+  // ikas OAuth + push — the push endpoint is /auth/ikas/push so we reuse the
+  // same CORS + rate-limit + JSON chain as the other platform integrations.
+  app.use("/auth",    cors(corsOptions), authLimiter, express.json(), ikasRouter);
   app.use("/auth",    cors(corsOptions), authLimiter, express.json(), authSessionRouter);
   // Shopify webhooks MUST receive the raw body bytes (HMAC is computed over
   // them exactly). Mount before `/webhook` + express.json() so nothing parses
@@ -121,6 +139,23 @@ async function main() {
     "/webhook/shopify",
     express.raw({ type: "application/json", limit: "2mb" }),
     shopifyWebhooksRouter
+  );
+  // Webflow webhooks — same raw-body rule (signature is over the exact bytes).
+  app.use(
+    "/webhook/webflow",
+    express.raw({ type: "application/json", limit: "2mb" }),
+    webflowWebhooksRouter
+  );
+  // WordPress webhooks + maintenance endpoints. WP.com's deauthorize callback
+  // is form-encoded (the router opts into urlencoded itself), and the
+  // first-party /disconnect endpoint expects JSON — so use the normal JSON
+  // parser here instead of raw bytes.
+  app.use("/webhook/wordpress", express.json(), wordpressWebhooksRouter);
+  // ikas webhooks — same raw-body rule (HMAC is over the exact body bytes).
+  app.use(
+    "/webhook/ikas",
+    express.raw({ type: "application/json", limit: "2mb" }),
+    ikasWebhooksRouter
   );
   app.use("/webhook", express.json(), webhooksRouter); // no CORS — server-to-server from Meta; no rate limit — Meta sends bursts
   app.use("/events",  cors(corsOptions), sseRouter);
@@ -150,6 +185,10 @@ async function main() {
     log(`   GraphQL        → ${base}/graphql`);
     log(`   Instagram OAuth→ ${base}/auth/instagram/authorize`);
     log(`   Shopify OAuth  → ${base}/auth/shopify/authorize?shop=<shop>.myshopify.com`);
+    log(`   Webflow OAuth  → ${base}/auth/webflow/authorize`);
+    log(`   WordPress (self-hosted) → POST ${base}/auth/wordpress/connect-application-password`);
+    log(`   WordPress.com OAuth     → ${base}/auth/wordpress/authorize`);
+    log(`   ikas OAuth     → ${base}/auth/ikas/authorize?store=<name>   (opens <name>.myikas.com)`);
     log(`\n📡 Webhook endpoints:`);
     log(`   Meta Cloud API → POST ${base}/webhook`);
     log(`      Verify token: ${env.metaWebhookVerifyToken}`);
@@ -162,6 +201,18 @@ async function main() {
     log(`                     POST ${base}/webhook/shopify/customers/redact`);
     log(`                     POST ${base}/webhook/shopify/shop/redact`);
     log(`      Register at: https://partners.shopify.com → your app → App setup → GDPR mandatory webhooks`);
+    log(`   Webflow        → POST ${base}/webhook/webflow/site-publish`);
+    log(`                     POST ${base}/webhook/webflow/app-uninstalled`);
+    log(`                     POST ${base}/webhook/webflow/ecomm-new-order`);
+    log(`      Register at: https://webflow.com → Workspace → Apps & integrations → your app → Webhooks`);
+    log(`   WordPress      → POST ${base}/webhook/wordpress/deauthorize   (optional — WP.com apps only)`);
+    log(`                     POST ${base}/webhook/wordpress/disconnect    (first-party: Yappaflow frontend)`);
+    log(`                     GET  ${base}/webhook/wordpress/heartbeat`);
+    log(`   ikas           → POST ${base}/webhook/ikas/app-uninstalled`);
+    log(`                     POST ${base}/webhook/ikas/order-created`);
+    log(`                     POST ${base}/webhook/ikas/product-updated`);
+    log(`                     GET  ${base}/webhook/ikas/heartbeat`);
+    log(`      Register at: https://ikas.dev → your app → Webhooks`);
     log(`   Debug (dev)    → POST ${base}/webhook/debug`);
     log(`      curl -X POST ${base}/webhook/debug \\`);
     log(`           -H "Content-Type: application/json" \\`);

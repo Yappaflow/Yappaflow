@@ -10,7 +10,7 @@ export interface IGeneratedArtifact extends Document {
   content:  string;   // the generated code
   language: string;   // e.g. "liquid", "php", "typescript", "css", "json"
   purpose:  string;   // e.g. "hero-section", "theme-config", "component"
-  platform: string;   // "shopify" | "wordpress" | "ikas" | "custom"
+  platform: string;   // "shopify" | "wordpress" | "webflow" | "ikas" | "custom"
   version:  number;   // increments on re-generation
 
   createdAt: Date;
@@ -28,7 +28,7 @@ const GeneratedArtifactSchema = new Schema<IGeneratedArtifact>(
     content:  { type: String, required: true },
     language: { type: String, required: true },
     purpose:  { type: String, default: "" },
-    platform: { type: String, enum: ["shopify", "wordpress", "ikas", "custom"], required: true },
+    platform: { type: String, enum: ["shopify", "wordpress", "webflow", "ikas", "custom"], required: true },
     version:  { type: Number, default: 1 },
   },
   { timestamps: true }

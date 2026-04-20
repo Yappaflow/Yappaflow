@@ -36,10 +36,24 @@ import {
   getShopifyAuthorizeUrl,
   publishToShopify,
   downloadShopifyZip,
+  // WordPress flow
+  startWordPressDeploy,
+  extractWordPressIdentity,
+  getWordPressProject,
+  startWordPressBuild,
+  getWordPressConnection,
+  getWordPressComAuthorizeUrl,
+  getWordPressConfigStatus,
+  connectWordPressApplicationPassword,
+  publishToWordPress,
+  downloadWordPressZip,
   type ProjectIdentity,
   type DomainAvailability,
   type ShopifyConnection,
   type ShopifyPublishResult,
+  type WordPressConnection,
+  type WordPressConfigStatus,
+  type WordPressPublishResult,
 } from "@/lib/deploy-api";
 
 type Route = "cms" | "custom" | null;
@@ -909,6 +923,482 @@ function ShopifyWizard({ onExitToDashboard }: { onExitToDashboard: () => void })
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+//  WordPress flow wizard — pick signal → extract → build → connect → push
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Design choice: WordPress supports two connection flavors —
+//   • self_hosted: Application Password (paste-in flow, works for everyone)
+//   • dotcom:     WordPress.com OAuth (only if the server operator has
+//                 registered a WP.com developer app)
+//
+// The wizard defaults to self-hosted because it covers the overwhelming
+// majority of agency sites and needs no server-side secrets. If the
+// server advertises dotcomOAuthConfigured=true via the config-status
+// endpoint, the user can flip to the OAuth flow instead.
+
+type WordPressStep = "pick-signal" | "identity" | "build" | "publish";
+
+function WordPressWizard({ onExitToDashboard }: { onExitToDashboard: () => void }) {
+  const [step, setStep] = useState<WordPressStep>("pick-signal");
+  const [signalId, setSignalId] = useState<string | null>(null);
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [identity, setIdentity] = useState<ProjectIdentity | null>(null);
+  const [identityError, setIdentityError] = useState<string | null>(null);
+
+  const [buildStatus, setBuildStatus] = useState<{
+    status: "pending" | "running" | "done" | "failed" | null;
+    filesDone: number;
+    filesTotal: number;
+    error: string | null;
+  }>({ status: null, filesDone: 0, filesTotal: 0, error: null });
+  const buildStartedRef = useRef(false);
+
+  const [configStatus, setConfigStatus] = useState<WordPressConfigStatus | null>(null);
+  const [connection, setConnection] = useState<WordPressConnection | null>(null);
+
+  const [connectFlavor, setConnectFlavor] = useState<"self_hosted" | "dotcom">("self_hosted");
+  // Self-hosted connect form
+  const [siteUrlInput, setSiteUrlInput] = useState("");
+  const [usernameInput, setUsernameInput] = useState("");
+  const [appPasswordInput, setAppPasswordInput] = useState("");
+  const [connecting, setConnecting] = useState(false);
+
+  const [publishing, setPublishing] = useState(false);
+  const [publishResult, setPublishResult] = useState<WordPressPublishResult | null>(null);
+  const [downloading, setDownloading] = useState(false);
+  const [downloaded, setDownloaded]   = useState(false);
+  const [topError, setTopError] = useState<string | null>(null);
+
+  // Step 1 → Step 2: kick off identity extraction on the wordpress-platform Project
+  const onPickSignalNext = async () => {
+    if (!signalId) return;
+    setTopError(null);
+    try {
+      const { projectId } = await startWordPressDeploy(signalId);
+      setProjectId(projectId);
+      setStep("identity");
+      setIdentityError(null);
+      const { identity } = await extractWordPressIdentity(projectId);
+      setIdentity(identity);
+    } catch (err) {
+      setIdentityError(err instanceof Error ? err.message : "Failed to analyze chat");
+    }
+  };
+
+  // Auto-fire the build when entering the build step
+  useEffect(() => {
+    if (!projectId || step !== "build" || buildStartedRef.current) return;
+    buildStartedRef.current = true;
+    startWordPressBuild(projectId).catch((err) => {
+      setTopError(err instanceof Error ? err.message : "Couldn't start build");
+    });
+  }, [projectId, step]);
+
+  // Poll build status
+  useEffect(() => {
+    if (!projectId || (step !== "build" && step !== "publish")) return;
+    if (buildStatus.status === "done" || buildStatus.status === "failed") return;
+
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const p = await getWordPressProject(projectId);
+        if (cancelled) return;
+        setBuildStatus({
+          status: p.buildJobStatus,
+          filesDone: p.buildFilesDone,
+          filesTotal: p.buildFilesTotal,
+          error: p.buildError,
+        });
+      } catch {
+        /* ignore polling errors */
+      }
+    };
+    poll();
+    const iv = setInterval(poll, 2000);
+    return () => { cancelled = true; clearInterval(iv); };
+  }, [projectId, step, buildStatus.status]);
+
+  // Config + connection on mount (tells us which flavors are available and
+  // whether we already have a connected site).
+  const refreshConnection = async () => {
+    try {
+      const c = await getWordPressConnection();
+      setConnection(c);
+    } catch {
+      setConnection({ connected: false });
+    }
+  };
+  useEffect(() => { refreshConnection(); }, []);
+  useEffect(() => {
+    (async () => {
+      try {
+        const s = await getWordPressConfigStatus();
+        setConfigStatus(s);
+        // If WP.com OAuth isn't configured, hide the toggle entirely.
+        if (!s.dotcomOAuthConfigured) setConnectFlavor("self_hosted");
+      } catch {
+        setConfigStatus({
+          selfHostedSupported:   true,
+          dotcomOAuthConfigured: false,
+          apiVersion:            "wp/v2",
+          scopes:                "",
+          redirectUri:           "",
+        });
+      }
+    })();
+  }, []);
+
+  // Detect WP.com OAuth callback return: URL has ?wordpress=connected&site=…
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get("wordpress");
+    if (status === "connected") {
+      refreshConnection();
+      const clean = new URL(window.location.href);
+      clean.searchParams.delete("wordpress");
+      clean.searchParams.delete("site");
+      window.history.replaceState({}, "", clean.toString());
+    } else if (status === "error") {
+      setTopError(`WordPress connect failed: ${params.get("reason") ?? "unknown"}`);
+    }
+  }, []);
+
+  // Auto-advance: identity ready → build, build done → publish
+  useEffect(() => {
+    if (step === "identity" && identity) setStep("build");
+  }, [step, identity]);
+  useEffect(() => {
+    if (step === "build" && buildStatus.status === "done") setStep("publish");
+  }, [step, buildStatus.status]);
+
+  const onConnectSelfHosted = async () => {
+    setTopError(null);
+    if (!siteUrlInput.trim() || !usernameInput.trim() || !appPasswordInput.trim()) {
+      setTopError("Site URL, username, and application password are all required");
+      return;
+    }
+    setConnecting(true);
+    try {
+      await connectWordPressApplicationPassword({
+        siteUrl:             siteUrlInput.trim(),
+        username:            usernameInput.trim(),
+        applicationPassword: appPasswordInput,
+      });
+      await refreshConnection();
+      // Clear sensitive inputs once the token is stored server-side.
+      setAppPasswordInput("");
+    } catch (err) {
+      setTopError(err instanceof Error ? err.message : "Couldn't verify the application password");
+    } finally {
+      setConnecting(false);
+    }
+  };
+
+  const onConnectDotCom = () => {
+    try {
+      window.location.href = getWordPressComAuthorizeUrl(siteUrlInput.trim() || undefined);
+    } catch (err) {
+      setTopError(err instanceof Error ? err.message : "Couldn't start OAuth");
+    }
+  };
+
+  const onPublish = async () => {
+    if (!projectId) return;
+    setTopError(null);
+    setPublishing(true);
+    try {
+      const result = await publishToWordPress(projectId);
+      setPublishResult(result);
+    } catch (err) {
+      setTopError(err instanceof Error ? err.message : "Publish failed");
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const onDownload = async () => {
+    if (!projectId) return;
+    setTopError(null);
+    setDownloading(true);
+    try {
+      await downloadWordPressZip(projectId);
+      setDownloaded(true);
+    } catch (err) {
+      setTopError(err instanceof Error ? err.message : "Download failed");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const wordpressAccent = "#21759B"; // WordPress brand blue
+
+  return (
+    <div className="max-w-xl">
+      {topError && (
+        <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-[12px] text-red-300">
+          {topError}
+        </div>
+      )}
+
+      {/* Step 1 — pick signal */}
+      {step === "pick-signal" && (
+        <div>
+          <h3 className="text-[18px] font-black text-white mb-2">Pick a chat signal</h3>
+          <p className="text-[13px] text-white/40 mb-5">
+            The messages will be analyzed to extract the business identity, pages, and products for your WordPress site.
+          </p>
+          <SignalPicker selectedId={signalId} onSelect={setSignalId} />
+          <button
+            onClick={onPickSignalNext}
+            disabled={!signalId}
+            className="mt-5 w-full rounded-xl bg-white py-3 text-[13px] font-bold text-[#0A0A0A] disabled:opacity-30 hover:opacity-80 transition-opacity"
+          >
+            Continue
+          </button>
+        </div>
+      )}
+
+      {/* Step 2 — identity */}
+      {step === "identity" && (
+        <div className="rounded-2xl border border-white/[0.05] bg-[#111114] p-6">
+          {!identity && !identityError && (
+            <div className="flex items-center gap-3 text-white/60">
+              <Loader2 className="animate-spin" size={16} />
+              <span className="text-[13px]">Analyzing the chat for business identity…</span>
+            </div>
+          )}
+          {identityError && (
+            <p className="text-[13px] text-red-400">{identityError}</p>
+          )}
+          {identity && (
+            <div>
+              <div className="mb-1 text-[11px] uppercase tracking-wider text-white/30">Business</div>
+              <h4 className="text-[20px] font-black text-white">{identity.businessName}</h4>
+              {identity.tagline && <p className="mt-1 text-[13px] text-white/50">{identity.tagline}</p>}
+              <p className="mt-2 text-[12px] text-white/30">
+                {[identity.industry, identity.tone, identity.city].filter(Boolean).join(" · ")}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Step 3 — build */}
+      {step === "build" && (
+        <div className="rounded-2xl border border-white/[0.05] bg-[#111114] p-6">
+          <h3 className="text-[16px] font-black text-white mb-1">Generating WordPress theme</h3>
+          <p className="text-[13px] text-white/40 mb-4">
+            A full classic + block-editor theme, editor-ready page bodies, and a WooCommerce products CSV are being built.
+          </p>
+          <div className="h-1.5 w-full rounded-full bg-white/[0.06] mb-3 overflow-hidden">
+            <motion.div
+              className="h-1.5 rounded-full"
+              style={{
+                backgroundColor: wordpressAccent,
+                width: `${buildStatus.filesTotal
+                  ? Math.min(100, (buildStatus.filesDone / buildStatus.filesTotal) * 100)
+                  : 10}%`,
+              }}
+            />
+          </div>
+          <p className="text-[12px] text-white/40">
+            {buildStatus.status === "failed"
+              ? <span className="text-red-400">Build failed: {buildStatus.error ?? "unknown error"}</span>
+              : buildStatus.filesTotal
+                ? `${buildStatus.filesDone} / ${buildStatus.filesTotal} files`
+                : "Starting…"}
+          </p>
+        </div>
+      )}
+
+      {/* Step 4 — publish */}
+      {step === "publish" && (
+        <div className="space-y-4">
+          {publishResult ? (
+            <div className="rounded-2xl border border-green-500/20 bg-green-500/5 p-6">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-500">
+                  <Check size={16} strokeWidth={3} className="text-white" />
+                </div>
+                <h3 className="text-[18px] font-black text-white">Pushed to WordPress</h3>
+              </div>
+              <p className="text-[13px] text-white/60">
+                {publishResult.pagesCreated} pages created
+                {publishResult.wooCommerceAvailable
+                  ? ` and ${publishResult.productsCreated} products pushed to WooCommerce`
+                  : publishResult.productsCreated === 0 && connection?.wooCommerceEnabled === false
+                    ? " (WooCommerce not installed — products skipped)"
+                    : ""}
+                {" "}on <strong className="text-white">{publishResult.siteUrl}</strong>.
+              </p>
+              <p className="mt-3 text-[12px] text-white/40">
+                The theme still needs to be uploaded manually — download the ZIP below and upload
+                <strong className="text-white/60"> wordpress-theme.zip </strong>
+                at <em className="text-white/50">Appearance → Themes → Add New → Upload Theme</em>.
+              </p>
+              <a
+                href={publishResult.themeAdminUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-[13px] font-bold text-[#0A0A0A] hover:opacity-80 transition-opacity"
+              >
+                Open WordPress themes admin
+                <ExternalLink size={14} />
+              </a>
+            </div>
+          ) : connection?.connected && connection.siteUrl ? (
+            <div className="rounded-2xl border border-white/[0.05] bg-[#111114] p-6">
+              <div className="mb-1 text-[11px] uppercase tracking-wider text-white/30">
+                Connected site ({connection.flavor === "dotcom" ? "WordPress.com" : "Self-hosted"})
+              </div>
+              <h4 className="text-[16px] font-black text-white break-all">{connection.siteUrl}</h4>
+              {connection.username && (
+                <p className="mt-1 text-[12px] text-white/40">User: {connection.username}</p>
+              )}
+              {connection.wooCommerceEnabled ? (
+                <p className="mt-1 text-[12px] text-emerald-400">WooCommerce detected — products will push directly.</p>
+              ) : (
+                <p className="mt-1 text-[12px] text-white/30">WooCommerce not detected — theme/pages only.</p>
+              )}
+              <button
+                onClick={onPublish}
+                disabled={publishing}
+                className="mt-5 inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-bold text-white hover:opacity-80 disabled:opacity-40 transition-opacity"
+                style={{ backgroundColor: wordpressAccent }}
+              >
+                {publishing ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                {publishing ? "Pushing to WordPress…" : "Push to WordPress now"}
+              </button>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-white/[0.05] bg-[#111114] p-6">
+              <h3 className="text-[16px] font-black text-white mb-1">Connect your WordPress site</h3>
+              <p className="text-[13px] text-white/40 mb-4">
+                Authorize Yappaflow once, and we&apos;ll push your pages + products directly via the REST API.
+              </p>
+
+              {/* Flavor toggle — only shown when WP.com OAuth is server-configured */}
+              {configStatus?.dotcomOAuthConfigured && (
+                <div className="mb-4 inline-flex rounded-xl border border-white/[0.08] bg-[#0A0A0A] p-0.5">
+                  {(["self_hosted", "dotcom"] as const).map((flav) => (
+                    <button
+                      key={flav}
+                      onClick={() => setConnectFlavor(flav)}
+                      className={[
+                        "rounded-lg px-3 py-1.5 text-[12px] font-bold transition-colors",
+                        connectFlavor === flav
+                          ? "bg-white text-[#0A0A0A]"
+                          : "text-white/50 hover:text-white",
+                      ].join(" ")}
+                    >
+                      {flav === "self_hosted" ? "Self-hosted" : "WordPress.com"}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {connectFlavor === "self_hosted" ? (
+                <>
+                  <label className="block text-[11px] uppercase tracking-wider text-white/30 mb-1">Site URL</label>
+                  <input
+                    type="text"
+                    placeholder="https://your-site.com"
+                    value={siteUrlInput}
+                    onChange={(e) => setSiteUrlInput(e.target.value)}
+                    className="w-full rounded-xl border border-white/[0.08] bg-[#0A0A0A] px-4 py-2.5 text-[14px] text-white placeholder:text-white/20 focus:outline-none focus:border-white/20 mb-3"
+                  />
+                  <label className="block text-[11px] uppercase tracking-wider text-white/30 mb-1">WordPress username</label>
+                  <input
+                    type="text"
+                    placeholder="admin"
+                    value={usernameInput}
+                    onChange={(e) => setUsernameInput(e.target.value)}
+                    className="w-full rounded-xl border border-white/[0.08] bg-[#0A0A0A] px-4 py-2.5 text-[14px] text-white placeholder:text-white/20 focus:outline-none focus:border-white/20 mb-3"
+                  />
+                  <label className="block text-[11px] uppercase tracking-wider text-white/30 mb-1">
+                    Application password
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="xxxx xxxx xxxx xxxx xxxx xxxx"
+                    value={appPasswordInput}
+                    onChange={(e) => setAppPasswordInput(e.target.value)}
+                    className="w-full rounded-xl border border-white/[0.08] bg-[#0A0A0A] px-4 py-2.5 text-[14px] text-white placeholder:text-white/20 focus:outline-none focus:border-white/20"
+                  />
+                  <p className="mt-2 text-[11px] text-white/30 leading-relaxed">
+                    Generate one in your WP admin under{" "}
+                    <strong className="text-white/50">Users → Profile → Application Passwords</strong>.
+                    Yappaflow stores it encrypted.
+                  </p>
+                  <button
+                    onClick={onConnectSelfHosted}
+                    disabled={connecting}
+                    className="mt-3 w-full rounded-xl py-3 text-[13px] font-bold text-white hover:opacity-80 disabled:opacity-40 transition-opacity"
+                    style={{ backgroundColor: wordpressAccent }}
+                  >
+                    {connecting ? "Verifying…" : "Connect site"}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <label className="block text-[11px] uppercase tracking-wider text-white/30 mb-1">
+                    Site URL (optional — WP.com will pick your primary blog)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="https://your-site.wordpress.com"
+                    value={siteUrlInput}
+                    onChange={(e) => setSiteUrlInput(e.target.value)}
+                    className="w-full rounded-xl border border-white/[0.08] bg-[#0A0A0A] px-4 py-2.5 text-[14px] text-white placeholder:text-white/20 focus:outline-none focus:border-white/20"
+                  />
+                  <button
+                    onClick={onConnectDotCom}
+                    className="mt-3 w-full rounded-xl py-3 text-[13px] font-bold text-white hover:opacity-80 transition-opacity"
+                    style={{ backgroundColor: wordpressAccent }}
+                  >
+                    Connect with WordPress.com
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Always-available fallback: manual ZIP download */}
+          <div className="rounded-2xl border border-white/[0.05] bg-[#111114] p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h4 className="text-[14px] font-black text-white">Prefer to upload manually?</h4>
+                <p className="mt-1 text-[12px] text-white/40">
+                  Download the ZIP and upload <strong className="text-white/60">wordpress-theme.zip</strong> inside it
+                  at <em>Appearance → Themes → Add New → Upload Theme</em>.
+                </p>
+              </div>
+              <button
+                onClick={onDownload}
+                disabled={downloading || buildStatus.status !== "done"}
+                className="flex items-center gap-2 rounded-xl border border-white/[0.08] px-4 py-2 text-[12px] font-bold text-white/70 hover:text-white hover:bg-white/[0.04] disabled:opacity-30 transition-all"
+              >
+                {downloading ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+                {downloaded ? "Downloaded" : "Download ZIP"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <button
+        onClick={onExitToDashboard}
+        className="mt-6 w-full rounded-xl border border-white/[0.05] py-2.5 text-[13px] font-semibold text-white/40 hover:bg-white/[0.04] hover:text-white"
+      >
+        Back to dashboard
+      </button>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 
 interface Props { setView: (v: DashboardView) => void; }
 
@@ -987,8 +1477,8 @@ export function DeploymentHub({ setView }: Props) {
           </motion.div>
         )}
 
-        {/* CMS route — Shopify is the real flow; others are still placeholders */}
-        {route === "cms" && !cmsDeploying && cms !== "shopify" && (
+        {/* CMS route — Shopify + WordPress are the real flows; others are still placeholders */}
+        {route === "cms" && !cmsDeploying && cms !== "shopify" && cms !== "wordpress" && (
           <motion.div key="cms" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="max-w-xl">
             <div className="grid grid-cols-2 gap-3 mb-6">
               {CMS_OPTIONS.map((opt) => (
@@ -1024,6 +1514,13 @@ export function DeploymentHub({ setView }: Props) {
         {route === "cms" && cms === "shopify" && !cmsDeploying && (
           <motion.div key="shopify" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
             <ShopifyWizard onExitToDashboard={() => { setRoute(null); setCms(null); setView("command"); }} />
+          </motion.div>
+        )}
+
+        {/* WordPress — real wizard */}
+        {route === "cms" && cms === "wordpress" && !cmsDeploying && (
+          <motion.div key="wordpress" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+            <WordPressWizard onExitToDashboard={() => { setRoute(null); setCms(null); setView("command"); }} />
           </motion.div>
         )}
 

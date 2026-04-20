@@ -253,3 +253,169 @@ export async function downloadShopifyZip(projectId: string): Promise<void> {
   a.remove();
   URL.revokeObjectURL(url);
 }
+
+// ── WordPress deploy flow ────────────────────────────────────────────────────
+
+export type WordPressFlavor = "self_hosted" | "dotcom";
+
+export interface WordPressProjectState extends DeployProjectState {
+  platform: "wordpress";
+}
+
+export interface WordPressConnection {
+  connected:           boolean;
+  siteUrl?:            string | null;
+  flavor?:             WordPressFlavor | null;
+  username?:           string | null;
+  wooCommerceEnabled?: boolean;
+  isActive?:           boolean;
+}
+
+export interface WordPressConfigStatus {
+  /** Self-hosted (Application Password) works with zero server config. */
+  selfHostedSupported:   boolean;
+  /** WordPress.com OAuth requires a developer app registered on WP.com. */
+  dotcomOAuthConfigured: boolean;
+  apiVersion:            string;
+  scopes:                string;
+  redirectUri:           string;
+}
+
+export interface WordPressPublishResult {
+  ok:                   true;
+  siteUrl:              string;
+  flavor:               WordPressFlavor;
+  pagesCreated:         number;
+  pageLinks:            string[];
+  productsCreated:      number;
+  productIds:           number[];
+  wooCommerceAvailable: boolean;
+  themeAdminUrl:        string;
+}
+
+export interface WordPressConnectSelfHostedInput {
+  siteUrl:             string;
+  username:            string;
+  applicationPassword: string;
+}
+
+export interface WordPressConnectSelfHostedResult {
+  ok:                 true;
+  siteUrl:            string;
+  username:           string;
+  wooCommerceEnabled: boolean;
+}
+
+export function startWordPressDeploy(signalId: string) {
+  return request<{ projectId: string }>("/deploy/wordpress/start", {
+    method: "POST",
+    body:   JSON.stringify({ signalId }),
+  });
+}
+
+export function extractWordPressIdentity(projectId: string) {
+  return request<{ identity: ProjectIdentity }>(
+    `/deploy/wordpress/${projectId}/extract`,
+    { method: "POST" }
+  );
+}
+
+export function getWordPressProject(projectId: string) {
+  return request<WordPressProjectState>(`/deploy/wordpress/${projectId}`);
+}
+
+export function startWordPressBuild(projectId: string) {
+  return request<{ status: string }>(`/deploy/wordpress/${projectId}/build`, {
+    method: "POST",
+  });
+}
+
+export function getWordPressConnection() {
+  return request<WordPressConnection>("/deploy/wordpress/connection");
+}
+
+export function publishToWordPress(projectId: string) {
+  return request<WordPressPublishResult>(
+    `/deploy/wordpress/${projectId}/publish`,
+    { method: "POST" }
+  );
+}
+
+/** Public (no auth) — tells the UI which flavors are usable. */
+export async function getWordPressConfigStatus(): Promise<WordPressConfigStatus> {
+  const res = await fetch(`${getApiBase()}/auth/wordpress/config-status`);
+  if (!res.ok) {
+    let msg = res.statusText;
+    try { msg = (await res.json()).error || msg; } catch {}
+    throw new Error(msg);
+  }
+  return res.json() as Promise<WordPressConfigStatus>;
+}
+
+/**
+ * Self-hosted (WordPress.org) — connect via an Application Password.
+ * User generates one at  Users → Profile → Application Passwords  in their
+ * WP admin and pastes it here.
+ */
+export function connectWordPressApplicationPassword(
+  input: WordPressConnectSelfHostedInput
+) {
+  return request<WordPressConnectSelfHostedResult>(
+    "/auth/wordpress/connect-application-password",
+    {
+      method: "POST",
+      body:   JSON.stringify(input),
+    }
+  );
+}
+
+/**
+ * Absolute URL for the top-level navigation to start the WordPress.com
+ * OAuth flow. Same pattern as Shopify — the server accepts `?token=`
+ * because a browser navigation can't set the Authorization header.
+ */
+export function getWordPressComAuthorizeUrl(siteUrl?: string): string {
+  const token = getToken();
+  if (!token) throw new Error("Not authenticated");
+  const qs = new URLSearchParams({ token });
+  if (siteUrl) qs.set("siteUrl", siteUrl);
+  return `${getApiBase()}/auth/wordpress/authorize?${qs.toString()}`;
+}
+
+/** Disconnect the WordPress PlatformConnection for this user. */
+export function disconnectWordPress() {
+  return request<{ ok: true; removed: number }>(
+    "/webhook/wordpress/disconnect",
+    { method: "POST" }
+  );
+}
+
+/** Trigger download for the WordPress bundle ZIP (theme ZIP + pages + CSV). */
+export async function downloadWordPressZip(projectId: string): Promise<void> {
+  const token = getToken();
+  if (!token) throw new Error("Not authenticated");
+
+  const res = await fetch(
+    `${getApiBase()}/deploy/wordpress/${projectId}/download`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  if (!res.ok) {
+    let msg = res.statusText;
+    try { msg = (await res.json()).error || msg; } catch {}
+    throw new Error(msg);
+  }
+
+  const blob = await res.blob();
+  const cd = res.headers.get("content-disposition") || "";
+  const match = /filename="?([^";]+)"?/i.exec(cd);
+  const filename = match?.[1] || "wordpress-bundle.zip";
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}

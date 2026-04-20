@@ -15,6 +15,9 @@ export { getMasterPrompt } from "./master.prompt";
 export { getConversationAnalysisPrompt } from "./conversation-analysis.prompt";
 export { getArchitecturePlanningPrompt } from "./architecture-planning.prompt";
 export { getCodeGenerationPrompt } from "./code-generation.prompt";
+export { getGenerateWebflowPrompt } from "./generate-webflow.prompt";
+export { getGenerateWordPressPrompt } from "./generate-wordpress.prompt";
+export { getGenerateIkasPrompt } from "./generate-ikas.prompt";
 
 // ── Context for dynamic prompt composition ────────────────────────────
 
