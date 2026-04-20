@@ -43,6 +43,28 @@ export interface ProviderConfig {
   apiKey:      string;
   /** Default model if caller does not override. */
   defaultModel: string;
+  /**
+   * Optional large-context model for big-output generation calls.
+   *
+   * Why this exists: OpenRouter routes requests to upstream provider
+   * endpoints, and some of those endpoints cap TOTAL context (input +
+   * output) below what the advertised model natively supports. Gemini
+   * 2.5 Flash Lite natively has a 1M-token context, but the specific
+   * upstream endpoint OpenRouter chose for us enforced a 32k total cap,
+   * breaking a 27k-input + 32k-output Shopify generation with HTTP 400
+   * "maximum context length is 32768 tokens" (prod, 2026-04-20).
+   *
+   * `defaultModel` is still used for small calls (analysis, planning).
+   * When the caller's requested output is big enough that we're clearly
+   * in generation territory, `resolveModel` swaps to this code-capable,
+   * large-context model instead. On OpenRouter that's Qwen 2.5 Coder 32B
+   * (128k context uniformly across its upstream endpoints).
+   *
+   * DeepSeek doesn't need one — it has a single unified V3.2 route with
+   * 128k input context and the output cap is enforced separately by
+   * `maxOutputTokens`.
+   */
+  largeOutputModel?: string;
   /** Optional custom headers (OpenRouter uses these for leaderboard branding). */
   headers?:    Record<string, string>;
   /** Pricing map keyed by exact model id. Unknown models return 0 cost. */

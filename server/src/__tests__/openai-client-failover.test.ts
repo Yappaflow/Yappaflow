@@ -288,8 +288,9 @@ describe("createChatCompletion — capacity-aware provider routing", () => {
     expect(result.text).toBe("full-size from openrouter");
     // Exactly one SDK call — DeepSeek was bypassed, not tried-and-failed.
     expect(createSpy).toHaveBeenCalledTimes(1);
-    // The call landed on OpenRouter's model, not DeepSeek's.
-    expect(createSpy.mock.calls[0][0].model).toBe("google/gemini-2.5-flash-lite");
+    // Large output → routed to OpenRouter's large-context code model
+    // (not the small-analysis default which has a 32k endpoint cap).
+    expect(createSpy.mock.calls[0][0].model).toBe("qwen/qwen-2.5-coder-32b-instruct");
     // And the max_tokens survived intact (no clamp needed — OpenRouter fits).
     expect(createSpy.mock.calls[0][0].max_tokens).toBe(32_000);
   });
@@ -354,10 +355,13 @@ describe("createChatCompletion — per-provider model normalization", () => {
     createSpy.mockClear();
   });
 
-  it("swaps DeepSeek-native name for OpenRouter's default when chain pivots to OpenRouter", async () => {
+  it("swaps DeepSeek-native name for OpenRouter's large-context model on big requests", async () => {
     // 32k request → capacity-aware routing picks OpenRouter first.
     // Caller asks for 'deepseek-chat' (DeepSeek bare name).
-    // OpenRouter should receive its own default model instead.
+    // On large outputs OpenRouter must swap to its large-context code
+    // model (Qwen Coder 32B), not the small analysis default — the
+    // analysis default's upstream endpoint caps at 32k total context
+    // and breaks on big generations.
     const { createChatCompletion } = await loadClient();
     script = [{ ok: "ok on openrouter" }];
 
@@ -368,8 +372,7 @@ describe("createChatCompletion — per-provider model normalization", () => {
     );
 
     expect(createSpy).toHaveBeenCalledTimes(1);
-    // NOT the caller-supplied 'deepseek-chat' — swapped to OpenRouter's default.
-    expect(createSpy.mock.calls[0][0].model).toBe("google/gemini-2.5-flash-lite");
+    expect(createSpy.mock.calls[0][0].model).toBe("qwen/qwen-2.5-coder-32b-instruct");
   });
 
   it("swaps OpenRouter-namespaced name for DeepSeek's default when call lands on DeepSeek", async () => {
@@ -412,7 +415,8 @@ describe("createChatCompletion — per-provider model normalization", () => {
     // The original regression: DeepSeek 402s, chain fails over to
     // OpenRouter, but the caller-supplied DeepSeek model was being
     // carried across → 400 ambiguous. Verify both calls use the right
-    // per-provider model.
+    // per-provider model. Use small maxTokens so the swap lands on the
+    // small-analysis default (not the large-context model).
     const { createChatCompletion } = await loadClient();
     script = [
       { throw: { status: 402, message: "Insufficient Balance" } },
@@ -422,14 +426,102 @@ describe("createChatCompletion — per-provider model normalization", () => {
     const result = await createChatCompletion(
       "sys",
       [{ role: "user", content: "hi" }],
-      { model: "deepseek-chat" },
+      { model: "deepseek-chat", maxTokens: 4000 },
     );
 
     expect(result.text).toBe("recovered on openrouter");
     expect(createSpy).toHaveBeenCalledTimes(2);
     // First attempt: DeepSeek with the DeepSeek-native name.
     expect(createSpy.mock.calls[0][0].model).toBe("deepseek-chat");
-    // Second attempt: OpenRouter, model swapped to its own default.
+    // Second attempt: OpenRouter, small maxTokens → analysis default.
     expect(createSpy.mock.calls[1][0].model).toBe("google/gemini-2.5-flash-lite");
+  });
+});
+
+/**
+ * Lock in the large-output routing rule. Production hit:
+ *
+ *   "This endpoint's maximum context length is 32768 tokens. However,
+ *    you requested about 59537 tokens (27537 of text input, 32000 in
+ *    the output)."
+ *
+ * The call went to Gemini Flash Lite on OpenRouter. Flash Lite
+ * advertises 1M context but OpenRouter routes to upstream endpoints
+ * that may cap at 32k total. A Shopify theme generation (~27k input,
+ * ~32k output) can't fit. The fix: when the caller asks for a
+ * generation-size output, route to a code-capable model whose OpenRouter
+ * endpoints carry a uniform 128k context (Qwen 2.5 Coder 32B).
+ */
+describe("createChatCompletion — large-output routing on OpenRouter", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    script = [];
+    createSpy.mockClear();
+  });
+
+  it("analysis-size call (4k) uses the small default on OpenRouter", async () => {
+    const { createChatCompletion } = await loadClient({ deepseekApiKey: "" });
+    script = [{ ok: "ok" }];
+
+    await createChatCompletion(
+      "sys",
+      [{ role: "user", content: "hi" }],
+      { maxTokens: 4000 },
+    );
+
+    expect(createSpy.mock.calls[0][0].model).toBe("google/gemini-2.5-flash-lite");
+  });
+
+  it("generation-size call (16k+) uses the large-context code model on OpenRouter", async () => {
+    const { createChatCompletion } = await loadClient({ deepseekApiKey: "" });
+    script = [{ ok: "ok" }];
+
+    await createChatCompletion(
+      "sys",
+      [{ role: "user", content: "hi" }],
+      { maxTokens: 16_000 },
+    );
+
+    expect(createSpy.mock.calls[0][0].model).toBe("qwen/qwen-2.5-coder-32b-instruct");
+  });
+
+  it("caller-supplied OpenRouter model survives even on a big request", async () => {
+    // If the caller explicitly picks an OpenRouter model (namespaced),
+    // we respect it rather than silently swapping — they may have
+    // reasons we don't know (cost, latency, specific model quirks).
+    const { createChatCompletion } = await loadClient({ deepseekApiKey: "" });
+    script = [{ ok: "ok" }];
+
+    await createChatCompletion(
+      "sys",
+      [{ role: "user", content: "hi" }],
+      {
+        model: "meta-llama/llama-3.3-70b-instruct",
+        maxTokens: 32_000,
+      },
+    );
+
+    expect(createSpy.mock.calls[0][0].model).toBe("meta-llama/llama-3.3-70b-instruct");
+  });
+
+  it("DeepSeek-native model on a big request → swapped to Qwen Coder on OpenRouter", async () => {
+    // This is the exact prod scenario. Shopify generator asks for
+    // model="deepseek-chat" and maxTokens=32000. Capacity-aware
+    // routing picks OpenRouter. The bare "deepseek-chat" name is
+    // invalid on OpenRouter AND the request is generation-sized, so we
+    // should land on Qwen Coder — not the ambiguous-name-error path.
+    const { createChatCompletion } = await loadClient();
+    script = [{ ok: "theme bundle" }];
+
+    const result = await createChatCompletion(
+      "sys",
+      [{ role: "user", content: "hi" }],
+      { model: "deepseek-chat", maxTokens: 32_000 },
+    );
+
+    expect(result.text).toBe("theme bundle");
+    expect(createSpy).toHaveBeenCalledTimes(1);
+    expect(createSpy.mock.calls[0][0].model).toBe("qwen/qwen-2.5-coder-32b-instruct");
+    expect(createSpy.mock.calls[0][0].max_tokens).toBe(32_000);
   });
 });

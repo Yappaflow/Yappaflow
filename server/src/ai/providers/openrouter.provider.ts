@@ -47,18 +47,30 @@ const PRICING = {
 // override map here rather than raising the global OpenRouter ceiling.
 const OPENROUTER_MAX_OUTPUT_TOKENS = 32_000;
 
+// For big-output generation calls. Rationale:
+//   - Gemini 2.5 Flash Lite (our `defaultModel`) advertises 1M context
+//     but OpenRouter sometimes routes to upstream endpoints with a 32k
+//     total cap, which broke Shopify generation in prod (2026-04-20).
+//   - Qwen 2.5 Coder 32B is code-tuned and its OpenRouter endpoints
+//     uniformly carry a 128k context window — enough for our 27k-input
+//     plus 32k-output generations with plenty of headroom.
+//   - Llama 3.3 70B is free and 128k-context, but is general-purpose;
+//     Qwen Coder produces tighter Liquid/PHP/Next.js code in our tests.
+const OPENROUTER_LARGE_OUTPUT_MODEL = "qwen/qwen-2.5-coder-32b-instruct";
+
 export function getOpenRouterProvider(): ProviderConfig {
   return {
-    id:              "openrouter",
-    name:            "OpenRouter",
-    baseUrl:         env.openrouterBaseUrl,
-    apiKey:          env.openrouterApiKey,
-    defaultModel:    env.openrouterModel,
+    id:               "openrouter",
+    name:             "OpenRouter",
+    baseUrl:          env.openrouterBaseUrl,
+    apiKey:           env.openrouterApiKey,
+    defaultModel:     env.openrouterModel,
+    largeOutputModel: OPENROUTER_LARGE_OUTPUT_MODEL,
     headers: {
       "HTTP-Referer": env.openrouterReferer,
       "X-Title":      env.openrouterAppTitle,
     },
-    pricing:         PRICING,
-    maxOutputTokens: OPENROUTER_MAX_OUTPUT_TOKENS,
+    pricing:          PRICING,
+    maxOutputTokens:  OPENROUTER_MAX_OUTPUT_TOKENS,
   };
 }

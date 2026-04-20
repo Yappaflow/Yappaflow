@@ -186,8 +186,9 @@ async function callOnce(
   messages:     ChatMessage[],
   options?:     ChatCompletionOptions
 ): Promise<{ text: string; usage: AIUsageMetrics; rawUsage: ProviderUsage }> {
-  const model       = resolveModel(provider, options?.model);
-  const maxTokens   = clampMaxTokens(provider, options?.maxTokens ?? env.aiMaxTokens);
+  const requested   = options?.maxTokens ?? env.aiMaxTokens;
+  const model       = resolveModel(provider, options?.model, requested);
+  const maxTokens   = clampMaxTokens(provider, requested);
   const temperature = options?.temperature ?? env.aiTemperature;
 
   const client = getClient(provider);
@@ -304,8 +305,9 @@ async function streamOnce(
   onChunk:      (text: string) => void,
   options?:     ChatCompletionOptions
 ): Promise<{ text: string; usage: AIUsageMetrics; rawUsage: ProviderUsage }> {
-  const model       = resolveModel(provider, options?.model);
-  const maxTokens   = clampMaxTokens(provider, options?.maxTokens ?? env.aiMaxTokens);
+  const requested   = options?.maxTokens ?? env.aiMaxTokens;
+  const model       = resolveModel(provider, options?.model, requested);
+  const maxTokens   = clampMaxTokens(provider, requested);
   const temperature = options?.temperature ?? env.aiTemperature;
 
   const client = getClient(provider);
@@ -482,11 +484,37 @@ function clampMaxTokens(provider: ProviderConfig, requested: number): number {
  * fall back to the current provider's own default model. This is the
  * correct semantic: "we tried to use the preferred model but it wasn't
  * available here, so use whatever this provider offers natively."
+ *
+ * Additionally, the provider's "default" is usually sized for analysis
+ * (small input + small output). When the caller asks for a large output
+ * (generation territory), we prefer `provider.largeOutputModel` if it's
+ * set. This prevents routing a 32k-output Shopify theme generation at
+ * Gemini Flash Lite on OpenRouter, whose upstream endpoint might cap at
+ * 32k TOTAL context and 400 on "maximum context length".
  */
 const modelSwapWarnCache = new Set<string>();
 
-function resolveModel(provider: ProviderConfig, requested: string | undefined): string {
-  if (!requested) return provider.defaultModel;
+/**
+ * Threshold above which a call is "generation sized" and should use the
+ * provider's large-context model (if it has one) instead of the default.
+ * DeepSeek's hard API ceiling is 8192, so any request above that is, by
+ * definition, beyond what the small-model default can serve.
+ */
+const LARGE_OUTPUT_THRESHOLD = 8192;
+
+function pickProviderDefault(provider: ProviderConfig, maxTokens: number): string {
+  if (maxTokens > LARGE_OUTPUT_THRESHOLD && provider.largeOutputModel) {
+    return provider.largeOutputModel;
+  }
+  return provider.defaultModel;
+}
+
+function resolveModel(
+  provider:  ProviderConfig,
+  requested: string | undefined,
+  maxTokens: number,
+): string {
+  if (!requested) return pickProviderDefault(provider, maxTokens);
 
   const hasNamespace = requested.includes("/");
   const belongsHere  =
@@ -495,12 +523,13 @@ function resolveModel(provider: ProviderConfig, requested: string | undefined): 
 
   if (belongsHere) return requested;
 
-  const key = `${provider.id}:${requested}`;
+  const fallback = pickProviderDefault(provider, maxTokens);
+  const key = `${provider.id}:${requested}→${fallback}`;
   if (!modelSwapWarnCache.has(key)) {
     modelSwapWarnCache.add(key);
-    log(`[AI] ${provider.name} doesn't accept model "${requested}" (wrong provider namespace); falling back to ${provider.defaultModel}.`);
+    log(`[AI] ${provider.name} doesn't accept model "${requested}" (wrong provider namespace); swapping to ${fallback}.`);
   }
-  return provider.defaultModel;
+  return fallback;
 }
 
 // ── Terminal error builder (shared by both loops) ────────────────────
