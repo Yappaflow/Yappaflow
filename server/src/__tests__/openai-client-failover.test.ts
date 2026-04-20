@@ -1,0 +1,192 @@
+/**
+ * Tests for the OpenAI-compatible client's failover behavior.
+ *
+ * Motivation: production hit `DeepSeek API error: 402 Insufficient
+ * Balance` and threw without failing over to OpenRouter. These tests
+ * lock in the expected behavior so the regression can't return:
+ *
+ *   - 402 on DeepSeek → `insufficient_balance` code, NOT retried on the
+ *     same provider, DOES fail over to OpenRouter.
+ *   - "Insufficient Balance" in the message (any status) → same.
+ *   - 402 on every provider in the chain → final error still surfaces
+ *     `insufficient_balance` so the UI can show an actionable message.
+ *   - 500 → retried on the same provider, then fails over.
+ *   - 401 → NOT retried, fails over immediately.
+ *
+ * We mock the `openai` package at the module level so we can return
+ * scripted status codes per call without any network IO.
+ */
+
+import { describe, expect, it, vi, beforeEach } from "vitest";
+
+// Script drives the mocked OpenAI.create() — each call consumes one entry.
+type Script = Array<{ throw?: { status?: number; message: string; code?: string }; ok?: string }>;
+
+let script: Script = [];
+const createSpy = vi.fn();
+
+// Mock the openai SDK BEFORE importing the client module.
+vi.mock("openai", () => {
+  class MockOpenAI {
+    chat = {
+      completions: {
+        create: (...args: any[]) => {
+          createSpy(...args);
+          const step = script.shift();
+          if (!step) throw new Error("Script exhausted");
+          if (step.throw) {
+            const err: any = new Error(step.throw.message);
+            if (step.throw.status !== undefined) err.status = step.throw.status;
+            if (step.throw.code !== undefined) err.code = step.throw.code;
+            throw err;
+          }
+          return Promise.resolve({
+            choices: [{ message: { content: step.ok ?? "" } }],
+            usage:   { prompt_tokens: 10, completion_tokens: 20 },
+          });
+        },
+      },
+    };
+  }
+  return { default: MockOpenAI };
+});
+
+// Helper: load a fresh client with both provider keys set so the chain
+// has two hops (DeepSeek first, OpenRouter second).
+async function loadClient(envOverrides: Partial<Record<string, any>> = {}) {
+  vi.resetModules();
+  script = [];
+  createSpy.mockClear();
+  vi.doMock("../config/env", () => ({
+    env: {
+      aiProvider:           "deepseek",
+      aiFallbackProvider:   "openrouter",
+      aiAnalysisProvider:   "openrouter",
+      aiAnalysisModel:      "google/gemini-2.5-flash-lite",
+      aiPlanningProvider:   "deepseek",
+      aiPlanningModel:      "deepseek-chat",
+      aiGenerationProvider: "deepseek",
+      aiGenerationModel:    "deepseek-chat",
+      aiMaxTokens:          4096,
+      aiTemperature:        0.7,
+      aiMockMode:           false,
+      deepseekApiKey:       "sk-deepseek-test",
+      deepseekBaseUrl:      "https://api.deepseek.com/v1",
+      deepseekModel:        "deepseek-chat",
+      openrouterApiKey:     "sk-openrouter-test",
+      openrouterBaseUrl:    "https://openrouter.ai/api/v1",
+      openrouterModel:      "google/gemini-2.5-flash-lite",
+      openrouterReferer:    "https://yappaflow.app",
+      openrouterAppTitle:   "Yappaflow",
+      ...envOverrides,
+    },
+  }));
+  const mod = await import("../ai/openai-client");
+  mod.resetClientCache();
+  return mod;
+}
+
+describe("createChatCompletion — provider failover on 402", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    script = [];
+    createSpy.mockClear();
+  });
+
+  it("fails over from DeepSeek → OpenRouter when DeepSeek returns 402", async () => {
+    const { createChatCompletion } = await loadClient();
+
+    // DeepSeek 402 on first attempt, OpenRouter succeeds.
+    script = [
+      { throw: { status: 402, message: "402 Insufficient Balance" } },
+      { ok: "hello from openrouter" },
+    ];
+
+    const result = await createChatCompletion("sys", [{ role: "user", content: "hi" }]);
+    expect(result.text).toBe("hello from openrouter");
+    // Exactly two SDK calls — no wasted internal retries on DeepSeek.
+    expect(createSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("does NOT retry the same provider 3× on insufficient balance", async () => {
+    const { createChatCompletion, YappaflowAIError } = await loadClient({
+      // Only DeepSeek configured → no failover target.
+      openrouterApiKey: "",
+    });
+
+    script = [
+      { throw: { status: 402, message: "402 Insufficient Balance" } },
+    ];
+
+    await expect(
+      createChatCompletion("sys", [{ role: "user", content: "hi" }])
+    ).rejects.toBeInstanceOf(YappaflowAIError);
+
+    // Single call — the classifier short-circuits the internal retry loop.
+    expect(createSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("detects 'Insufficient Balance' in the message body even without a 402 status", async () => {
+    // Some proxies rewrap the status; make sure we still catch the phrase.
+    const { createChatCompletion } = await loadClient();
+
+    script = [
+      { throw: { status: 400, message: "Insufficient Balance" } },
+      { ok: "ok from openrouter" },
+    ];
+
+    const result = await createChatCompletion("sys", [{ role: "user", content: "hi" }]);
+    expect(result.text).toBe("ok from openrouter");
+    expect(createSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("surfaces insufficient_balance code when the entire chain is broke", async () => {
+    const { createChatCompletion, YappaflowAIError } = await loadClient();
+
+    // Both providers are out of balance.
+    script = [
+      { throw: { status: 402, message: "Insufficient Balance" } },
+      { throw: { status: 402, message: "insufficient_quota" } },
+    ];
+
+    try {
+      await createChatCompletion("sys", [{ role: "user", content: "hi" }]);
+      throw new Error("should have thrown");
+    } catch (err) {
+      expect(err).toBeInstanceOf(YappaflowAIError);
+      const yErr = err as InstanceType<typeof YappaflowAIError>;
+      expect(yErr.code).toBe("insufficient_balance");
+      // The surfaced message names both providers' billing pages so the
+      // user can act without digging into stack traces.
+      expect(yErr.message.toLowerCase()).toContain("top up");
+    }
+  });
+
+  it("treats 401 like insufficient_balance: no retry, immediate failover", async () => {
+    const { createChatCompletion } = await loadClient();
+
+    script = [
+      { throw: { status: 401, message: "Invalid API key" } },
+      { ok: "ok from openrouter" },
+    ];
+
+    const result = await createChatCompletion("sys", [{ role: "user", content: "hi" }]);
+    expect(result.text).toBe("ok from openrouter");
+    expect(createSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries 500 internally on the same provider before failing over", async () => {
+    const { createChatCompletion } = await loadClient();
+
+    // DeepSeek flaps once on 500, recovers on retry #2 — no failover.
+    script = [
+      { throw: { status: 500, message: "internal error" } },
+      { ok: "recovered on retry" },
+    ];
+
+    const result = await createChatCompletion("sys", [{ role: "user", content: "hi" }]);
+    expect(result.text).toBe("recovered on retry");
+    // Both calls were on DeepSeek (same provider, retried internally).
+    expect(createSpy).toHaveBeenCalledTimes(2);
+  });
+});

@@ -58,6 +58,7 @@ export class YappaflowAIError extends Error {
       | "missing_api_key"
       | "rate_limit"
       | "auth_error"
+      | "insufficient_balance"
       | "api_error"
       | "parse_error",
     public retryable: boolean = false
@@ -153,6 +154,11 @@ export async function createChatCompletion(
         log(`[AI] ${provider.name} auth failed, trying next provider`);
         continue;
       }
+      if (err instanceof YappaflowAIError && err.code === "insufficient_balance") {
+        // Empty wallet is provider-specific — the next provider has its own.
+        log(`[AI] ${provider.name} out of balance, failing over to next provider`);
+        continue;
+      }
       if (err instanceof YappaflowAIError && err.retryable) {
         log(`[AI] ${provider.name} retryable failure, failing over`);
         continue;
@@ -162,13 +168,7 @@ export async function createChatCompletion(
     }
   }
 
-  throw lastError instanceof YappaflowAIError
-    ? lastError
-    : new YappaflowAIError(
-        `All AI providers failed. Last error: ${lastError?.message || "unknown"}`,
-        "api_error",
-        true
-      );
+  throw buildTerminalError(lastError, chain.length);
 }
 
 // ── One attempt against one provider, with internal retries ──────────
@@ -220,7 +220,9 @@ async function callOnce(
     } catch (err) {
       lastErr = err;
       const classified = classifyError(err, provider);
-      if (classified.code === "auth_error") throw classified; // don't retry a bad key
+      // Don't burn retries on errors where retrying the same provider
+      // cannot possibly help (bad key, empty wallet).
+      if (classified.code === "auth_error" || classified.code === "insufficient_balance") throw classified;
       if (attempt < 2 && classified.retryable) {
         await sleep(backoff(attempt));
         continue;
@@ -270,6 +272,10 @@ export async function createStreamingChatCompletion(
         log(`[AI] ${provider.name} auth failed on stream, trying next provider`);
         continue;
       }
+      if (err instanceof YappaflowAIError && err.code === "insufficient_balance") {
+        log(`[AI] ${provider.name} out of balance on stream, failing over to next provider`);
+        continue;
+      }
       if (err instanceof YappaflowAIError && err.retryable) {
         log(`[AI] ${provider.name} retryable stream failure, failing over`);
         continue;
@@ -278,13 +284,7 @@ export async function createStreamingChatCompletion(
     }
   }
 
-  throw lastError instanceof YappaflowAIError
-    ? lastError
-    : new YappaflowAIError(
-        `All AI providers failed (streaming). Last error: ${lastError?.message || "unknown"}`,
-        "api_error",
-        true
-      );
+  throw buildTerminalError(lastError, chain.length);
 }
 
 async function streamOnce(
@@ -360,6 +360,33 @@ async function streamOnce(
 
 // ── Error classifier (shared by streaming + non-streaming) ───────────
 
+/**
+ * Detect "out of money" signals. DeepSeek raises HTTP 402 with the
+ * literal message "Insufficient Balance". OpenRouter raises 402 too, or
+ * surfaces `insufficient_quota` / "out of credits" in the body. Either
+ * way, we want to:
+ *   - NOT retry the same provider (the balance won't refill mid-loop),
+ *   - BUT fail over to the next provider in the chain — the two
+ *     providers have separate wallets, so a dead DeepSeek balance is
+ *     not a dead OpenRouter balance.
+ * This is why insufficient_balance gets its own error code rather than
+ * being lumped into generic api_error.
+ */
+function isInsufficientBalance(status: number, message: string): boolean {
+  if (status === 402) return true;
+  const lower = message.toLowerCase();
+  return (
+    lower.includes("insufficient balance") ||
+    lower.includes("insufficient_balance") ||
+    lower.includes("insufficient quota") ||
+    lower.includes("insufficient_quota") ||
+    lower.includes("insufficient credits") ||
+    lower.includes("out of credits") ||
+    lower.includes("quota exceeded") ||
+    lower.includes("payment required")
+  );
+}
+
 function classifyError(err: unknown, provider: ProviderConfig): YappaflowAIError {
   // The `openai` SDK exposes status on APIError instances — duck-type
   // so we don't depend on importing OpenAI.APIError (shape varies by
@@ -372,6 +399,13 @@ function classifyError(err: unknown, provider: ProviderConfig): YappaflowAIError
     return new YappaflowAIError(
       `${provider.name} authentication failed. Check the API key in your .env file.`,
       "auth_error",
+      false
+    );
+  }
+  if (isInsufficientBalance(status, message)) {
+    return new YappaflowAIError(
+      `${provider.name} billing issue: ${message}. Top up at ${provider.id === "deepseek" ? "platform.deepseek.com/top_up" : "openrouter.ai/credits"}, or set the other provider's API key so the chain can fail over.`,
+      "insufficient_balance",
       false
     );
   }
@@ -393,6 +427,38 @@ function classifyError(err: unknown, provider: ProviderConfig): YappaflowAIError
     `${provider.name} API error: ${message}`,
     "api_error",
     false
+  );
+}
+
+// ── Terminal error builder (shared by both loops) ────────────────────
+
+/**
+ * When every provider in the chain has failed, preserve the most useful
+ * error the caller/user can act on. Special-case insufficient_balance
+ * because the generic "All providers failed" message hides the real
+ * cause (empty wallet) behind our own wrapper.
+ */
+function buildTerminalError(lastError: Error | null, chainLength: number): YappaflowAIError {
+  if (lastError instanceof YappaflowAIError) {
+    // When there was only one provider in the chain, the original
+    // YappaflowAIError is already the most informative surface — return
+    // it verbatim (its message already tells the user how to fix it).
+    if (chainLength <= 1) return lastError;
+
+    // Every provider in a multi-provider chain ran out of balance.
+    if (lastError.code === "insufficient_balance") {
+      return new YappaflowAIError(
+        `All AI providers are out of balance. Top up DeepSeek (platform.deepseek.com/top_up) or OpenRouter (openrouter.ai/credits). Last error: ${lastError.message}`,
+        "insufficient_balance",
+        false
+      );
+    }
+    return lastError;
+  }
+  return new YappaflowAIError(
+    `All AI providers failed. Last error: ${lastError?.message || "unknown"}`,
+    "api_error",
+    true
   );
 }
 
