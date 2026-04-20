@@ -8,3 +8,5 @@ dist/
 
 /server/.env
 /server/dist/
+
+/.claude

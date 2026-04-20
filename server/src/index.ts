@@ -49,6 +49,22 @@ const corsOptions: cors.CorsOptions = {
 async function main() {
   const app = express();
 
+  // ── Trust the platform proxy in production (Railway, Vercel, Fly, …) ───────
+  // Railway terminates TLS at its edge and forwards to us over HTTP with
+  // `X-Forwarded-For` set. Express defaults to `trust proxy = false` for
+  // safety — which makes express-rate-limit refuse to use the forwarded IP
+  // and throw `ERR_ERL_UNEXPECTED_X_FORWARDED_FOR` on every request.
+  //
+  // Setting `trust proxy = 1` tells Express to trust EXACTLY one hop (the
+  // Railway ingress). Don't use `true` — that trusts any client-supplied
+  // `X-Forwarded-For`, letting anyone spoof their IP past the rate limiter.
+  //
+  // Dev (NODE_ENV !== "production") talks to us directly, so we don't trust
+  // any proxy — the default (0) is correct there.
+  if (env.nodeEnv === "production") {
+    app.set("trust proxy", 1);
+  }
+
   // ── Security hardening ─────────────────────────────────────────────────────
   app.use(helmet({ contentSecurityPolicy: false })); // CSP off for GraphQL playground
   app.use(cookieParser());
