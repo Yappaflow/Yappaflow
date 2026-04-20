@@ -6,7 +6,13 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 const nextConfig: NextConfig = {
   transpilePackages: ['three', '@react-three/fiber', '@react-three/drei'],
   async rewrites() {
-    const apiUrl = process.env.API_URL || "http://localhost:4000";
+    // API_URL is the server-side env used by rewrites. On Vercel we usually
+    // only set NEXT_PUBLIC_API_URL (so client-side fetches know where the
+    // backend lives) — fall back to it here so a single env var drives both.
+    const apiUrl =
+      process.env.API_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      "http://localhost:4000";
     return [
       { source: "/api/graphql",     destination: `${apiUrl}/graphql` },
       { source: "/api/events",      destination: `${apiUrl}/events` },

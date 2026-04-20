@@ -113,7 +113,26 @@ export default function AuthPage() {
     // Set the httpOnly session cookie — Next middleware checks it before
     // rendering /dashboard, so we must wait before navigating.
     await establishSession(token);
-    router.push("/dashboard");
+
+    // Prefer ?next=<path> when present (middleware set it after an earlier
+    // redirect). Hard-navigate with window.location — router.push() does a
+    // soft (client) navigation that can skip a fresh cookie check on the
+    // edge in some runtimes, which is exactly the loop we're trying to
+    // escape here.
+    let nextPath = "/dashboard";
+    if (typeof window !== "undefined") {
+      const urlNext = new URLSearchParams(window.location.search).get("next");
+      if (urlNext && urlNext.startsWith("/")) nextPath = urlNext;
+      // Compose with the current locale — useRouter is locale-aware,
+      // window.location.assign is not, so prefix explicitly.
+      const pathWithLocale =
+        /^\/(en|tr)(\/|$)/.test(nextPath)
+          ? nextPath
+          : `/${document.documentElement.lang || "en"}${nextPath.startsWith("/") ? "" : "/"}${nextPath}`;
+      window.location.assign(pathWithLocale);
+    } else {
+      router.push(nextPath);
+    }
   }
 
   return (

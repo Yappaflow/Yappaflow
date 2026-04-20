@@ -11,14 +11,25 @@ function getApiBase(): string {
  * Exchange a freshly-minted JWT for an httpOnly session cookie.
  * The cookie is what Next.js middleware checks to guard /dashboard — without
  * it, anyone could paste the URL and see the dashboard shell.
+ *
+ * IMPORTANT: we hit the SAME-ORIGIN path `/api/auth/session` (proxied via
+ * Next.js rewrites in next.config.ts). Hitting the Railway origin directly
+ * would set the cookie on the API domain, where the frontend middleware
+ * can't see it — that's the cross-origin cookie bug we'd bounce on forever.
+ * With the rewrite, the Set-Cookie header flows back through yappaflow.com
+ * and the cookie lands on the frontend origin, which is exactly where
+ * middleware reads from.
+ *
+ * `credentials: "same-origin"` (the default is fine too) because the request
+ * is now same-origin.
  */
 export async function establishSession(token: string): Promise<void> {
   if (!token) return;
   try {
-    await fetch(`${getApiBase()}/auth/session`, {
+    await fetch(`/api/auth/session`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      credentials: "include",
+      credentials: "same-origin",
       body: JSON.stringify({ token }),
     });
   } catch {
@@ -29,9 +40,9 @@ export async function establishSession(token: string): Promise<void> {
 
 export async function destroySession(): Promise<void> {
   try {
-    await fetch(`${getApiBase()}/auth/session`, {
+    await fetch(`/api/auth/session`, {
       method: "DELETE",
-      credentials: "include",
+      credentials: "same-origin",
     });
   } catch {
     /* ignore */
