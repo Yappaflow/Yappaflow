@@ -30,8 +30,23 @@ import { parseArtifacts } from "./static-site-generator.service";
 import {
   validateShopifyBundle,
   LiquidBundleValidationError,
+  type LiquidValidationIssue,
 } from "./liquid-validator.service";
 import { log, logError } from "../utils/logger";
+
+/**
+ * Convert a list of validation issues into a terse prompt fragment we can
+ * paste back at the model on the next retry. The model's best output mode
+ * is when you point at concrete filenames + concrete problems, not when you
+ * hand it a generic "try harder" instruction.
+ */
+function formatIssuesForPrompt(issues: LiquidValidationIssue[]): string {
+  const lines = issues.map((i) => {
+    const loc = i.line != null ? ` (line ${i.line})` : "";
+    return `• ${i.filePath}${loc} [${i.kind}]: ${i.message}`;
+  });
+  return lines.join("\n");
+}
 
 const LANG_BY_EXT: Record<string, string> = {
   ".liquid": "liquid",
@@ -263,20 +278,48 @@ export async function generateShopifyBundle(
     `(${identity.businessName}${promptProducts.length ? `, ${promptProducts.length} products` : ""})`
   );
 
-  // We try twice. Generating 17 full theme files is long and stochastic;
-  // a single stumble (missed closing fence, stray prose) shouldn't sink the
-  // whole build. Second attempt tacks a short reminder onto the user content
-  // so the model re-reads the output contract.
+  // Self-critique retry loop. Generating 17 full theme files is long and
+  // stochastic; a single stumble can sink the whole build, so we try up to
+  // MAX_ATTEMPTS times and feed the validator's structured errors from each
+  // failed attempt BACK into the next retry's user message. That last part
+  // is the important one: "you said hero.liquid is 57 bytes, regenerate it
+  // with real content" works far better than a generic "try harder" nudge.
+  //
+  // Cost budget: each attempt is ~$0.02 on OpenRouter/DeepSeek for the full
+  // theme. Three attempts = ~$0.06 worst-case, which is a trivial price to
+  // pay to avoid shipping a hollow-stub theme to a paying merchant (the
+  // 2026-04-21 prod failure mode). The loop short-circuits the moment we
+  // get a clean pass.
+  const MAX_ATTEMPTS = 3;
+
   let raw = "";
   let themeFiles: ReturnType<typeof parseArtifacts> = [];
+  let lastIssues: LiquidValidationIssue[] | null = null;
+  let validated = false;
 
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    const attemptUserContent = attempt === 1
-      ? userContent
-      : userContent +
-        "\n\nREMINDER: emit EVERY file as a separate fenced block of the form " +
-        "```filepath:<path>\\n<content>\\n```  — no prose outside the fences, " +
-        "and make sure the FINAL file's closing fence is present before you stop.";
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    // Build the per-attempt user message:
+    //   attempt 1 → original userContent.
+    //   attempt 2+ → userContent + targeted critique of the LAST attempt's
+    //                specific failures (parse or validation).
+    let attemptUserContent = userContent;
+    if (attempt > 1) {
+      if (themeFiles.length === 0) {
+        attemptUserContent +=
+          "\n\n### REMINDER: output format\n\n" +
+          "Your previous response did not parse — no fenced filepath blocks " +
+          "were found. Emit EVERY file as a separate fenced block of the form " +
+          "```filepath:<path>\\n<content>\\n```  — no prose outside the fences, " +
+          "and make sure the FINAL file's closing fence is present before you stop.";
+      } else if (lastIssues && lastIssues.length > 0) {
+        attemptUserContent +=
+          "\n\n### FIX THESE SPECIFIC PROBLEMS FROM YOUR PREVIOUS ATTEMPT\n\n" +
+          formatIssuesForPrompt(lastIssues) +
+          "\n\nRegenerate the ENTIRE bundle (every file, in order) with these " +
+          "problems fixed. Do not emit placeholder stubs — every section, " +
+          "template, and snippet must contain real production-grade content.";
+      }
+    }
 
     try {
       const { text, usage } = await analyzeOnce(systemPrompt, attemptUserContent, {
@@ -296,19 +339,48 @@ export async function generateShopifyBundle(
     }
 
     themeFiles = parseArtifacts(raw);
-    if (themeFiles.length > 0) break;
+    if (themeFiles.length === 0) {
+      // Diagnostic snapshot BEFORE we retry/fail — without this we're flying
+      // blind on future parse failures. Head+tail so the log doesn't balloon.
+      log(
+        `⚠️  Shopify gen attempt ${attempt}/${MAX_ATTEMPTS}: parseArtifacts found 0 blocks in ${raw.length} chars. ` +
+        `Output head: ${JSON.stringify(raw.slice(0, 400))} … ` +
+        `tail: ${JSON.stringify(raw.slice(-400))}`
+      );
+      lastIssues = null; // parse-level failure, not a validator issues list
+      continue;
+    }
 
-    // Diagnostic snapshot BEFORE we retry/fail — without this we're flying
-    // blind on future parse failures. Head+tail so the log doesn't balloon.
-    log(
-      `⚠️  Shopify gen attempt ${attempt}: parseArtifacts found 0 blocks in ${raw.length} chars. ` +
-      `Output head: ${JSON.stringify(raw.slice(0, 400))} … ` +
-      `tail: ${JSON.stringify(raw.slice(-400))}`
-    );
+    // Pre-send testing: parse-check + content-depth-check every .liquid /
+    // .json file before we persist anything. If the model produced broken
+    // Liquid, malformed JSON, or hollow stubs, we loop and feed the issues
+    // back into the next attempt's user message. Shipping a bundle Shopify
+    // refuses at upload — or worse, accepts but renders as a blank store —
+    // is unacceptable for a production SaaS.
+    try {
+      validateShopifyBundle(themeFiles);
+      validated = true;
+      if (attempt > 1) {
+        log(`✅ Shopify gen attempt ${attempt}/${MAX_ATTEMPTS}: validation passed on retry (${themeFiles.length} files)`);
+      }
+      break;
+    } catch (err) {
+      if (err instanceof LiquidBundleValidationError) {
+        lastIssues = err.issues;
+        log(
+          `⚠️  Shopify gen attempt ${attempt}/${MAX_ATTEMPTS}: validator rejected ${err.issues.length} issue(s) — ` +
+          err.issues.slice(0, 3).map((i) => `${i.filePath}:${i.kind}`).join(", ") +
+          (err.issues.length > 3 ? `, …+${err.issues.length - 3}` : "")
+        );
+        continue;
+      }
+      // Non-LiquidBundleValidationError: something unexpected — don't retry.
+      throw err;
+    }
   }
 
   if (themeFiles.length === 0) {
-    const msg = "Shopify model output contained no filepath-fenced blocks";
+    const msg = "Shopify model output contained no filepath-fenced blocks after " + MAX_ATTEMPTS + " attempts";
     await Project.findByIdAndUpdate(projectId, {
       buildJobStatus: "failed",
       buildError:     msg,
@@ -317,17 +389,13 @@ export async function generateShopifyBundle(
     throw new Error(msg);
   }
 
-  // Parse-check every .liquid / .json file before we persist anything. If
-  // the model produced broken Liquid (unclosed tags, mis-balanced {% if %}
-  // blocks, malformed JSON in templates/*.json or locales) we'd rather fail
-  // the build now than ship a ZIP Shopify refuses at upload.
-  try {
-    validateShopifyBundle(themeFiles);
-  } catch (err) {
-    const msg = err instanceof LiquidBundleValidationError
-      ? err.message
-      : `Liquid validation failed: ${(err as Error).message}`;
-    logError("Shopify bundle failed Liquid/JSON validation", err);
+  if (!validated) {
+    // All attempts returned parseable output but none passed validation —
+    // surface the LAST attempt's issues to the user so they can see what
+    // the model kept getting wrong.
+    const err = new LiquidBundleValidationError(lastIssues ?? []);
+    const msg = err.message + `\n(exhausted ${MAX_ATTEMPTS} attempts with validator feedback)`;
+    logError("Shopify bundle failed validation after retries", err);
     await Project.findByIdAndUpdate(projectId, {
       buildJobStatus: "failed",
       buildError:     msg,

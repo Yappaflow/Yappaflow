@@ -70,14 +70,62 @@ locales/en.default.json
 2. **No external CDNs and no external fonts.** All styling lives in
    \`assets/theme.css\`. All JavaScript lives in \`assets/theme.js\` and is
    referenced via \`{{ 'theme.js' | asset_url | script_tag }}\`.
-3. **Sections architecture.** \`templates/index.json\` references the hero
-   and featured-products sections by name with sensible default settings.
+3. **Sections architecture.** \`templates/index.json\` MUST declare a
+   non-empty \`sections\` object referencing the hero and featured-products
+   sections by name with sensible default settings, plus an \`order\` array
+   listing them. An empty \`sections: {}\` renders a blank store —
+   unacceptable. Every \`templates/*.json\` file must declare at least one
+   real section.
 4. **Cart.** \`templates/cart.liquid\` is a real cart page that POSTs to
    \`/cart\` and shows line items. \`assets/theme.js\` adds an Ajax
    "Add to cart" handler that calls \`/cart/add.js\` and updates a header
    cart badge from \`/cart.js\`.
 5. **Locales.** \`locales/en.default.json\` must include the keys you reference
    via \`{{ 'general.cart' | t }}\` etc.
+6. **Mandatory layout tokens.** \`layout/theme.liquid\` MUST include BOTH
+   \`{{ content_for_header }}\` (inside \`<head>\`, before other tags) AND
+   \`{{ content_for_layout }}\` (inside \`<body>\`). Without these, Shopify
+   renders a blank page even if every other file is perfect.
+
+### Content depth (MANDATORY — no placeholder stubs)
+
+Near-empty files that merely *resemble* the right shape are rejected by our
+pre-upload validator and will NOT ship. Every file must contain real,
+production-grade content:
+
+- \`layout/theme.liquid\` — a full HTML document: \`<!doctype html>\`, a
+  populated \`<head>\` (charset, viewport, SEO meta, title, stylesheet link,
+  \`{{ content_for_header }}\`, the theme-pre-paint inline script), and a
+  \`<body>\` that renders \`{% section 'header' %}\`, the
+  \`{{ content_for_layout }}\` output, and \`{% section 'footer' %}\`.
+  Target **well over 1 KB** — a Dawn-equivalent theme.liquid is ~2 KB+.
+- \`sections/header.liquid\` and \`sections/footer.liquid\` — real navigation,
+  logo, cart icon, newsletter/socials, with a \`{% schema %}\` block. Target
+  **at least ~500 bytes** of substantive markup each. A 57-byte header is a
+  stub, not a header.
+- Every other \`sections/*.liquid\` — complete markup for that section's
+  role (hero with headline/subhead/CTA; featured-products iterating
+  \`collections.all.products\` with \`{% render 'product-card' %}\`;
+  main-product with image gallery + variant picker + add-to-cart form),
+  plus a \`{% schema %}\` block defining settings. Target **at least
+  ~400 bytes** each.
+- \`snippets/*.liquid\` — real reusable partials with branching logic for
+  the states that can occur (e.g. product-card must handle no-image,
+  on-sale, sold-out).
+- \`assets/theme.css\` — a full stylesheet with light + dark palettes,
+  typography scale, layout primitives, section-specific rules. Target
+  **at least 2 KB**.
+- \`assets/theme.js\` — theme-toggle bootstrap, Ajax add-to-cart, header
+  cart-badge update, variant-picker wiring. Target **at least 1.5 KB**.
+- \`config/settings_schema.json\` — a real schema with at least the
+  \`theme_info\` block and several settings groups (colors, typography,
+  layout). Not \`[]\`.
+- \`locales/en.default.json\` — all keys the Liquid files reference,
+  organized into logical groups (\`general\`, \`products\`, \`cart\`,
+  \`customer\`, \`accessibility\`).
+
+If a file genuinely has nothing to say, it's because you picked the wrong
+architecture — add content, don't ship a stub.
 
 ### Dual theme (MANDATORY)
 
