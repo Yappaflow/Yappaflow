@@ -51,12 +51,17 @@ const OPENROUTER_MAX_OUTPUT_TOKENS = 32_000;
 //   - Gemini 2.5 Flash Lite (our `defaultModel`) advertises 1M context
 //     but OpenRouter sometimes routes to upstream endpoints with a 32k
 //     total cap, which broke Shopify generation in prod (2026-04-20).
-//   - Qwen 2.5 Coder 32B is code-tuned and its OpenRouter endpoints
-//     uniformly carry a 128k context window — enough for our 27k-input
-//     plus 32k-output generations with plenty of headroom.
-//   - Llama 3.3 70B is free and 128k-context, but is general-purpose;
-//     Qwen Coder produces tighter Liquid/PHP/Next.js code in our tests.
-const OPENROUTER_LARGE_OUTPUT_MODEL = "qwen/qwen-2.5-coder-32b-instruct";
+//   - Qwen 2.5 Coder 32B was the original pick — it advertises 128k,
+//     but that's only with the YaRN context-extension technique enabled.
+//     Many OpenRouter upstreams serve Qwen at its *native* 32k window,
+//     so we kept getting the same "context length is 32768" 400 error
+//     even after swapping away from Flash Lite (prod, 2026-04-21).
+//   - Llama 3.3 70B Instruct has a **uniform** 131k context across
+//     every upstream provider (it's part of the base model, not an
+//     add-on), so routing is deterministic. General-purpose but handles
+//     Shopify Liquid / Next.js / WordPress PHP well enough for a
+//     fallback path where the ideal provider (DeepSeek) is out.
+const OPENROUTER_LARGE_OUTPUT_MODEL = "meta-llama/llama-3.3-70b-instruct";
 
 export function getOpenRouterProvider(): ProviderConfig {
   return {
