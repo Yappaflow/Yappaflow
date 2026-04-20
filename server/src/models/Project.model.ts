@@ -5,6 +5,29 @@ export type ProjectPhase    = "listening" | "building" | "deploying" | "live";
 export type BuildJobStatus  = "pending" | "running" | "done" | "failed";
 
 /**
+ * Fine-grained build phase surfaced to the UI so the progress bar can show
+ * something more useful than "0/18 files" during the long AI-generation
+ * phase. These transitions are deliberately coarse — the UI animates
+ * within each band using wall-clock elapsed time, so we don't need to
+ * churn the DB with every internal tick.
+ *
+ *   queued      → request accepted, not yet picked up
+ *   analyzing   → optional identity-extraction / planning step
+ *   generating  → AI is producing the theme/site files (the long phase)
+ *   validating  → parser + content-depth checks on the AI output
+ *   packaging   → persisting artifacts, building the ZIP
+ *   done / failed — terminal
+ */
+export type BuildPhase =
+  | "queued"
+  | "analyzing"
+  | "generating"
+  | "validating"
+  | "packaging"
+  | "done"
+  | "failed";
+
+/**
  * One option of a product variant axis.
  *
  * Examples:
@@ -64,9 +87,13 @@ export interface IProject extends Document {
   identity?:        IProjectIdentity;
   domainPurchased?: string;          // the domain the agency actually bought on Namecheap
   buildJobStatus?:  BuildJobStatus;
+  buildPhase?:      BuildPhase;
   buildFilesDone?:  number;
   buildFilesTotal?: number;
   buildError?:      string;
+  buildStartedAt?:  Date;
+  buildAttempt?:    number;   // which retry attempt we're on (1..N)
+  buildAttemptMax?: number;   // how many attempts the generator will try in total
   downloadedAt?:    Date;
   createdAt:        Date;
   updatedAt:        Date;
@@ -124,9 +151,13 @@ const ProjectSchema = new Schema<IProject>(
     identity:        { type: ProjectIdentitySchema },
     domainPurchased: { type: String },
     buildJobStatus:  { type: String, enum: ["pending", "running", "done", "failed"] },
+    buildPhase:      { type: String, enum: ["queued", "analyzing", "generating", "validating", "packaging", "done", "failed"] },
     buildFilesDone:  { type: Number, default: 0 },
     buildFilesTotal: { type: Number, default: 0 },
     buildError:      { type: String },
+    buildStartedAt:  { type: Date },
+    buildAttempt:    { type: Number },
+    buildAttemptMax: { type: Number },
     downloadedAt:    { type: Date },
   },
   { timestamps: true }

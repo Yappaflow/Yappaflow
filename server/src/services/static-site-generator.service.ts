@@ -111,9 +111,11 @@ export async function generateStaticSite(
 
   await Project.findByIdAndUpdate(projectId, {
     buildJobStatus:  "running",
+    buildPhase:      "generating",
     buildFilesDone:  0,
     buildFilesTotal: BASE_EXPECTED_FILES,
     buildError:      null,
+    buildStartedAt:  new Date(),
   });
 
   // Create an AISession so we can persist GeneratedArtifacts against it.
@@ -166,7 +168,8 @@ export async function generateStaticSite(
     logError("Static site generation AI call failed", err);
     await Project.findByIdAndUpdate(projectId, {
       buildJobStatus: "failed",
-      buildError:     (err as Error).message,
+      buildPhase:     "failed",
+      buildError:(err as Error).message,
     });
     await AISession.findByIdAndUpdate(sessionId, { phase: "failed", status: "failed", error: (err as Error).message });
     throw err;
@@ -177,11 +180,14 @@ export async function generateStaticSite(
     const msg = "Model output contained no filepath-fenced blocks";
     await Project.findByIdAndUpdate(projectId, {
       buildJobStatus: "failed",
-      buildError:     msg,
+      buildPhase:     "failed",
+      buildError:msg,
     });
     await AISession.findByIdAndUpdate(sessionId, { phase: "failed", status: "failed", error: msg });
     throw new Error(msg);
   }
+
+  await Project.findByIdAndUpdate(projectId, { buildPhase: "packaging" });
 
   // Replace any previous artifacts for this project (idempotent re-build).
   await GeneratedArtifact.deleteMany({ agencyId, projectId });
@@ -203,6 +209,7 @@ export async function generateStaticSite(
 
   await Project.findByIdAndUpdate(projectId, {
     buildJobStatus:  "done",
+    buildPhase:      "done",
     buildFilesTotal: files.length,
     progress:        80,
   });

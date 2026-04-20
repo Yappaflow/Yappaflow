@@ -218,9 +218,13 @@ router.get("/custom/:projectId", async (req, res) => {
       progress:        (project as any).progress,
       identity:        (project as any).identity ?? null,
       buildJobStatus:  (project as any).buildJobStatus ?? null,
+      buildPhase:      (project as any).buildPhase ?? null,
       buildFilesDone:  (project as any).buildFilesDone ?? 0,
       buildFilesTotal: (project as any).buildFilesTotal ?? 0,
       buildError:      (project as any).buildError ?? null,
+      buildStartedAt:  (project as any).buildStartedAt ? (project as any).buildStartedAt.toISOString() : null,
+      buildAttempt:    (project as any).buildAttempt ?? null,
+      buildAttemptMax: (project as any).buildAttemptMax ?? null,
       domainPurchased: (project as any).domainPurchased ?? null,
       liveUrl:         (project as any).liveUrl ?? null,
     });
@@ -414,9 +418,13 @@ router.get("/shopify/:projectId", async (req, res) => {
       progress:        (project as any).progress,
       identity:        (project as any).identity ?? null,
       buildJobStatus:  (project as any).buildJobStatus ?? null,
+      buildPhase:      (project as any).buildPhase ?? null,
       buildFilesDone:  (project as any).buildFilesDone ?? 0,
       buildFilesTotal: (project as any).buildFilesTotal ?? 0,
       buildError:      (project as any).buildError ?? null,
+      buildStartedAt:  (project as any).buildStartedAt ? (project as any).buildStartedAt.toISOString() : null,
+      buildAttempt:    (project as any).buildAttempt ?? null,
+      buildAttemptMax: (project as any).buildAttemptMax ?? null,
     });
   } catch (err) {
     logError("deploy/shopify/:projectId GET failed", err);
@@ -672,9 +680,13 @@ router.get("/wordpress/:projectId", async (req, res) => {
       progress:        (project as any).progress,
       identity:        (project as any).identity ?? null,
       buildJobStatus:  (project as any).buildJobStatus ?? null,
+      buildPhase:      (project as any).buildPhase ?? null,
       buildFilesDone:  (project as any).buildFilesDone ?? 0,
       buildFilesTotal: (project as any).buildFilesTotal ?? 0,
       buildError:      (project as any).buildError ?? null,
+      buildStartedAt:  (project as any).buildStartedAt ? (project as any).buildStartedAt.toISOString() : null,
+      buildAttempt:    (project as any).buildAttempt ?? null,
+      buildAttemptMax: (project as any).buildAttemptMax ?? null,
     });
   } catch (err) {
     logError("deploy/wordpress/:projectId GET failed", err);
@@ -861,6 +873,151 @@ router.post("/wordpress/:projectId/publish", async (req, res) => {
   } catch (err) {
     logError("deploy/wordpress/publish failed", err);
     return res.status(500).json({ error: (err as Error).message || "Publish failed" });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Products: platform-agnostic catalog editor
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Products live on `Project.identity.products`. The identity extractor tries
+// to parse them out of chat, but agencies often have more accurate data (SKUs,
+// stock photos, exact pricing) that they want to plug in directly before the
+// build runs. These two endpoints let the UI read/replace that list without
+// re-running the (expensive) identity extraction.
+//
+// Keyed by projectId only — the route is not platform-namespaced because the
+// underlying data shape is identical across all five platforms. The Project
+// owner is the agency, so we still guard with agencyId.
+
+type IncomingProductVariant = {
+  label?:  unknown;
+  price?:  unknown;
+  sku?:    unknown;
+};
+type IncomingProduct = {
+  name?:        unknown;
+  price?:       unknown;
+  currency?:    unknown;
+  description?: unknown;
+  images?:      unknown;
+  variantKind?: unknown;
+  variants?:    unknown;
+  sku?:         unknown;
+};
+
+/**
+ * Normalise a caller-supplied product shape into the strict schema. Unknown
+ * keys are dropped; required fields are validated. Anything malformed returns
+ * `null` so we can 400 with a precise error rather than letting a weird value
+ * slip into the AI prompt downstream.
+ */
+function normaliseProduct(raw: IncomingProduct, idx: number): { ok: true; value: any } | { ok: false; error: string } {
+  const name = typeof raw.name === "string" ? raw.name.trim() : "";
+  if (!name) return { ok: false, error: `products[${idx}].name is required` };
+  const priceNum = typeof raw.price === "number" ? raw.price : Number(raw.price);
+  if (!Number.isFinite(priceNum) || priceNum < 0) {
+    return { ok: false, error: `products[${idx}].price must be a non-negative number` };
+  }
+
+  const variantsRaw = Array.isArray(raw.variants) ? raw.variants as IncomingProductVariant[] : [];
+  const variants = variantsRaw
+    .map((v) => {
+      const label = typeof v.label === "string" ? v.label.trim() : "";
+      if (!label) return null;
+      const vp = typeof v.price === "number" ? v.price : Number(v.price);
+      return {
+        label,
+        price: Number.isFinite(vp) ? vp : undefined,
+        sku:   typeof v.sku === "string" ? v.sku.trim() || undefined : undefined,
+      };
+    })
+    .filter(Boolean) as Array<{ label: string; price?: number; sku?: string }>;
+
+  const imagesRaw = Array.isArray(raw.images) ? raw.images : [];
+  const images = imagesRaw
+    .filter((s): s is string => typeof s === "string" && s.trim().length > 0)
+    .map((s) => s.trim())
+    .slice(0, 12); // reasonable ceiling; keeps the prompt payload bounded
+
+  return {
+    ok: true,
+    value: {
+      name,
+      price:       priceNum,
+      currency:    typeof raw.currency    === "string" ? raw.currency.trim().toUpperCase() || undefined : undefined,
+      description: typeof raw.description === "string" ? raw.description.trim() || undefined           : undefined,
+      images,
+      variantKind: typeof raw.variantKind === "string" ? raw.variantKind.trim() || undefined           : undefined,
+      variants,
+      sku:         typeof raw.sku         === "string" ? raw.sku.trim() || undefined                   : undefined,
+    },
+  };
+}
+
+router.get("/projects/:projectId/products", async (req, res) => {
+  const agencyId = requireAuth(req, res);
+  if (!agencyId) return;
+
+  const { projectId } = req.params;
+  if (!isValidObjectId(projectId)) {
+    return res.status(400).json({ error: "Invalid projectId" });
+  }
+
+  try {
+    const project = await Project.findOne({ _id: projectId, agencyId }).lean();
+    if (!project) return res.status(404).json({ error: "Project not found" });
+
+    const products = ((project as any).identity?.products ?? []) as any[];
+    return res.json({ products });
+  } catch (err) {
+    logError("deploy/projects/:projectId/products GET failed", err);
+    return res.status(500).json({ error: "Failed to load products" });
+  }
+});
+
+router.put("/projects/:projectId/products", async (req, res) => {
+  const agencyId = requireAuth(req, res);
+  if (!agencyId) return;
+
+  const { projectId } = req.params;
+  if (!isValidObjectId(projectId)) {
+    return res.status(400).json({ error: "Invalid projectId" });
+  }
+
+  const body = req.body ?? {};
+  if (!Array.isArray(body.products)) {
+    return res.status(400).json({ error: "Body must include products: Product[]" });
+  }
+  if (body.products.length > 200) {
+    // Hard ceiling — the prompt budget can't hold 1000+ products anyway.
+    return res.status(400).json({ error: "Max 200 products per project" });
+  }
+
+  const normalised: any[] = [];
+  for (let i = 0; i < body.products.length; i++) {
+    const r = normaliseProduct(body.products[i] ?? {}, i);
+    if (!r.ok) return res.status(400).json({ error: r.error });
+    normalised.push(r.value);
+  }
+
+  try {
+    const project = await Project.findOne({ _id: projectId, agencyId });
+    if (!project) return res.status(404).json({ error: "Project not found" });
+    if (!project.identity) {
+      return res.status(400).json({ error: "No identity on project — extract first" });
+    }
+
+    // Replace the whole array. This is simpler than per-item PATCH and
+    // matches how the UI manages its local state.
+    await Project.findByIdAndUpdate(projectId, {
+      $set: { "identity.products": normalised },
+    });
+
+    return res.json({ products: normalised });
+  } catch (err) {
+    logError("deploy/projects/:projectId/products PUT failed", err);
+    return res.status(500).json({ error: "Failed to save products" });
   }
 });
 

@@ -148,9 +148,11 @@ export async function generateIkasBundle(
 
   await Project.findByIdAndUpdate(projectId, {
     buildJobStatus:  "running",
+    buildPhase:      "generating",
     buildFilesDone:  0,
     buildFilesTotal: expectedFiles,
     buildError:      null,
+    buildStartedAt:  new Date(),
   });
 
   const session = await AISession.create({
@@ -215,6 +217,7 @@ export async function generateIkasBundle(
       logError(`ikas bundle generation AI call failed (attempt ${attempt})`, err);
       await Project.findByIdAndUpdate(projectId, {
         buildJobStatus: "failed",
+        buildPhase:     "failed",
         buildError:     (err as Error).message,
       });
       await AISession.findByIdAndUpdate(sessionId, {
@@ -239,6 +242,7 @@ export async function generateIkasBundle(
     const msg = "ikas model output contained no filepath-fenced blocks";
     await Project.findByIdAndUpdate(projectId, {
       buildJobStatus: "failed",
+      buildPhase:     "failed",
       buildError:     msg,
     });
     await AISession.findByIdAndUpdate(sessionId, {
@@ -248,6 +252,8 @@ export async function generateIkasBundle(
     });
     throw new Error(msg);
   }
+
+  await Project.findByIdAndUpdate(projectId, { buildPhase: "packaging" });
 
   // Wipe previous artifacts for this project so we don't mix two platform
   // outputs in the download ZIP.
@@ -325,6 +331,7 @@ export async function generateIkasBundle(
 
   await Project.findByIdAndUpdate(projectId, {
     buildJobStatus:  "done",
+    buildPhase:      "done",
     buildFilesTotal: allFiles.length,
     progress:        80,
   });

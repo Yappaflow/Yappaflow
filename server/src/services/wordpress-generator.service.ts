@@ -255,9 +255,11 @@ export async function generateWordPressBundle(
 
   await Project.findByIdAndUpdate(projectId, {
     buildJobStatus:  "running",
+    buildPhase:      "generating",
     buildFilesDone:  0,
     buildFilesTotal: BASE_EXPECTED_FILES + (identity.products?.length ? 1 : 0),
     buildError:      null,
+    buildStartedAt:  new Date(),
   });
 
   const session = await AISession.create({
@@ -319,6 +321,7 @@ export async function generateWordPressBundle(
       logError(`WordPress bundle generation AI call failed (attempt ${attempt})`, err);
       await Project.findByIdAndUpdate(projectId, {
         buildJobStatus: "failed",
+        buildPhase:     "failed",
         buildError:     (err as Error).message,
       });
       await AISession.findByIdAndUpdate(sessionId, {
@@ -343,6 +346,7 @@ export async function generateWordPressBundle(
     const msg = "WordPress model output contained no filepath-fenced blocks";
     await Project.findByIdAndUpdate(projectId, {
       buildJobStatus: "failed",
+      buildPhase:     "failed",
       buildError:     msg,
     });
     await AISession.findByIdAndUpdate(sessionId, {
@@ -352,6 +356,8 @@ export async function generateWordPressBundle(
     });
     throw new Error(msg);
   }
+
+  await Project.findByIdAndUpdate(projectId, { buildPhase: "packaging" });
 
   // Wipe previous artifacts so we don't mix two platform outputs in the ZIP.
   await GeneratedArtifact.deleteMany({ agencyId, projectId });
@@ -436,6 +442,7 @@ export async function generateWordPressBundle(
 
   await Project.findByIdAndUpdate(projectId, {
     buildJobStatus:  "done",
+    buildPhase:      "done",
     buildFilesTotal: allFiles.length,
     progress:        80,
   });

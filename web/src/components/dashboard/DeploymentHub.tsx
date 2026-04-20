@@ -17,6 +17,8 @@ import {
 import { useTranslations } from "next-intl";
 import type { DashboardView } from "./DashboardShell";
 import { SignalPicker } from "./deploy/SignalPicker";
+import { BuildProgress } from "./BuildProgress";
+import { ProductEditor } from "./ProductEditor";
 import {
   startDeploy,
   extractIdentity,
@@ -54,6 +56,8 @@ import {
   type WordPressConnection,
   type WordPressConfigStatus,
   type WordPressPublishResult,
+  type BuildPhase,
+  type BuildJobStatus,
 } from "@/lib/deploy-api";
 
 type Route = "cms" | "custom" | null;
@@ -117,11 +121,18 @@ function CustomWizard({ onExitToDashboard }: { onExitToDashboard: () => void }) 
   const checkTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [buildStatus, setBuildStatus] = useState<{
-    status: "pending" | "running" | "done" | "failed" | null;
-    filesDone: number;
+    status:     BuildJobStatus | null;
+    phase:      BuildPhase | null;
+    filesDone:  number;
     filesTotal: number;
-    error: string | null;
-  }>({ status: null, filesDone: 0, filesTotal: 0, error: null });
+    error:      string | null;
+    startedAt:  string | null;
+    attempt:    number | null;
+    attemptMax: number | null;
+  }>({
+    status: null, phase: null, filesDone: 0, filesTotal: 0,
+    error: null, startedAt: null, attempt: null, attemptMax: null,
+  });
 
   const [purchasedDomain, setPurchasedDomain] = useState("");
   const [confirmInput, setConfirmInput] = useState("");
@@ -197,10 +208,14 @@ function CustomWizard({ onExitToDashboard }: { onExitToDashboard: () => void }) 
         const p = await getDeployProject(projectId);
         if (cancelled) return;
         setBuildStatus({
-          status: p.buildJobStatus,
-          filesDone: p.buildFilesDone,
+          status:     p.buildJobStatus,
+          phase:      p.buildPhase,
+          filesDone:  p.buildFilesDone,
           filesTotal: p.buildFilesTotal,
-          error: p.buildError,
+          error:      p.buildError,
+          startedAt:  p.buildStartedAt,
+          attempt:    p.buildAttempt,
+          attemptMax: p.buildAttemptMax,
         });
       } catch {
         /* ignore polling errors */
@@ -469,30 +484,19 @@ function CustomWizard({ onExitToDashboard }: { onExitToDashboard: () => void }) 
             {t("domainBuyCta")}
           </button>
 
-          <div className="mt-5 rounded-xl border border-white/[0.05] bg-[#111114] p-4">
-            <div className="flex items-center gap-2">
-              <div className="flex h-2 w-2 flex-shrink-0 rounded-full bg-[#FF6B35]">
-                {(buildStatus.status === "running" || buildStatus.status === "pending") && (
-                  <span className="block h-2 w-2 animate-ping rounded-full bg-[#FF6B35]" />
-                )}
-              </div>
-              <p className="text-[12px] font-semibold text-white">
-                {buildStatus.status === "done"
-                  ? t("buildReady")
-                  : buildStatus.status === "running"
-                  ? (buildStatus.filesTotal
-                      ? t("buildRunning", { done: buildStatus.filesDone, total: buildStatus.filesTotal })
-                      : t("buildRunningUnknown", { done: buildStatus.filesDone }))
-                  : buildStatus.status === "pending"
-                  ? t("buildPending")
-                  : buildStatus.status === "failed"
-                  ? t("buildFailed")
-                  : t("buildIdle")}
-              </p>
-            </div>
-            {buildStatus.error && (
-              <p className="mt-1 pl-4 text-[11px] text-red-400">{buildStatus.error}</p>
-            )}
+          <div className="mt-5">
+            <BuildProgress
+              status={buildStatus.status}
+              phase={buildStatus.phase}
+              filesDone={buildStatus.filesDone}
+              filesTotal={buildStatus.filesTotal}
+              startedAt={buildStatus.startedAt}
+              attempt={buildStatus.attempt}
+              attemptMax={buildStatus.attemptMax}
+              error={buildStatus.error}
+              accent="#FF6B35"
+              subtitle={t("buildSubtitle")}
+            />
           </div>
 
           <div className="mt-6 rounded-xl border border-white/[0.05] bg-[#111114] p-4">
@@ -610,11 +614,18 @@ function ShopifyWizard({ onExitToDashboard }: { onExitToDashboard: () => void })
   const [identityError, setIdentityError] = useState<string | null>(null);
 
   const [buildStatus, setBuildStatus] = useState<{
-    status: "pending" | "running" | "done" | "failed" | null;
-    filesDone: number;
+    status:     BuildJobStatus | null;
+    phase:      BuildPhase | null;
+    filesDone:  number;
     filesTotal: number;
-    error: string | null;
-  }>({ status: null, filesDone: 0, filesTotal: 0, error: null });
+    error:      string | null;
+    startedAt:  string | null;
+    attempt:    number | null;
+    attemptMax: number | null;
+  }>({
+    status: null, phase: null, filesDone: 0, filesTotal: 0,
+    error: null, startedAt: null, attempt: null, attemptMax: null,
+  });
   const buildStartedRef = useRef(false);
 
   const [connection, setConnection] = useState<ShopifyConnection | null>(null);
@@ -661,10 +672,14 @@ function ShopifyWizard({ onExitToDashboard }: { onExitToDashboard: () => void })
         const p = await getShopifyProject(projectId);
         if (cancelled) return;
         setBuildStatus({
-          status: p.buildJobStatus,
-          filesDone: p.buildFilesDone,
+          status:     p.buildJobStatus,
+          phase:      p.buildPhase,
+          filesDone:  p.buildFilesDone,
           filesTotal: p.buildFilesTotal,
-          error: p.buildError,
+          error:      p.buildError,
+          startedAt:  p.buildStartedAt,
+          attempt:    p.buildAttempt,
+          attemptMax: p.buildAttemptMax,
         });
       } catch {
         /* ignore polling errors */
@@ -703,10 +718,9 @@ function ShopifyWizard({ onExitToDashboard }: { onExitToDashboard: () => void })
     }
   }, []);
 
-  // Auto-advance: identity ready → build, build done → publish
-  useEffect(() => {
-    if (step === "identity" && identity) setStep("build");
-  }, [step, identity]);
+  // Auto-advance only build → publish. Identity → build is an explicit
+  // click now so the agency has a chance to review / edit the product
+  // catalog before we fire off the (long) theme generation.
   useEffect(() => {
     if (step === "build" && buildStatus.status === "done") setStep("publish");
   }, [step, buildStatus.status]);
@@ -778,56 +792,64 @@ function ShopifyWizard({ onExitToDashboard }: { onExitToDashboard: () => void })
         </div>
       )}
 
-      {/* Step 2 — identity */}
+      {/* Step 2 — identity + product editor */}
       {step === "identity" && (
-        <div className="rounded-2xl border border-white/[0.05] bg-[#111114] p-6">
-          {!identity && !identityError && (
-            <div className="flex items-center gap-3 text-white/60">
-              <Loader2 className="animate-spin" size={16} />
-              <span className="text-[13px]">{t("shopifyAnalyzing")}</span>
-            </div>
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-white/[0.05] bg-[#111114] p-6">
+            {!identity && !identityError && (
+              <div className="flex items-center gap-3 text-white/60">
+                <Loader2 className="animate-spin" size={16} />
+                <span className="text-[13px]">{t("shopifyAnalyzing")}</span>
+              </div>
+            )}
+            {identityError && (
+              <p className="text-[13px] text-red-400">{identityError}</p>
+            )}
+            {identity && (
+              <div>
+                <div className="mb-1 text-[11px] uppercase tracking-wider text-white/30">{t("shopifyBusinessLabel")}</div>
+                <h4 className="text-[20px] font-black text-white">{identity.businessName}</h4>
+                {identity.tagline && <p className="mt-1 text-[13px] text-white/50">{identity.tagline}</p>}
+                <p className="mt-2 text-[12px] text-white/30">
+                  {[identity.industry, identity.tone, identity.city].filter(Boolean).join(" · ")}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {identity && projectId && (
+            <ProductEditor
+              projectId={projectId}
+              accent="#96BF48"
+              onSaved={(ps) => setIdentity((cur) => cur ? { ...cur, products: ps } : cur)}
+            />
           )}
-          {identityError && (
-            <p className="text-[13px] text-red-400">{identityError}</p>
-          )}
+
           {identity && (
-            <div>
-              <div className="mb-1 text-[11px] uppercase tracking-wider text-white/30">{t("shopifyBusinessLabel")}</div>
-              <h4 className="text-[20px] font-black text-white">{identity.businessName}</h4>
-              {identity.tagline && <p className="mt-1 text-[13px] text-white/50">{identity.tagline}</p>}
-              <p className="mt-2 text-[12px] text-white/30">
-                {[identity.industry, identity.tone, identity.city].filter(Boolean).join(" · ")}
-              </p>
-            </div>
+            <button
+              onClick={() => setStep("build")}
+              className="w-full rounded-xl bg-[#96BF48] py-3 text-[13px] font-bold text-white shadow-xl shadow-[#96BF48]/20 hover:opacity-90 transition-opacity"
+            >
+              {t("shopifyGenerateThemeCta")}
+            </button>
           )}
         </div>
       )}
 
       {/* Step 3 — build */}
       {step === "build" && (
-        <div className="rounded-2xl border border-white/[0.05] bg-[#111114] p-6">
-          <h3 className="text-[16px] font-black text-white mb-1">{t("shopifyBuildTitle")}</h3>
-          <p className="text-[13px] text-white/40 mb-4">
-            {t("shopifyBuildDesc")}
-          </p>
-          <div className="h-1.5 w-full rounded-full bg-white/[0.06] mb-3 overflow-hidden">
-            <motion.div
-              className="h-1.5 rounded-full bg-[#96BF48]"
-              style={{
-                width: `${buildStatus.filesTotal
-                  ? Math.min(100, (buildStatus.filesDone / buildStatus.filesTotal) * 100)
-                  : 10}%`,
-              }}
-            />
-          </div>
-          <p className="text-[12px] text-white/40">
-            {buildStatus.status === "failed"
-              ? <span className="text-red-400">{t("shopifyBuildFailed", { error: buildStatus.error ?? t("shopifyBuildUnknownError") })}</span>
-              : buildStatus.filesTotal
-                ? t("shopifyBuildFilesProgress", { done: buildStatus.filesDone, total: buildStatus.filesTotal })
-                : t("shopifyBuildStarting")}
-          </p>
-        </div>
+        <BuildProgress
+          status={buildStatus.status}
+          phase={buildStatus.phase}
+          filesDone={buildStatus.filesDone}
+          filesTotal={buildStatus.filesTotal}
+          startedAt={buildStatus.startedAt}
+          attempt={buildStatus.attempt}
+          attemptMax={buildStatus.attemptMax}
+          error={buildStatus.error}
+          accent="#96BF48"
+          subtitle={t("shopifyBuildDesc")}
+        />
       )}
 
       {/* Step 4 — publish */}
@@ -947,11 +969,18 @@ function WordPressWizard({ onExitToDashboard }: { onExitToDashboard: () => void 
   const [identityError, setIdentityError] = useState<string | null>(null);
 
   const [buildStatus, setBuildStatus] = useState<{
-    status: "pending" | "running" | "done" | "failed" | null;
-    filesDone: number;
+    status:     BuildJobStatus | null;
+    phase:      BuildPhase | null;
+    filesDone:  number;
     filesTotal: number;
-    error: string | null;
-  }>({ status: null, filesDone: 0, filesTotal: 0, error: null });
+    error:      string | null;
+    startedAt:  string | null;
+    attempt:    number | null;
+    attemptMax: number | null;
+  }>({
+    status: null, phase: null, filesDone: 0, filesTotal: 0,
+    error: null, startedAt: null, attempt: null, attemptMax: null,
+  });
   const buildStartedRef = useRef(false);
 
   const [configStatus, setConfigStatus] = useState<WordPressConfigStatus | null>(null);
@@ -1006,10 +1035,14 @@ function WordPressWizard({ onExitToDashboard }: { onExitToDashboard: () => void 
         const p = await getWordPressProject(projectId);
         if (cancelled) return;
         setBuildStatus({
-          status: p.buildJobStatus,
-          filesDone: p.buildFilesDone,
+          status:     p.buildJobStatus,
+          phase:      p.buildPhase,
+          filesDone:  p.buildFilesDone,
           filesTotal: p.buildFilesTotal,
-          error: p.buildError,
+          error:      p.buildError,
+          startedAt:  p.buildStartedAt,
+          attempt:    p.buildAttempt,
+          attemptMax: p.buildAttemptMax,
         });
       } catch {
         /* ignore polling errors */
@@ -1066,10 +1099,9 @@ function WordPressWizard({ onExitToDashboard }: { onExitToDashboard: () => void 
     }
   }, []);
 
-  // Auto-advance: identity ready → build, build done → publish
-  useEffect(() => {
-    if (step === "identity" && identity) setStep("build");
-  }, [step, identity]);
+  // Auto-advance only build → publish. Identity → build is an explicit
+  // click now so the agency has a chance to review / edit the product
+  // catalog (especially important for WooCommerce).
   useEffect(() => {
     if (step === "build" && buildStatus.status === "done") setStep("publish");
   }, [step, buildStatus.status]);
@@ -1161,57 +1193,65 @@ function WordPressWizard({ onExitToDashboard }: { onExitToDashboard: () => void 
         </div>
       )}
 
-      {/* Step 2 — identity */}
+      {/* Step 2 — identity + product editor */}
       {step === "identity" && (
-        <div className="rounded-2xl border border-white/[0.05] bg-[#111114] p-6">
-          {!identity && !identityError && (
-            <div className="flex items-center gap-3 text-white/60">
-              <Loader2 className="animate-spin" size={16} />
-              <span className="text-[13px]">{t("shopifyAnalyzing")}</span>
-            </div>
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-white/[0.05] bg-[#111114] p-6">
+            {!identity && !identityError && (
+              <div className="flex items-center gap-3 text-white/60">
+                <Loader2 className="animate-spin" size={16} />
+                <span className="text-[13px]">{t("shopifyAnalyzing")}</span>
+              </div>
+            )}
+            {identityError && (
+              <p className="text-[13px] text-red-400">{identityError}</p>
+            )}
+            {identity && (
+              <div>
+                <div className="mb-1 text-[11px] uppercase tracking-wider text-white/30">{t("shopifyBusinessLabel")}</div>
+                <h4 className="text-[20px] font-black text-white">{identity.businessName}</h4>
+                {identity.tagline && <p className="mt-1 text-[13px] text-white/50">{identity.tagline}</p>}
+                <p className="mt-2 text-[12px] text-white/30">
+                  {[identity.industry, identity.tone, identity.city].filter(Boolean).join(" · ")}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {identity && projectId && (
+            <ProductEditor
+              projectId={projectId}
+              accent={wordpressAccent}
+              onSaved={(ps) => setIdentity((cur) => cur ? { ...cur, products: ps } : cur)}
+            />
           )}
-          {identityError && (
-            <p className="text-[13px] text-red-400">{identityError}</p>
-          )}
+
           {identity && (
-            <div>
-              <div className="mb-1 text-[11px] uppercase tracking-wider text-white/30">{t("shopifyBusinessLabel")}</div>
-              <h4 className="text-[20px] font-black text-white">{identity.businessName}</h4>
-              {identity.tagline && <p className="mt-1 text-[13px] text-white/50">{identity.tagline}</p>}
-              <p className="mt-2 text-[12px] text-white/30">
-                {[identity.industry, identity.tone, identity.city].filter(Boolean).join(" · ")}
-              </p>
-            </div>
+            <button
+              onClick={() => setStep("build")}
+              className="w-full rounded-xl py-3 text-[13px] font-bold text-white shadow-xl hover:opacity-90 transition-opacity"
+              style={{ background: wordpressAccent, boxShadow: `0 20px 40px -20px ${wordpressAccent}80` }}
+            >
+              {t("wpGenerateThemeCta")}
+            </button>
           )}
         </div>
       )}
 
       {/* Step 3 — build */}
       {step === "build" && (
-        <div className="rounded-2xl border border-white/[0.05] bg-[#111114] p-6">
-          <h3 className="text-[16px] font-black text-white mb-1">{t("wpBuildTitle")}</h3>
-          <p className="text-[13px] text-white/40 mb-4">
-            {t("wpBuildDesc")}
-          </p>
-          <div className="h-1.5 w-full rounded-full bg-white/[0.06] mb-3 overflow-hidden">
-            <motion.div
-              className="h-1.5 rounded-full"
-              style={{
-                backgroundColor: wordpressAccent,
-                width: `${buildStatus.filesTotal
-                  ? Math.min(100, (buildStatus.filesDone / buildStatus.filesTotal) * 100)
-                  : 10}%`,
-              }}
-            />
-          </div>
-          <p className="text-[12px] text-white/40">
-            {buildStatus.status === "failed"
-              ? <span className="text-red-400">{t("shopifyBuildFailed", { error: buildStatus.error ?? t("shopifyBuildUnknownError") })}</span>
-              : buildStatus.filesTotal
-                ? t("shopifyBuildFilesProgress", { done: buildStatus.filesDone, total: buildStatus.filesTotal })
-                : t("shopifyBuildStarting")}
-          </p>
-        </div>
+        <BuildProgress
+          status={buildStatus.status}
+          phase={buildStatus.phase}
+          filesDone={buildStatus.filesDone}
+          filesTotal={buildStatus.filesTotal}
+          startedAt={buildStatus.startedAt}
+          attempt={buildStatus.attempt}
+          attemptMax={buildStatus.attemptMax}
+          error={buildStatus.error}
+          accent={wordpressAccent}
+          subtitle={t("wpBuildDesc")}
+        />
       )}
 
       {/* Step 4 — publish */}

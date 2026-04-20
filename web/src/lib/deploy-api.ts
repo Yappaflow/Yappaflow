@@ -37,6 +37,28 @@ async function request<T>(
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
+export interface ProductVariant {
+  label:  string;
+  price?: number;
+  sku?:   string;
+}
+
+/**
+ * One product in the project's catalog. Mirrors the server-side `IProduct`.
+ * Either extracted from chat during identity analysis, or typed in by the
+ * agency on the Products editor surface.
+ */
+export interface Product {
+  name:         string;
+  price:        number;
+  currency?:    string;
+  description?: string;
+  images?:      string[];
+  variantKind?: string;
+  variants?:    ProductVariant[];
+  sku?:         string;
+}
+
 export interface ProjectIdentity {
   businessName:      string;
   tagline?:          string;
@@ -44,10 +66,27 @@ export interface ProjectIdentity {
   tone?:             string;
   city?:             string;
   domainSuggestions: string[];
+  /** E-commerce catalog — empty/missing for service businesses. */
+  products?:         Product[];
   extractedAt:       string;
 }
 
 export type BuildJobStatus = "pending" | "running" | "done" | "failed";
+
+/**
+ * Fine-grained phase inside a running build. Mirrors the server-side
+ * `BuildPhase` enum. The UI uses it to pick a label, a step-indicator
+ * position, and a band of the overall progress bar — the intra-band
+ * motion comes from wall-clock time against `buildStartedAt`.
+ */
+export type BuildPhase =
+  | "queued"
+  | "analyzing"
+  | "generating"
+  | "validating"
+  | "packaging"
+  | "done"
+  | "failed";
 
 export interface DeployProjectState {
   projectId:       string;
@@ -55,9 +94,16 @@ export interface DeployProjectState {
   progress:        number;
   identity:        ProjectIdentity | null;
   buildJobStatus:  BuildJobStatus | null;
+  buildPhase:      BuildPhase | null;
   buildFilesDone:  number;
   buildFilesTotal: number;
   buildError:      string | null;
+  /** ISO-8601 timestamp of when the current build started. Null until a build begins. */
+  buildStartedAt:  string | null;
+  /** Which retry attempt we're currently on (1..buildAttemptMax). */
+  buildAttempt:    number | null;
+  /** How many attempts the generator will try total. */
+  buildAttemptMax: number | null;
   domainPurchased: string | null;
   liveUrl:         string | null;
 }
@@ -151,6 +197,30 @@ export async function downloadZip(projectId: string): Promise<void> {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+}
+
+// ── Product catalog editor (platform-agnostic) ───────────────────────────────
+//
+// Products live on the Project's identity and flow directly into every
+// platform generator (Shopify, WordPress/Woo, IKAS, custom). These endpoints
+// let the agency pre-fill / correct the list before the build runs. The
+// server will reject malformed rows with a 400 and a field-keyed error, so
+// the UI can surface it next to the offending input.
+
+export function getProjectProducts(projectId: string) {
+  return request<{ products: Product[] }>(
+    `/deploy/projects/${projectId}/products`
+  );
+}
+
+export function saveProjectProducts(projectId: string, products: Product[]) {
+  return request<{ products: Product[] }>(
+    `/deploy/projects/${projectId}/products`,
+    {
+      method: "PUT",
+      body: JSON.stringify({ products }),
+    }
+  );
 }
 
 // ── Shopify deploy flow ──────────────────────────────────────────────────────

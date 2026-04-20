@@ -236,9 +236,13 @@ export async function generateShopifyBundle(
 
   await Project.findByIdAndUpdate(projectId, {
     buildJobStatus:  "running",
+    buildPhase:      "analyzing",
     buildFilesDone:  0,
     buildFilesTotal: BASE_EXPECTED_FILES + (identity.products?.length ? 1 : 0),
     buildError:      null,
+    buildStartedAt:  new Date(),
+    buildAttempt:    0,
+    buildAttemptMax: 3,
   });
 
   const session = await AISession.create({
@@ -298,6 +302,13 @@ export async function generateShopifyBundle(
   let validated = false;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    // Tell the UI which attempt we're on, so the progress widget can show
+    // "Generating theme (retry 2/3)" when the validator forces a rerun.
+    await Project.findByIdAndUpdate(projectId, {
+      buildPhase:   "generating",
+      buildAttempt: attempt,
+    });
+
     // Build the per-attempt user message:
     //   attempt 1 → original userContent.
     //   attempt 2+ → userContent + targeted critique of the LAST attempt's
@@ -332,6 +343,7 @@ export async function generateShopifyBundle(
       logError(`Shopify bundle generation AI call failed (attempt ${attempt})`, err);
       await Project.findByIdAndUpdate(projectId, {
         buildJobStatus: "failed",
+        buildPhase:     "failed",
         buildError:     (err as Error).message,
       });
       await AISession.findByIdAndUpdate(sessionId, { phase: "failed", status: "failed", error: (err as Error).message });
@@ -357,6 +369,7 @@ export async function generateShopifyBundle(
     // back into the next attempt's user message. Shipping a bundle Shopify
     // refuses at upload — or worse, accepts but renders as a blank store —
     // is unacceptable for a production SaaS.
+    await Project.findByIdAndUpdate(projectId, { buildPhase: "validating" });
     try {
       validateShopifyBundle(themeFiles);
       validated = true;
@@ -383,6 +396,7 @@ export async function generateShopifyBundle(
     const msg = "Shopify model output contained no filepath-fenced blocks after " + MAX_ATTEMPTS + " attempts";
     await Project.findByIdAndUpdate(projectId, {
       buildJobStatus: "failed",
+      buildPhase:     "failed",
       buildError:     msg,
     });
     await AISession.findByIdAndUpdate(sessionId, { phase: "failed", status: "failed", error: msg });
@@ -398,6 +412,7 @@ export async function generateShopifyBundle(
     logError("Shopify bundle failed validation after retries", err);
     await Project.findByIdAndUpdate(projectId, {
       buildJobStatus: "failed",
+      buildPhase:     "failed",
       buildError:     msg,
     });
     await AISession.findByIdAndUpdate(sessionId, {
@@ -407,6 +422,8 @@ export async function generateShopifyBundle(
     });
     throw err;
   }
+
+  await Project.findByIdAndUpdate(projectId, { buildPhase: "packaging" });
 
   // Wipe previous artifacts (custom or shopify) for this project so we don't
   // mix two platform outputs in the download ZIP.
@@ -474,6 +491,7 @@ export async function generateShopifyBundle(
 
   await Project.findByIdAndUpdate(projectId, {
     buildJobStatus:  "done",
+    buildPhase:      "done",
     buildFilesTotal: allFiles.length,
     progress:        80,
   });
