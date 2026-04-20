@@ -47,6 +47,21 @@ export interface ProviderConfig {
   headers?:    Record<string, string>;
   /** Pricing map keyed by exact model id. Unknown models return 0 cost. */
   pricing:     Record<string, ModelPricing>;
+  /**
+   * Hard ceiling for `max_tokens` enforced by the provider's API.
+   *
+   * DeepSeek rejects requests with 400 "Invalid max_tokens value, the
+   * valid range of max_tokens is [1, 8192]" — their V3.2 route caps
+   * output at 8192 regardless of model. OpenRouter passes through to the
+   * underlying model (Gemini 2.5 Flash Lite supports 65k+ output).
+   *
+   * The client clamps the caller-requested maxTokens to this ceiling
+   * inside callOnce/streamOnce so consumer services can keep asking for
+   * their IDEAL output size without hard-coding vendor limits. Services
+   * that actually need >8k output must failover to OpenRouter or split
+   * the generation across multiple calls.
+   */
+  maxOutputTokens: number;
 }
 
 // ── Call options ──────────────────────────────────────────────────────

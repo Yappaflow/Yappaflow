@@ -38,17 +38,27 @@ const PRICING = {
   "mistralai/mistral-large":                  { input: 2.00, output: 6.00 },
 } as const;
 
+// OpenRouter passes through to the underlying model's limit. Gemini 2.5
+// Flash Lite supports 65,536 output tokens; Llama 3.3 70B supports up
+// to 131k. We cap at 32k as a conservative "big but not insane" ceiling
+// — any single Yappaflow generation fits comfortably inside 32k and the
+// cost of an accidental 100k-token runaway generation would be material.
+// If a specific model warrants a higher cap, introduce a per-model
+// override map here rather than raising the global OpenRouter ceiling.
+const OPENROUTER_MAX_OUTPUT_TOKENS = 32_000;
+
 export function getOpenRouterProvider(): ProviderConfig {
   return {
-    id:           "openrouter",
-    name:         "OpenRouter",
-    baseUrl:      env.openrouterBaseUrl,
-    apiKey:       env.openrouterApiKey,
-    defaultModel: env.openrouterModel,
+    id:              "openrouter",
+    name:            "OpenRouter",
+    baseUrl:         env.openrouterBaseUrl,
+    apiKey:          env.openrouterApiKey,
+    defaultModel:    env.openrouterModel,
     headers: {
       "HTTP-Referer": env.openrouterReferer,
       "X-Title":      env.openrouterAppTitle,
     },
-    pricing: PRICING,
+    pricing:         PRICING,
+    maxOutputTokens: OPENROUTER_MAX_OUTPUT_TOKENS,
   };
 }

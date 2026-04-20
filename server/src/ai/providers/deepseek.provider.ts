@@ -29,13 +29,20 @@ const PRICING = {
   "deepseek-coder":    { input: 0.28, output: 0.42 },
 } as const;
 
+// DeepSeek V3.2's hard API-level ceiling on `max_tokens`. Requests above
+// this are rejected with HTTP 400 "Invalid max_tokens value, the valid
+// range of max_tokens is [1, 8192]". Verified against the live API
+// 2026-04-20. Do NOT raise this without re-checking DeepSeek's docs.
+const DEEPSEEK_MAX_OUTPUT_TOKENS = 8192;
+
 export function getDeepSeekProvider(): ProviderConfig {
   return {
-    id:           "deepseek",
-    name:         "DeepSeek",
-    baseUrl:      env.deepseekBaseUrl,
-    apiKey:       env.deepseekApiKey,
-    defaultModel: env.deepseekModel,
-    pricing:      PRICING,
+    id:              "deepseek",
+    name:            "DeepSeek",
+    baseUrl:         env.deepseekBaseUrl,
+    apiKey:          env.deepseekApiKey,
+    defaultModel:    env.deepseekModel,
+    pricing:         PRICING,
+    maxOutputTokens: DEEPSEEK_MAX_OUTPUT_TOKENS,
   };
 }

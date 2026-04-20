@@ -94,6 +94,7 @@ function getClient(provider: ProviderConfig): OpenAI {
 /** Test hook — callers rebuild the OpenAI instance after env mutation. */
 export function resetClientCache(): void {
   clientCache.clear();
+  clampWarnCache.clear();
 }
 
 // ── Cost estimation ───────────────────────────────────────────────────
@@ -180,7 +181,7 @@ async function callOnce(
   options?:     ChatCompletionOptions
 ): Promise<{ text: string; usage: AIUsageMetrics; rawUsage: ProviderUsage }> {
   const model       = options?.model       ?? provider.defaultModel;
-  const maxTokens   = options?.maxTokens   ?? env.aiMaxTokens;
+  const maxTokens   = clampMaxTokens(provider, options?.maxTokens ?? env.aiMaxTokens);
   const temperature = options?.temperature ?? env.aiTemperature;
 
   const client = getClient(provider);
@@ -295,7 +296,7 @@ async function streamOnce(
   options?:     ChatCompletionOptions
 ): Promise<{ text: string; usage: AIUsageMetrics; rawUsage: ProviderUsage }> {
   const model       = options?.model       ?? provider.defaultModel;
-  const maxTokens   = options?.maxTokens   ?? env.aiMaxTokens;
+  const maxTokens   = clampMaxTokens(provider, options?.maxTokens ?? env.aiMaxTokens);
   const temperature = options?.temperature ?? env.aiTemperature;
 
   const client = getClient(provider);
@@ -428,6 +429,26 @@ function classifyError(err: unknown, provider: ProviderConfig): YappaflowAIError
     "api_error",
     false
   );
+}
+
+// ── Per-provider max_tokens clamping ─────────────────────────────────
+
+/**
+ * Track which (provider, requested) combinations we have already warned
+ * about so the log isn't spammed when a service calls the API in a
+ * tight loop. Cleared by `resetClientCache()` for test isolation.
+ */
+const clampWarnCache = new Set<string>();
+
+function clampMaxTokens(provider: ProviderConfig, requested: number): number {
+  const ceiling = provider.maxOutputTokens;
+  if (requested <= ceiling) return requested;
+  const key = `${provider.id}:${requested}`;
+  if (!clampWarnCache.has(key)) {
+    clampWarnCache.add(key);
+    log(`[AI] ${provider.name} max_tokens clamped from ${requested} → ${ceiling} (provider hard limit). If you need larger outputs, route this call to OpenRouter or split the generation.`);
+  }
+  return ceiling;
 }
 
 // ── Terminal error builder (shared by both loops) ────────────────────

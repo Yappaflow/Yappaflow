@@ -190,3 +190,66 @@ describe("createChatCompletion — provider failover on 402", () => {
     expect(createSpy).toHaveBeenCalledTimes(2);
   });
 });
+
+/**
+ * Services like the Shopify/WordPress generators request up to 32k
+ * output tokens, but DeepSeek V3.2's hard API ceiling is 8192 — passing
+ * anything higher gets a 400 "Invalid max_tokens value". The client is
+ * supposed to silently clamp to the provider's maxOutputTokens so the
+ * call succeeds (possibly truncated) instead of failing at the edge.
+ */
+describe("createChatCompletion — per-provider max_tokens clamping", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    script = [];
+    createSpy.mockClear();
+  });
+
+  it("clamps 32000 → 8192 when calling DeepSeek", async () => {
+    const { createChatCompletion } = await loadClient({
+      // Only DeepSeek configured so we know which provider the call hits.
+      openrouterApiKey: "",
+    });
+    script = [{ ok: "ok" }];
+
+    await createChatCompletion("sys", [{ role: "user", content: "hi" }], {
+      maxTokens: 32_000,
+    });
+
+    expect(createSpy).toHaveBeenCalledTimes(1);
+    expect(createSpy.mock.calls[0][0].max_tokens).toBe(8192);
+  });
+
+  it("leaves requested max_tokens untouched when already below the ceiling", async () => {
+    const { createChatCompletion } = await loadClient({ openrouterApiKey: "" });
+    script = [{ ok: "ok" }];
+
+    await createChatCompletion("sys", [{ role: "user", content: "hi" }], {
+      maxTokens: 4000,
+    });
+
+    expect(createSpy.mock.calls[0][0].max_tokens).toBe(4000);
+  });
+
+  it("clamps for OpenRouter only when the request exceeds OpenRouter's own ceiling", async () => {
+    // Force the call to OpenRouter by leaving DeepSeek without a key.
+    const { createChatCompletion } = await loadClient({
+      deepseekApiKey: "",
+    });
+
+    // 20k is well under OpenRouter's 32k ceiling — should pass through.
+    script = [{ ok: "under-cap" }];
+    await createChatCompletion("sys", [{ role: "user", content: "hi" }], {
+      maxTokens: 20_000,
+    });
+    expect(createSpy.mock.calls[0][0].max_tokens).toBe(20_000);
+
+    // 100k exceeds even OpenRouter's conservative 32k ceiling — clamp.
+    createSpy.mockClear();
+    script = [{ ok: "over-cap" }];
+    await createChatCompletion("sys", [{ role: "user", content: "hi" }], {
+      maxTokens: 100_000,
+    });
+    expect(createSpy.mock.calls[0][0].max_tokens).toBe(32_000);
+  });
+});
