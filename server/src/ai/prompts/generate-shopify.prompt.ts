@@ -86,6 +86,40 @@ locales/en.default.json
    \`{{ content_for_header }}\` (inside \`<head>\`, before other tags) AND
    \`{{ content_for_layout }}\` (inside \`<body>\`). Without these, Shopify
    renders a blank page even if every other file is perfect.
+7. **Snippet closure (CRITICAL).** Every \`{% render 'NAME' %}\` and
+   \`{% include 'NAME' %}\` you write MUST correspond to a
+   \`snippets/NAME.liquid\` file you ALSO emit in this same response.
+   Shopify hard-fails at render time with "Could not find asset
+   snippets/NAME.liquid" if the snippet is missing — and when that happens
+   the entire page stops rendering at that point. Do NOT reference any of
+   the classic Dawn/Debut snippets (\`social-meta-tags\`, \`icon-cart\`,
+   \`icon-search\`, \`icon-account\`, \`price\`, \`loading-spinner\`, etc.)
+   unless you are ALSO emitting \`snippets/social-meta-tags.liquid\`,
+   \`snippets/icon-cart.liquid\`, etc. as standalone fenced blocks in your
+   output. Prefer inline SVG + inline \`<meta>\` tags in \`layout/theme.liquid\`
+   over extracting them into snippets. The ONLY snippets listed in the
+   required layout above are \`snippets/product-card.liquid\` and
+   \`snippets/theme-toggle.liquid\` — if you want any other snippet, you
+   must add it as an extra fenced block AND stay within the overall output
+   budget.
+8. **Inline SVG sizing (CRITICAL).** Every inline \`<svg>\` element MUST
+   declare BOTH \`width\` and \`height\` attributes (in px, rem, or em) —
+   not just a \`viewBox\`. An SVG with only \`viewBox\` defaults to filling
+   100% of its parent, so a header cart icon will stretch to the full
+   viewport width. Icons should be sized \`width="20" height="20"\` or
+   similar; logo marks \`width="120" height="32"\`. Do NOT rely on CSS to
+   constrain icon size — set the HTML attributes so it Just Works even if
+   a stylesheet fails to load.
+9. **Class-naming consistency (CRITICAL).** Pick ONE BEM-style naming
+   convention (\`block\`, \`block__element\`, \`block--modifier\`) and use
+   it consistently across every Liquid file AND \`assets/theme.css\`. If a
+   Liquid template writes \`<h1 class="hero__title">\`, then
+   \`assets/theme.css\` MUST declare a \`.hero__title\` rule. Do NOT mix
+   naming systems (\`.hero-title\` in Liquid and \`.hero__title\` in CSS)
+   — that's the #1 reason generated stores render as unstyled walls of
+   text. Before finishing \`assets/theme.css\`, re-read the class names
+   you coined in your Liquid files and make sure every one of them has a
+   matching CSS rule.
 
 ### Content depth (MANDATORY — no placeholder stubs)
 
@@ -180,6 +214,26 @@ Example fence:
 <!doctype html>
 ...
 \`\`\`
+
+### Pre-send self-check (REQUIRED)
+
+Before you stop, mentally re-read your output and verify:
+
+- □  Every \`{% render '...' %}\` and \`{% include '...' %}\` you wrote
+     refers to a \`snippets/NAME.liquid\` you ALSO emitted. If not, either
+     add the snippet file as an extra fenced block, or rewrite the caller
+     to inline the content.
+- □  Every \`<svg>\` in your output has BOTH \`width\` and \`height\`
+     attributes — no bare \`viewBox\`-only SVGs.
+- □  Every class name used in a Liquid template has a matching rule in
+     \`assets/theme.css\` (same BEM convention).
+- □  \`templates/index.json\` has a non-empty \`sections\` object AND a
+     matching \`order\` array.
+- □  \`layout/theme.liquid\` contains BOTH
+     \`{{ content_for_header }}\` and \`{{ content_for_layout }}\`.
+
+An automated validator re-runs these checks on your output; if any fail
+your bundle gets rejected and you'll be asked to regenerate everything.
 
 Begin.`;
 }

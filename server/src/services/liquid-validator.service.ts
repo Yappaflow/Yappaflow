@@ -60,8 +60,13 @@ export interface LiquidValidationIssue {
    * - `missing-token`: a required Liquid token is absent from a file
    *   that must contain it (e.g. `{{ content_for_layout }}` in the
    *   root layout — without it, no page ever renders its body).
+   * - `missing-snippet`: a Liquid file references `{% render 'X' %}` or
+   *   `{% include 'X' %}` but `snippets/X.liquid` is not in the emitted
+   *   bundle. Shopify hard-fails at render time ("Could not find asset
+   *   snippets/X.liquid"), so we must catch this BEFORE we ship — not
+   *   after the merchant uploads and the store renders a broken page.
    */
-  kind:     "liquid-parse" | "json-parse" | "content-empty" | "missing-required" | "missing-token";
+  kind:     "liquid-parse" | "json-parse" | "content-empty" | "missing-required" | "missing-token" | "missing-snippet";
   message:  string;
   line?:    number;
   column?:  number;
@@ -180,6 +185,44 @@ const REQUIRED_TOKENS: Array<{ file: string; token: string; why: string }> = [
 ];
 
 /**
+ * Regex that finds `{% render 'name' %}` and `{% include 'name' %}` with a
+ * literal string snippet name.  We deliberately skip dynamic forms
+ * (`{% render some_variable %}`, `{% render settings.snippet %}`) because we
+ * can't know at validation time whether a variable resolves to a snippet
+ * that exists — and those forms are almost never emitted by the model.
+ *
+ * Captures:
+ *   group 1: `render` or `include`
+ *   group 2: the snippet name (without extension)
+ *
+ * The `with <arg>` / `for <arg>` suffixes after the snippet name are
+ * allowed by Shopify — we don't care about them, the regex just has to
+ * stop at the whitespace or quote that ends the name.
+ */
+const SNIPPET_REF_RE =
+  /\{%-?\s*(render|include)\s+['"]([^'"]+)['"][^%]*%\}/g;
+
+/**
+ * Extract every literal snippet reference in a Liquid source. Returns the
+ * bare snippet names (no `snippets/` prefix, no `.liquid` suffix) — that's
+ * the form Shopify's render/include tags use.
+ */
+function findSnippetRefs(content: string): string[] {
+  const out: string[] = [];
+  let m: RegExpExecArray | null;
+  SNIPPET_REF_RE.lastIndex = 0;
+  while ((m = SNIPPET_REF_RE.exec(content)) !== null) {
+    const name = m[2].trim();
+    // Skip dotted / variable-looking names — those are dynamic forms we
+    // can't statically resolve and shouldn't false-positive on.
+    if (name && !name.includes(".") && !name.includes(" ")) {
+      out.push(name);
+    }
+  }
+  return out;
+}
+
+/**
  * Count bytes of "meaningful" content — strips leading/trailing whitespace
  * and collapses comments. This stops "look, I'm 500 bytes!" stuffing via a
  * giant leading comment block from satisfying the floor check.
@@ -291,6 +334,51 @@ export function validateShopifyBundle(files: ParsedFile[]): void {
         message:  `missing required token ${rule.token} — ${rule.why}`,
       });
     }
+  }
+
+  // ── 5. Snippet-closure check ───────────────────────────────────────
+  //
+  // Shopify resolves `{% render 'X' %}` by reading `snippets/X.liquid`
+  // straight off the theme filesystem; if the file is missing, the admin
+  // shows "Could not find asset snippets/X.liquid" and the page stops
+  // rendering at that point — which was the exact failure mode we saw in
+  // prod (2026-04-21) where the model emitted `{% render 'social-meta-tags'
+  // %}` / `{% render 'icon-cart' %}` without also emitting the snippet
+  // files. Catching dangling references here lets the retry loop feed them
+  // back to the model ("emit snippets/social-meta-tags.liquid too") instead
+  // of shipping a visibly broken theme to a paying merchant.
+  const snippetsInBundle = new Set<string>();
+  for (const f of files) {
+    const lower = f.filePath.toLowerCase();
+    if (lower.startsWith("snippets/") && lower.endsWith(".liquid")) {
+      // "snippets/product-card.liquid" → "product-card"
+      const name = f.filePath.slice("snippets/".length, -".liquid".length);
+      snippetsInBundle.add(name);
+    }
+  }
+  // Track "X referenced by Y" so we report each missing snippet once, but
+  // with all the files that reference it — the model does better when the
+  // feedback is concrete.
+  const missingRefs = new Map<string, string[]>();
+  for (const f of files) {
+    if (!f.filePath.toLowerCase().endsWith(".liquid")) continue;
+    const refs = findSnippetRefs(f.content);
+    for (const ref of refs) {
+      if (!snippetsInBundle.has(ref)) {
+        const arr = missingRefs.get(ref) ?? [];
+        if (!arr.includes(f.filePath)) arr.push(f.filePath);
+        missingRefs.set(ref, arr);
+      }
+    }
+  }
+  for (const [snippet, referencedFrom] of missingRefs) {
+    issues.push({
+      filePath: `snippets/${snippet}.liquid`,
+      kind:     "missing-snippet",
+      message:
+        `referenced by ${referencedFrom.join(", ")} but not emitted — ` +
+        `either emit snippets/${snippet}.liquid or remove the render/include call.`,
+    });
   }
 
   if (issues.length > 0) {
