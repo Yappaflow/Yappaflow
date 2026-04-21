@@ -17,6 +17,7 @@ import {
 import { useTranslations } from "next-intl";
 import type { DashboardView } from "./DashboardShell";
 import { SignalPicker } from "./deploy/SignalPicker";
+import { HeroChooser } from "./deploy/HeroChooser";
 import { BuildProgress } from "./BuildProgress";
 import { ProductEditor } from "./ProductEditor";
 import {
@@ -62,7 +63,7 @@ import {
 
 type Route = "cms" | "custom" | null;
 type CMS   = "shopify" | "wordpress" | "webflow" | "ikas";
-type CustomStep = "pick-signal" | "identity" | "domain" | "download";
+type CustomStep = "pick-signal" | "identity" | "hero" | "domain" | "download";
 
 // CMS labels are proper nouns. Descriptions kept untranslated for now —
 // this route is still a placeholder flow, will be translated when it ships.
@@ -294,8 +295,8 @@ function CustomWizard({ onExitToDashboard }: { onExitToDashboard: () => void }) 
 
       {/* Step indicator */}
       <div className="mb-6 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider">
-        {(["pick-signal", "identity", "domain", "download"] as CustomStep[]).map((s, i) => {
-          const stepOrder: CustomStep[] = ["pick-signal", "identity", "domain", "download"];
+        {(["pick-signal", "identity", "hero", "domain", "download"] as CustomStep[]).map((s, i) => {
+          const stepOrder: CustomStep[] = ["pick-signal", "identity", "hero", "domain", "download"];
           const active   = s === step;
           const done     = stepOrder.indexOf(step) > i;
           return (
@@ -306,7 +307,7 @@ function CustomWizard({ onExitToDashboard }: { onExitToDashboard: () => void }) 
               ].join(" ")}>
                 {done ? <Check size={11} strokeWidth={3} /> : i + 1}
               </div>
-              {i < 3 && <div className={`h-px w-8 ${done ? "bg-green-500" : "bg-white/[0.06]"}`} />}
+              {i < 4 && <div className={`h-px w-8 ${done ? "bg-green-500" : "bg-white/[0.06]"}`} />}
             </div>
           );
         })}
@@ -390,7 +391,7 @@ function CustomWizard({ onExitToDashboard }: { onExitToDashboard: () => void }) 
                   {identity.domainSuggestions.map((d) => (
                     <button
                       key={d}
-                      onClick={() => { setDomainInput(d); setStep("domain"); }}
+                      onClick={() => { setDomainInput(d); setStep("hero"); }}
                       className="rounded-full border border-white/[0.06] bg-white/[0.02] px-3 py-1.5 text-[12px] font-mono text-white/70 hover:border-[#FF6B35] hover:text-[#FF6B35]"
                     >
                       {d}
@@ -400,7 +401,7 @@ function CustomWizard({ onExitToDashboard }: { onExitToDashboard: () => void }) 
               </div>
 
               <button
-                onClick={() => setStep("domain")}
+                onClick={() => setStep("hero")}
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-white py-3 text-[13px] font-bold text-[#0A0A0A] shadow-xl shadow-black/20 hover:opacity-80"
               >
                 {t("identityPickDomainCta")}
@@ -411,7 +412,18 @@ function CustomWizard({ onExitToDashboard }: { onExitToDashboard: () => void }) 
         </motion.div>
       )}
 
-      {/* ── STEP 3: Domain (optional) + parallel build ── */}
+      {/* ── STEP 3: Hero chooser — 3 AI-generated variants ── */}
+      {step === "hero" && projectId && (
+        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+          <HeroChooser
+            projectId={projectId}
+            onReady={() => setStep("domain")}
+            onSkip={() => setStep("domain")}
+          />
+        </motion.div>
+      )}
+
+      {/* ── STEP 4: Domain (optional) + parallel build ── */}
       {step === "domain" && (
         <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
           <div className="mb-4 flex items-start justify-between gap-3">
@@ -603,7 +615,7 @@ function CustomWizard({ onExitToDashboard }: { onExitToDashboard: () => void }) 
 //  Shopify flow wizard — end-to-end: pick signal → extract → build → push
 // ═══════════════════════════════════════════════════════════════════════════
 
-type ShopifyStep = "pick-signal" | "identity" | "build" | "publish";
+type ShopifyStep = "pick-signal" | "identity" | "hero" | "build" | "publish";
 
 function ShopifyWizard({ onExitToDashboard }: { onExitToDashboard: () => void }) {
   const t = useTranslations("deploy");
@@ -827,7 +839,7 @@ function ShopifyWizard({ onExitToDashboard }: { onExitToDashboard: () => void })
 
           {identity && (
             <button
-              onClick={() => setStep("build")}
+              onClick={() => setStep("hero")}
               className="w-full rounded-xl bg-[#96BF48] py-3 text-[13px] font-bold text-white shadow-xl shadow-[#96BF48]/20 hover:opacity-90 transition-opacity"
             >
               {t("shopifyGenerateThemeCta")}
@@ -836,7 +848,16 @@ function ShopifyWizard({ onExitToDashboard }: { onExitToDashboard: () => void })
         </div>
       )}
 
-      {/* Step 3 — build */}
+      {/* Step 3 — hero chooser (AI-generated variants) */}
+      {step === "hero" && projectId && (
+        <HeroChooser
+          projectId={projectId}
+          onReady={() => setStep("build")}
+          onSkip={() => setStep("build")}
+        />
+      )}
+
+      {/* Step 4 — build */}
       {step === "build" && (
         <BuildProgress
           status={buildStatus.status}
@@ -958,7 +979,7 @@ function ShopifyWizard({ onExitToDashboard }: { onExitToDashboard: () => void })
 // server advertises dotcomOAuthConfigured=true via the config-status
 // endpoint, the user can flip to the OAuth flow instead.
 
-type WordPressStep = "pick-signal" | "identity" | "build" | "publish";
+type WordPressStep = "pick-signal" | "identity" | "hero" | "build" | "publish";
 
 function WordPressWizard({ onExitToDashboard }: { onExitToDashboard: () => void }) {
   const t = useTranslations("deploy");
@@ -1228,7 +1249,7 @@ function WordPressWizard({ onExitToDashboard }: { onExitToDashboard: () => void 
 
           {identity && (
             <button
-              onClick={() => setStep("build")}
+              onClick={() => setStep("hero")}
               className="w-full rounded-xl py-3 text-[13px] font-bold text-white shadow-xl hover:opacity-90 transition-opacity"
               style={{ background: wordpressAccent, boxShadow: `0 20px 40px -20px ${wordpressAccent}80` }}
             >
@@ -1238,7 +1259,16 @@ function WordPressWizard({ onExitToDashboard }: { onExitToDashboard: () => void 
         </div>
       )}
 
-      {/* Step 3 — build */}
+      {/* Step 3 — hero chooser (AI-generated variants) */}
+      {step === "hero" && projectId && (
+        <HeroChooser
+          projectId={projectId}
+          onReady={() => setStep("build")}
+          onSkip={() => setStep("build")}
+        />
+      )}
+
+      {/* Step 4 — build */}
       {step === "build" && (
         <BuildProgress
           status={buildStatus.status}

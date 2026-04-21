@@ -224,6 +224,67 @@ export function saveProjectProducts(projectId: string, products: Product[]) {
   );
 }
 
+// ── Hero chooser (platform-agnostic pre-build step) ──────────────────────────
+//
+// The user sees three hero + first-fold variants in iframes, picks one,
+// optionally types refinement text, then kicks off the full build. The
+// state lives on Project.heroChooser on the server; these helpers wrap
+// the four endpoints under /deploy/projects/:id/hero*.
+
+export type HeroChooserStatus =
+  | "none"        // no chooser record exists yet (frontend-only — server returns this)
+  | "generating"
+  | "ready"
+  | "refining"
+  | "refined"
+  | "picked"
+  | "failed";
+
+export interface HeroVariant {
+  id:        string;           // "variant-a" | "variant-b" | "variant-c"
+  flavor:    string;           // e.g. "Typographic"
+  html:      string;           // srcdoc-ready HTML document
+  direction: string;           // direction key (all 3 variants share one)
+}
+
+export interface HeroChooserState {
+  status:           HeroChooserStatus;
+  variants:         HeroVariant[];
+  pickedVariantId?: string;
+  refinementText?:  string;
+}
+
+export function getHeroChooserState(projectId: string) {
+  return request<HeroChooserState>(`/deploy/projects/${projectId}/hero`);
+}
+
+export function generateHeroVariants(projectId: string) {
+  return request<{ variants: HeroVariant[] }>(
+    `/deploy/projects/${projectId}/hero/variants`,
+    { method: "POST" }
+  );
+}
+
+export function pickHeroVariant(projectId: string, variantId: string) {
+  return request<{ status: string; pickedVariantId: string }>(
+    `/deploy/projects/${projectId}/hero/pick`,
+    {
+      method: "POST",
+      body:   JSON.stringify({ variantId }),
+    }
+  );
+}
+
+export function refineHeroVariant(projectId: string, userText: string) {
+  return request<{ status: string; variant: HeroVariant }>(
+    `/deploy/projects/${projectId}/hero/refine`,
+    {
+      method: "POST",
+      body:   JSON.stringify({ userText }),
+    }
+  );
+}
+
 // ── Shopify deploy flow ──────────────────────────────────────────────────────
 
 export interface ShopifyProjectState extends DeployProjectState {

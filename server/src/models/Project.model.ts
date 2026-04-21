@@ -77,6 +77,69 @@ export interface IProjectIdentity {
   extractedAt:       Date;
 }
 
+/**
+ * State of the hero-chooser step, which runs BEFORE the full-site build.
+ *
+ *   generating   → the 3 Promise.all AI calls are in flight
+ *   ready        → 3 variants persisted, waiting for the user to pick
+ *   refining     → user picked one and asked for tweaks; AI call in flight
+ *   refined      → refinement applied, ready for the full build
+ *   picked       → user picked one and skipped refinement; ready for build
+ *   failed       → at least one of the 3 AI calls failed outright — the
+ *                  UI offers a "retry" button instead of showing partial
+ *                  variants
+ */
+export type HeroChooserStatus =
+  | "generating"
+  | "ready"
+  | "refining"
+  | "refined"
+  | "picked"
+  | "failed";
+
+/**
+ * A single hero + first-fold variant the model proposed. We persist them
+ * embedded on the Project because they're ephemeral — the moment the
+ * user picks one and the full-site build kicks off, the other two can
+ * be discarded. Storing them in a separate collection would be pure
+ * overhead.
+ *
+ * The `html` field is a stand-alone HTML document fragment (srcdoc-
+ * ready) that the web UI drops into an `<iframe srcdoc=…>`. It is NOT
+ * a piece of the eventual Shopify/Yappaflow bundle — think of it as a
+ * thumbnail + pitch for "here's one visual lane we could take". The
+ * LOCKED variant is later threaded into the full-build prompt as
+ * "match this hero's copy + layout".
+ */
+export interface IHeroVariant {
+  id:        string;          // "variant-a" | "variant-b" | "variant-c"
+  flavor:    string;          // short human-readable angle, e.g. "Typographic"
+  html:      string;          // srcdoc-ready HTML for the web iframe
+  direction: string;          // design-direction key (usually all 3 share one)
+}
+
+export interface IHeroChooser {
+  status:           HeroChooserStatus;
+  variants:         IHeroVariant[];
+  /** The variant the user clicked on. Unset until they pick. */
+  pickedVariantId?: string;
+  /**
+   * Free-text tweaks the user typed after picking. Persisted separately
+   * from the refined `html` so we can show it back to them and (later)
+   * let them iterate further. Empty/unset means they skipped refinement.
+   */
+  refinementText?:  string;
+  /**
+   * Server-assigned build key that the /build route uses to guarantee
+   * the lockedHero carried into the generator matches the variant the
+   * user actually picked (protects against race conditions where a
+   * second /hero/variants call regenerates between pick and build).
+   */
+  lockedAt?:        Date;
+  generatedAt?:     Date;
+  error?:           string;
+}
+
 export interface IProject extends Document {
   agencyId:         Types.ObjectId;
   name:             string;
@@ -89,6 +152,15 @@ export interface IProject extends Document {
   liveUrl?:         string;
   notes?:           string;
   identity?:        IProjectIdentity;
+  /**
+   * Transient hero-chooser state. Populated after the user opts into the
+   * "pick a hero" flow; cleared (or ignored) if they go straight to a
+   * one-shot build. Downstream generators read
+   * `project.heroChooser.pickedVariantId` + the matching variant HTML
+   * as the `lockedHero` input to keep the full-build visually consistent
+   * with the thumbnail the user chose.
+   */
+  heroChooser?:     IHeroChooser;
   domainPurchased?: string;          // the domain the agency actually bought on Namecheap
   buildJobStatus?:  BuildJobStatus;
   buildPhase?:      BuildPhase;
@@ -140,6 +212,33 @@ const ProjectIdentitySchema = new Schema<IProjectIdentity>(
   { _id: false }
 );
 
+const HeroVariantSchema = new Schema<IHeroVariant>(
+  {
+    id:        { type: String, required: true },
+    flavor:    { type: String, required: true },
+    html:      { type: String, required: true },
+    direction: { type: String, required: true },
+  },
+  { _id: false }
+);
+
+const HeroChooserSchema = new Schema<IHeroChooser>(
+  {
+    status: {
+      type:    String,
+      enum:    ["generating", "ready", "refining", "refined", "picked", "failed"],
+      required: true,
+    },
+    variants:         { type: [HeroVariantSchema], default: [] },
+    pickedVariantId:  { type: String },
+    refinementText:   { type: String },
+    lockedAt:         { type: Date },
+    generatedAt:      { type: Date },
+    error:            { type: String },
+  },
+  { _id: false }
+);
+
 const ProjectSchema = new Schema<IProject>(
   {
     agencyId:        { type: Schema.Types.ObjectId, ref: "User",   required: true, index: true },
@@ -153,6 +252,7 @@ const ProjectSchema = new Schema<IProject>(
     liveUrl:         { type: String },
     notes:           { type: String },
     identity:        { type: ProjectIdentitySchema },
+    heroChooser:     { type: HeroChooserSchema },
     domainPurchased: { type: String },
     buildJobStatus:  { type: String, enum: ["pending", "running", "done", "failed"] },
     buildPhase:      { type: String, enum: ["queued", "analyzing", "generating", "patching", "validating", "packaging", "done", "failed"] },

@@ -46,6 +46,44 @@ export interface GenerateYappaflowSiteOptions {
   products?:  YfProductForPrompt[];
   /** Chosen archetype for this build (see src/ai/design-directions.ts). */
   direction?: DesignDirection;
+  /**
+   * srcdoc HTML of the hero variant the user picked via the hero-chooser.
+   * Forwarded verbatim so the Next.js + yappaflow-ui output's hero page
+   * matches the picked composition + copy. If absent, the model generates
+   * a hero of its own choosing (old behaviour).
+   */
+  lockedHero?: string;
+}
+
+/**
+ * Render the "here's the hero the user picked — match it" block. Kept
+ * near the design-direction hand-off so the model sees the direction
+ * immediately followed by the concrete composition the user endorsed.
+ */
+function renderLockedHeroBlock(html: string | undefined): string {
+  if (!html) return "";
+  return `### Locked hero (USER-PICKED — match this composition + copy)
+
+The user reviewed three hero variants before this build and picked the
+one below. Translate it into Next.js + yappaflow-ui primitives on the
+home route's first screen-full (\`app/page.tsx\`) while preserving:
+
+- **Exact copy.** Headline, subhead, and CTA text are locked — use them
+  verbatim, do not paraphrase.
+- **Composition archetype.** If the locked hero is typographic (no
+  imagery), build the home hero with \`<Display>\` filling the viewport
+  and no image. If full-bleed, wrap the home hero in an \`<Exhibit
+  tone="immersive">\` with a full-bleed visual + headline overlay. If
+  asymmetric, use a two-column \`<Frame>\` grid with the same 40/60 or
+  60/40 ratio the locked hero used.
+- **Below-the-fold section.** The second screen-full of the locked hero
+  is the template for your first below-fold section on the home route.
+
+\`\`\`html
+${html}
+\`\`\`
+
+`;
 }
 
 export function getGenerateYappaflowSitePrompt(
@@ -55,6 +93,7 @@ export function getGenerateYappaflowSitePrompt(
   const directionBlock = opts.direction
     ? renderDesignDirectionBlock(opts.direction)
     : "";
+  const lockedHeroBlock = renderLockedHeroBlock(opts.lockedHero);
 
   const shopBlock = hasProducts
     ? `
@@ -237,7 +276,7 @@ primary CTA that points to \`/contact\`.
 
 ${directionBlock}
 
-### How to implement the direction with yappaflow-ui primitives
+${lockedHeroBlock}### How to implement the direction with yappaflow-ui primitives
 
 The DESIGN DIRECTION above is platform-neutral. Translate it into this
 Next.js + yappaflow-ui project like this:

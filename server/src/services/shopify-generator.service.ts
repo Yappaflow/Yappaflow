@@ -18,7 +18,7 @@
  * so the existing `/deploy/.../download` endpoint streams them in one ZIP.
  */
 
-import { Project, IProjectIdentity, IProduct } from "../models/Project.model";
+import { Project, IProjectIdentity, IProduct, type IHeroChooser, type IHeroVariant } from "../models/Project.model";
 import { GeneratedArtifact } from "../models/GeneratedArtifact.model";
 import { AISession } from "../models/AISession.model";
 import { analyzeOnce, trackUsage } from "./ai-client.service";
@@ -33,6 +33,7 @@ import {
   LiquidBundleValidationError,
   type LiquidValidationIssue,
 } from "./liquid-validator.service";
+import { synthesizeMissingSnippets } from "./shopify-snippet-fallbacks";
 import { pickDesignDirection } from "../ai/design-directions";
 import { log, logError } from "../utils/logger";
 
@@ -249,6 +250,20 @@ export async function generateShopifyBundle(
   });
   log(`   ↳ design direction: ${direction.key} — "${direction.label}"`);
 
+  // Resolve the locked hero (if the user went through the hero-chooser).
+  // We only forward the HTML when a variant has been PICKED — merely
+  // generating 3 options isn't an endorsement to commit to one. The
+  // prompt treats `lockedHero` as absent when undefined, so legacy
+  // one-shot builds (no chooser) carry on working unchanged.
+  const chooser = project.heroChooser as IHeroChooser | undefined;
+  const lockedHero: string | undefined =
+    chooser?.pickedVariantId && chooser?.variants?.length
+      ? chooser.variants.find((v: IHeroVariant) => v.id === chooser.pickedVariantId)?.html
+      : undefined;
+  if (lockedHero) {
+    log(`   ↳ locked hero: ${chooser?.pickedVariantId} (${lockedHero.length} chars)`);
+  }
+
   await Project.findByIdAndUpdate(projectId, {
     buildJobStatus:  "running",
     buildPhase:      "analyzing",
@@ -268,7 +283,7 @@ export async function generateShopifyBundle(
   });
   const sessionId = session._id;
 
-  const systemPrompt = getGenerateShopifyPrompt({ products: promptProducts, direction });
+  const systemPrompt = getGenerateShopifyPrompt({ products: promptProducts, direction, lockedHero });
   const userContent =
     "## Business Identity\n\n" +
     "```json\n" +
@@ -387,6 +402,7 @@ export async function generateShopifyBundle(
         keepPaths,
         products: promptProducts,
         direction,
+        lockedHero,
       });
       const patchUserContent =
         "## Business Identity (unchanged since the full-bundle call)\n\n" +
@@ -448,21 +464,38 @@ export async function generateShopifyBundle(
 
       const merged = mergePatch(themeFiles, patchedFiles);
 
+      // Close any dangling {% render %} / {% include %} references by
+      // synthesising missing snippet files BEFORE validation. See
+      // shopify-snippet-fallbacks.ts for the rationale — in short, the
+      // model keeps emitting `{% render 'icon-cart' %}` without also
+      // emitting `snippets/icon-cart.liquid`, and three retries in a row
+      // failed to fix it. Emitting the snippet ourselves is deterministic.
+      const patchSyn = synthesizeMissingSnippets(merged);
+      if (patchSyn.added.length > 0) {
+        log(
+          `   ↳ synthesised ${patchSyn.added.length} missing snippet(s) post-patch: ` +
+          patchSyn.namesAdded.join(", ")
+        );
+      }
+      const mergedClosed = merged.concat(patchSyn.added);
+
       await Project.findByIdAndUpdate(projectId, { buildPhase: "validating" });
       try {
-        validateShopifyBundle(merged);
-        themeFiles = merged;
+        validateShopifyBundle(mergedClosed);
+        themeFiles = mergedClosed;
         validated  = true;
         log(
           `✅ Shopify gen attempt ${attempt}/${MAX_ATTEMPTS} (patch): ` +
           `validation passed after patching ${patchedFiles.length} file(s) ` +
-          `(${merged.length} files total)`
+          `(${mergedClosed.length} files total` +
+          (patchSyn.added.length > 0 ? `, +${patchSyn.added.length} synthesised` : "") +
+          `)`
         );
         break;
       } catch (err) {
         if (err instanceof LiquidBundleValidationError) {
           lastIssues = err.issues;
-          themeFiles = merged; // next attempt patches on top of this
+          themeFiles = mergedClosed; // next attempt patches on top of this
           log(
             `⚠️  Shopify gen attempt ${attempt}/${MAX_ATTEMPTS} (patch): ` +
             `merged bundle still has ${err.issues.length} issue(s) — ` +
@@ -525,6 +558,22 @@ export async function generateShopifyBundle(
       );
       lastIssues = null;
       continue;
+    }
+
+    // Close any dangling {% render %} / {% include %} references by
+    // synthesising missing snippet files BEFORE validation. See
+    // shopify-snippet-fallbacks.ts for the rationale. Deterministic:
+    // on a happy-path build this is a no-op (0 synthesised); on a bad
+    // build where the model forgot `icon-cart` / `icon-search` we
+    // emit Dawn-compatible fallbacks so the validator passes on the
+    // FIRST attempt instead of burning two retries.
+    const syn = synthesizeMissingSnippets(themeFiles);
+    if (syn.added.length > 0) {
+      log(
+        `   ↳ synthesised ${syn.added.length} missing snippet(s): ` +
+        syn.namesAdded.join(", ")
+      );
+      themeFiles = themeFiles.concat(syn.added);
     }
 
     await Project.findByIdAndUpdate(projectId, { buildPhase: "validating" });

@@ -35,6 +35,12 @@
  *   GET   /deploy/yappaflow/:projectId              — read back project state
  *   POST  /deploy/yappaflow/:projectId/build        — generate React source then run next build/export
  *   GET   /deploy/yappaflow/:projectId/download     — stream ZIP of the exported out/ tree
+ *
+ * Hero-chooser (platform-agnostic pre-build step):
+ *   POST  /deploy/projects/:projectId/hero/variants — fire 3 concurrent AI calls, persist variants
+ *   GET   /deploy/projects/:projectId/hero          — read back current chooser state
+ *   POST  /deploy/projects/:projectId/hero/pick     — lock one variant (body: { variantId })
+ *   POST  /deploy/projects/:projectId/hero/refine   — refinement pass (body: { userText })
  */
 
 import { Router, type Request } from "express";
@@ -52,6 +58,12 @@ import { generateShopifyBundle } from "../services/shopify-generator.service";
 import { generateWordPressBundle } from "../services/wordpress-generator.service";
 import { generateYappaflowSite } from "../services/yappaflow-generator.service";
 import { buildYappaflowSite } from "../services/yappaflow-build.service";
+import {
+  generateHeroVariants,
+  pickHero,
+  refineHero,
+  getHeroChooserState,
+} from "../services/hero-chooser.service";
 import {
   buildAdminClients,
   pushShopifyBundle,
@@ -1148,6 +1160,117 @@ function normaliseProduct(raw: IncomingProduct, idx: number): { ok: true; value:
     },
   };
 }
+
+// ── Hero-chooser (platform-agnostic) ────────────────────────────────
+//
+// Runs BEFORE the full-site build. Produces 3 hero + first-fold
+// variants from the same design direction so the user can pick a
+// composition before committing to ~3 minutes of theme generation.
+// All four endpoints share the `/projects/:projectId/hero*` prefix
+// because the chooser state lives on Project.heroChooser regardless
+// of which platform the project is destined for.
+//
+//   POST /projects/:projectId/hero/variants   → generate the 3 variants
+//   GET  /projects/:projectId/hero            → current chooser state
+//   POST /projects/:projectId/hero/pick       → lock one variant
+//   POST /projects/:projectId/hero/refine     → refinement pass on picked
+
+router.post("/projects/:projectId/hero/variants", async (req, res) => {
+  const agencyId = requireAuth(req, res);
+  if (!agencyId) return;
+
+  const { projectId } = req.params;
+  if (!isValidObjectId(projectId)) {
+    return res.status(400).json({ error: "Invalid projectId" });
+  }
+
+  try {
+    // The AI calls take ~30 s all-in; we await the whole thing because
+    // the UX is "user clicks Generate, watches a spinner, sees 3
+    // thumbnails" — no background job needed, no SSE plumbing. If we
+    // ever need to cut this down, Promise.all could start streaming the
+    // first finished variant via SSE, but that's over-engineering for
+    // the current pick-one flow.
+    const variants = await generateHeroVariants(projectId, agencyId);
+    return res.json({ variants });
+  } catch (err) {
+    logError("deploy/projects/:projectId/hero/variants failed", err);
+    return res.status(500).json({
+      error: (err as Error).message || "Hero variant generation failed",
+    });
+  }
+});
+
+router.get("/projects/:projectId/hero", async (req, res) => {
+  const agencyId = requireAuth(req, res);
+  if (!agencyId) return;
+
+  const { projectId } = req.params;
+  if (!isValidObjectId(projectId)) {
+    return res.status(400).json({ error: "Invalid projectId" });
+  }
+
+  try {
+    const state = await getHeroChooserState(projectId, agencyId);
+    if (!state) return res.json({ status: "none", variants: [] });
+    return res.json(state);
+  } catch (err) {
+    logError("deploy/projects/:projectId/hero GET failed", err);
+    return res.status(500).json({
+      error: (err as Error).message || "Failed to load hero chooser state",
+    });
+  }
+});
+
+router.post("/projects/:projectId/hero/pick", async (req, res) => {
+  const agencyId = requireAuth(req, res);
+  if (!agencyId) return;
+
+  const { projectId } = req.params;
+  if (!isValidObjectId(projectId)) {
+    return res.status(400).json({ error: "Invalid projectId" });
+  }
+
+  const variantId = typeof req.body?.variantId === "string" ? req.body.variantId.trim() : "";
+  if (!variantId) {
+    return res.status(400).json({ error: "Body must include variantId: string" });
+  }
+
+  try {
+    await pickHero(projectId, agencyId, variantId);
+    return res.json({ status: "picked", pickedVariantId: variantId });
+  } catch (err) {
+    logError("deploy/projects/:projectId/hero/pick failed", err);
+    return res.status(500).json({
+      error: (err as Error).message || "Failed to pick hero variant",
+    });
+  }
+});
+
+router.post("/projects/:projectId/hero/refine", async (req, res) => {
+  const agencyId = requireAuth(req, res);
+  if (!agencyId) return;
+
+  const { projectId } = req.params;
+  if (!isValidObjectId(projectId)) {
+    return res.status(400).json({ error: "Invalid projectId" });
+  }
+
+  const userText = typeof req.body?.userText === "string" ? req.body.userText : "";
+  if (!userText.trim()) {
+    return res.status(400).json({ error: "Body must include userText: string" });
+  }
+
+  try {
+    const refined = await refineHero(projectId, agencyId, userText);
+    return res.json({ status: "refined", variant: refined });
+  } catch (err) {
+    logError("deploy/projects/:projectId/hero/refine failed", err);
+    return res.status(500).json({
+      error: (err as Error).message || "Failed to refine hero variant",
+    });
+  }
+});
 
 router.get("/projects/:projectId/products", async (req, res) => {
   const agencyId = requireAuth(req, res);

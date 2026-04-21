@@ -17,7 +17,7 @@
  * step keeps the tests and retry story cleaner.
  */
 
-import { Project, IProjectIdentity } from "../models/Project.model";
+import { Project, IProjectIdentity, type IHeroChooser, type IHeroVariant } from "../models/Project.model";
 import { GeneratedArtifact } from "../models/GeneratedArtifact.model";
 import { AISession } from "../models/AISession.model";
 import { analyzeOnce, trackUsage } from "./ai-client.service";
@@ -111,6 +111,19 @@ export async function generateYappaflowSite(
   });
   log(`   ↳ design direction: ${direction.key} — "${direction.label}"`);
 
+  // Mirror of the Shopify path: forward the picked hero's HTML into the
+  // prompt when the user went through the chooser. Undefined when there
+  // was no chooser flow — the prompt treats absence as "model designs
+  // its own hero", which preserves the pre-chooser one-shot behaviour.
+  const chooser = project.heroChooser as IHeroChooser | undefined;
+  const lockedHero: string | undefined =
+    chooser?.pickedVariantId && chooser?.variants?.length
+      ? chooser.variants.find((v: IHeroVariant) => v.id === chooser.pickedVariantId)?.html
+      : undefined;
+  if (lockedHero) {
+    log(`   ↳ locked hero: ${chooser?.pickedVariantId} (${lockedHero.length} chars)`);
+  }
+
   await Project.findByIdAndUpdate(projectId, {
     buildJobStatus:  "running",
     buildPhase:      "generating",
@@ -128,7 +141,7 @@ export async function generateYappaflowSite(
   });
   const sessionId = session._id;
 
-  const systemPrompt = getGenerateYappaflowSitePrompt({ products, direction });
+  const systemPrompt = getGenerateYappaflowSitePrompt({ products, direction, lockedHero });
 
   const identityForPrompt = {
     businessName:      identity.businessName,

@@ -41,6 +41,55 @@ export interface GenerateShopifyOptions {
    * files speak the same visual language as the files we're keeping.
    */
   direction?: DesignDirection;
+  /**
+   * If the user went through the hero-chooser flow, the srcdoc HTML of the
+   * variant they picked (post-refinement if they refined). The generator
+   * uses this as a COMPOSITION + COPY reference — the Liquid theme's hero
+   * must honour the same headline, subhead, CTA text, and overall layout
+   * archetype (typographic / full-bleed / asymmetric). We pass the full
+   * HTML rather than a structured spec because the model can read the
+   * layout, extract the copy, and translate visual primitives (inline
+   * SVG scene → Liquid + CSS classes) more accurately than a paraphrased
+   * summary would allow.
+   */
+  lockedHero?: string;
+}
+
+/**
+ * Render the "here's the hero the user picked — match it" block that
+ * gets injected into the Shopify / Yappaflow prompts. The surrounding
+ * fence keeps the HTML from being parsed as prompt text.
+ */
+function renderLockedHeroBlock(html: string | undefined): string {
+  if (!html) return "";
+  return `### Locked hero (USER-PICKED — match this composition + copy)
+
+The user reviewed three hero variants before this build and picked the
+one below. Your generated theme's hero + first-fold MUST match it on:
+
+- **Copy.** Use the EXACT headline, subhead, and CTA text from the locked
+  HTML. Do not paraphrase or "improve" it.
+- **Composition archetype.** If the locked hero is typographic (no
+  imagery), your hero is typographic. If it's full-bleed, yours fills the
+  viewport with a single visual. If it's asymmetric, yours splits into
+  two columns with the same ratio the locked hero used.
+- **Typography treatment.** Headline scale, tracking, and case match the
+  locked hero. If it uses uppercase, you use uppercase.
+- **Below-the-fold section.** The locked hero's below-fold section (the
+  second screen-full, whatever that is — about strip, feature row, index
+  list) seeds your below-fold section. Same content archetype, translated
+  to the platform's native primitives.
+
+You may, and should, translate it from a standalone HTML document into
+platform-native primitives (Liquid sections + your CSS class system, or
+the Yappaflow UI components). The LOOK is the spec; the implementation
+is yours.
+
+\`\`\`html
+${html}
+\`\`\`
+
+`;
 }
 
 export function getGenerateShopifyPrompt(opts: GenerateShopifyOptions = {}): string {
@@ -48,6 +97,7 @@ export function getGenerateShopifyPrompt(opts: GenerateShopifyOptions = {}): str
   const directionBlock = opts.direction
     ? renderDesignDirectionBlock(opts.direction)
     : "";
+  const lockedHeroBlock = renderLockedHeroBlock(opts.lockedHero);
 
   return `## Task: Generate Shopify Theme Bundle (one-click import)
 
@@ -203,7 +253,7 @@ Same rule as our custom sites: light by default, dark toggle that:
 
 ${directionBlock}
 
-### Scroll & image animation primitives (MANDATORY — Liquid/CSS track)
+${lockedHeroBlock}### Scroll & image animation primitives (MANDATORY — Liquid/CSS track)
 
 The signature motion described in the DESIGN DIRECTION block above is the
 standard. Implement it with the following primitives — no JS animation
@@ -349,6 +399,11 @@ export interface PatchShopifyOptions {
    * direction's palette + type + copy voice as non-negotiable anchors.
    */
   direction?: DesignDirection;
+  /**
+   * Same locked-hero HTML as the original generation — the patch should
+   * still honour the user's picked hero composition + copy.
+   */
+  lockedHero?: string;
 }
 
 /**
@@ -372,6 +427,7 @@ export function getPatchShopifyPrompt(opts: PatchShopifyOptions): string {
   const directionBlock = opts.direction
     ? renderDesignDirectionBlock(opts.direction)
     : "";
+  const lockedHeroBlock = renderLockedHeroBlock(opts.lockedHero);
 
   const issueLines = opts.issues
     .map((i) => `- \`${i.filePath}\` [${i.kind}]: ${i.message}`)
@@ -406,7 +462,7 @@ ${issueLines}
 
 ${keepLines}
 
-${directionBlock ? directionBlock + "\n\nThe palette, type pair, copy voice, and signature micro-detail above\nMUST match the rest of the bundle. If the flagged files currently use a\ndifferent palette or typography than what's described above, that's a bug\n— re-emit them aligned with this direction.\n\n" : ""}### Constraints (same as the original generation)
+${directionBlock ? directionBlock + "\n\nThe palette, type pair, copy voice, and signature micro-detail above\nMUST match the rest of the bundle. If the flagged files currently use a\ndifferent palette or typography than what's described above, that's a bug\n— re-emit them aligned with this direction.\n\n" : ""}${lockedHeroBlock}### Constraints (same as the original generation)
 
 1. **Liquid syntax must parse.** No unbalanced \`{% if %}/{% endif %}\`,
    no mis-closed \`{% for %}\` loops, no malformed \`{{ }}\` expressions.
