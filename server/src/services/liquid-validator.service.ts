@@ -162,6 +162,11 @@ const MIN_CONTENT_BYTES: Array<{ test: (path: string) => boolean; min: number }>
 const REQUIRED_FILES = [
   "layout/theme.liquid",
   "config/settings_schema.json",
+  // If we don't ship a 404 template the storefront falls back to Shopify's
+  // built-in search-box 404, which breaks the design direction. Seen in
+  // prod 2026-04-21 — before this bundle included a 404 the admin editor
+  // literally said "This page doesn't have any sections" on the 404 route.
+  "templates/404.liquid",
 ] as const;
 
 /**

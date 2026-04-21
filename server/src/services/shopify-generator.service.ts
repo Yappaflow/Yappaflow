@@ -209,7 +209,7 @@ function productsForPrompt(identity: IProjectIdentity): ShopifyProductForPrompt[
   }));
 }
 
-const BASE_EXPECTED_FILES = 17; // see prompt's required layout
+const BASE_EXPECTED_FILES = 18; // see prompt's required layout (incl. 404.liquid)
 // 17 full theme files (Liquid + JSON + CSS + JS) easily exceeds 16 k tokens.
 // 32 k sits safely inside Claude Sonnet 4's per-response cap and gives the
 // model headroom to finish the last file's closing fence — previously we were

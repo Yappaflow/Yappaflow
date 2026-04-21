@@ -65,6 +65,7 @@ imported through "Products → Import" — you do NOT need to emit it.
 layout/theme.liquid
 templates/index.json
 templates/product.json
+templates/404.liquid
 templates/page.about.liquid
 templates/page.contact.liquid
 templates/cart.liquid
@@ -163,6 +164,16 @@ production-grade content:
   main-product with image gallery + variant picker + add-to-cart form),
   plus a \`{% schema %}\` block defining settings. Target **at least
   ~400 bytes** each.
+- \`templates/404.liquid\` — a DESIGNED 404 page that carries the theme's
+  typography + palette + copy voice. Not Shopify's default search-box
+  fallback — that's the failure state we're trying to avoid. Include a
+  large display-type 404 mark (use the direction's display font, respect
+  its tracking), a short on-brand sentence explaining the page wasn't
+  found, a link back to the home page (\`{{ shop.url }}\` or \`/\`), and
+  a link to the all-products collection (\`/collections/all\`). Match the
+  direction's copy voice — Dialect Brutalist's 404 reads "\`[NOT FOUND]\`" in
+  brackets with mono coordinate metadata; Editorial Minimal's 404 is a
+  warm serif lockup with a single sentence. Target **at least ~500 bytes**.
 - \`snippets/*.liquid\` — real reusable partials with branching logic for
   the states that can occur (e.g. product-card must handle no-image,
   on-sale, sold-out).
