@@ -251,7 +251,7 @@ export async function findOrCreateProjectForSignal(
 export async function findOrCreateProjectForSignalOnPlatform(
   signalId: string,
   agencyId: string,
-  platform: "shopify" | "custom" | "wordpress" | "webflow" | "ikas"
+  platform: "shopify" | "custom" | "wordpress" | "webflow" | "ikas" | "yappaflow"
 ): Promise<string> {
   const signal = await Signal.findOne({ _id: signalId, agencyId });
   if (!signal) throw new Error("Signal not found");

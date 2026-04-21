@@ -1,0 +1,101 @@
+/**
+ * Base typography — the editorial rhythm every exhibit inherits.
+ *
+ * No hero-level styles here; those live in the Display primitive.
+ * This sets the grid on which everything else composes.
+ */
+
+/* Small label / kicker pattern used by eyebrows and nav items. */
+.ff-eyebrow {
+  font-family: var(--ff-font-body);
+  font-size: var(--ff-type-eyebrow);
+  font-weight: var(--ff-weight-medium);
+  letter-spacing: var(--ff-tracking-eyebrow);
+  text-transform: uppercase;
+  color: var(--ff-text-secondary);
+  line-height: 1;
+}
+
+/* Base prose — long-form body text. */
+.ff-prose {
+  font-family: var(--ff-font-body);
+  font-size: var(--ff-type-body-lg);
+  line-height: var(--ff-leading-body);
+  color: var(--ff-text-primary);
+  max-width: var(--ff-measure-reading);
+}
+
+.ff-prose p + p {
+  margin-top: var(--ff-space-4);
+}
+
+/* Pull-quote / editorial paragraph. */
+.ff-editorial {
+  font-family: var(--ff-font-editorial);
+  font-size: var(--ff-type-editorial-lg);
+  line-height: var(--ff-leading-editorial);
+  color: var(--ff-text-primary);
+  font-style: italic;
+  max-width: var(--ff-measure-reading);
+}
+
+/* Hide-visually utility — used by SplitText / accessibility paths. */
+.ff-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ─── Theme toggle ───────────────────────────────────────────────── */
+/* Shipped in base.css rather than inline in ThemeToggle.tsx — a <style>
+   tag inside a <button> is invalid HTML and produces the weird serialized
+   fragments seen in SSR output. */
+.ff-theme-toggle {
+  --ff-theme-toggle-size: 36px;
+  position: relative;
+  width: var(--ff-theme-toggle-size);
+  height: var(--ff-theme-toggle-size);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--ff-border);
+  border-radius: var(--ff-radius-circle);
+  background: transparent;
+  color: var(--ff-text-primary);
+  cursor: pointer;
+  padding: 0;
+  transition: border-color 300ms var(--ff-ease-quart-out),
+              background 300ms var(--ff-ease-quart-out),
+              color 300ms var(--ff-ease-quart-out);
+}
+.ff-theme-toggle:hover {
+  border-color: var(--ff-border-strong);
+}
+.ff-theme-toggle:focus-visible {
+  outline: 2px solid var(--ff-accent);
+  outline-offset: 2px;
+}
+.ff-theme-toggle__mark {
+  display: block;
+  width: 12px;
+  height: 12px;
+  border-radius: var(--ff-radius-circle);
+  background: var(--ff-text-primary);
+  box-shadow: inset -3px -2px 0 0 var(--ff-paper);
+  transition: box-shadow 400ms var(--ff-ease-expo-out),
+              transform 400ms var(--ff-ease-expo-out);
+}
+.ff-theme-toggle[data-theme-resolved="dark"] .ff-theme-toggle__mark {
+  box-shadow: inset 0 0 0 0 var(--ff-paper);
+  transform: scale(0.85);
+}
+.ff-theme-toggle--framed {
+  --ff-theme-toggle-size: 40px;
+  border-radius: var(--ff-radius-soft);
+}

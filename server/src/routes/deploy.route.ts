@@ -28,6 +28,13 @@
  *   GET   /deploy/wordpress/:projectId/download    — stream ZIP (wordpress-theme.zip + pages/ + csv + README)
  *   POST  /deploy/wordpress/:projectId/publish     — push pages + products via REST to connected site
  *   GET   /deploy/wordpress/connection             — read the user's WordPress connection
+ *
+ * Yappaflow-platform flow (React/Next.js + yappaflow-ui, pre-built static export):
+ *   POST  /deploy/yappaflow/start                   — create/find Project for a Signal
+ *   POST  /deploy/yappaflow/:projectId/extract      — run identity extraction
+ *   GET   /deploy/yappaflow/:projectId              — read back project state
+ *   POST  /deploy/yappaflow/:projectId/build        — generate React source then run next build/export
+ *   GET   /deploy/yappaflow/:projectId/download     — stream ZIP of the exported out/ tree
  */
 
 import { Router, type Request } from "express";
@@ -43,6 +50,8 @@ import {
 import { generateStaticSite } from "../services/static-site-generator.service";
 import { generateShopifyBundle } from "../services/shopify-generator.service";
 import { generateWordPressBundle } from "../services/wordpress-generator.service";
+import { generateYappaflowSite } from "../services/yappaflow-generator.service";
+import { buildYappaflowSite } from "../services/yappaflow-build.service";
 import {
   buildAdminClients,
   pushShopifyBundle,
@@ -873,6 +882,191 @@ router.post("/wordpress/:projectId/publish", async (req, res) => {
   } catch (err) {
     logError("deploy/wordpress/publish failed", err);
     return res.status(500).json({ error: (err as Error).message || "Publish failed" });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Yappaflow-platform flow (React/Next.js + yappaflow-ui, pre-built static export)
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Mirrors the /custom flow structurally, but the build step runs two phases:
+//   1. generateYappaflowSite — AI emits layout.tsx/page.tsx/etc.
+//   2. buildYappaflowSite    — server scaffolds package.json/next.config.ts,
+//                              installs, runs `next build` (output:"export"),
+//                              and replaces the React-source artifacts with
+//                              the exported static files. The download endpoint
+//                              then streams those files through the default
+//                              flat-layout ZIP path — the agency gets the same
+//                              drop-onto-Namecheap experience as /custom.
+
+router.post("/yappaflow/start", async (req, res) => {
+  const agencyId = requireAuth(req, res);
+  if (!agencyId) return;
+
+  try {
+    const { signalId } = req.body ?? {};
+    if (!signalId || !isValidObjectId(signalId)) {
+      return res.status(400).json({ error: "signalId is required" });
+    }
+
+    const projectId = await findOrCreateProjectForSignalOnPlatform(
+      signalId,
+      agencyId,
+      "yappaflow"
+    );
+    return res.json({ projectId });
+  } catch (err) {
+    logError("deploy/yappaflow/start failed", err);
+    return res
+      .status(500)
+      .json({ error: (err as Error).message || "Failed to start yappaflow deploy" });
+  }
+});
+
+router.post("/yappaflow/:projectId/extract", async (req, res) => {
+  const agencyId = requireAuth(req, res);
+  if (!agencyId) return;
+
+  const { projectId } = req.params;
+  if (!isValidObjectId(projectId)) {
+    return res.status(400).json({ error: "Invalid projectId" });
+  }
+
+  try {
+    const project = await Project.findOne({ _id: projectId, agencyId, platform: "yappaflow" });
+    if (!project) return res.status(404).json({ error: "Yappaflow project not found" });
+    if (!project.signalId) return res.status(400).json({ error: "Project has no linked signal" });
+
+    const identity = await extractBusinessIdentity(project.signalId.toString(), agencyId);
+    await Project.findByIdAndUpdate(projectId, {
+      identity,
+      clientName: identity.businessName,
+      name:       `${identity.businessName} — Yappaflow Deploy`,
+      progress:   30,
+    });
+
+    return res.json({ identity });
+  } catch (err) {
+    logError("deploy/yappaflow/extract failed", err);
+    return res.status(500).json({ error: (err as Error).message || "Extraction failed" });
+  }
+});
+
+router.get("/yappaflow/:projectId", async (req, res) => {
+  const agencyId = requireAuth(req, res);
+  if (!agencyId) return;
+
+  const { projectId } = req.params;
+  if (!isValidObjectId(projectId)) {
+    return res.status(400).json({ error: "Invalid projectId" });
+  }
+
+  try {
+    const project = await Project.findOne({ _id: projectId, agencyId, platform: "yappaflow" }).lean();
+    if (!project) return res.status(404).json({ error: "Yappaflow project not found" });
+
+    return res.json({
+      projectId:       (project as any)._id.toString(),
+      platform:        "yappaflow",
+      phase:           (project as any).phase,
+      progress:        (project as any).progress,
+      identity:        (project as any).identity ?? null,
+      buildJobStatus:  (project as any).buildJobStatus ?? null,
+      buildPhase:      (project as any).buildPhase ?? null,
+      buildFilesDone:  (project as any).buildFilesDone ?? 0,
+      buildFilesTotal: (project as any).buildFilesTotal ?? 0,
+      buildError:      (project as any).buildError ?? null,
+      buildStartedAt:  (project as any).buildStartedAt ? (project as any).buildStartedAt.toISOString() : null,
+      buildAttempt:    (project as any).buildAttempt ?? null,
+      buildAttemptMax: (project as any).buildAttemptMax ?? null,
+    });
+  } catch (err) {
+    logError("deploy/yappaflow/:projectId GET failed", err);
+    return res.status(500).json({ error: "Failed to load project" });
+  }
+});
+
+router.post("/yappaflow/:projectId/build", async (req, res) => {
+  const agencyId = requireAuth(req, res);
+  if (!agencyId) return;
+
+  const { projectId } = req.params;
+  if (!isValidObjectId(projectId)) {
+    return res.status(400).json({ error: "Invalid projectId" });
+  }
+
+  try {
+    const project = await Project.findOne({ _id: projectId, agencyId, platform: "yappaflow" });
+    if (!project) return res.status(404).json({ error: "Yappaflow project not found" });
+    if (!project.identity) {
+      return res.status(400).json({ error: "No identity on project — extract first" });
+    }
+
+    if (project.buildJobStatus === "running") {
+      return res.json({ status: "running", message: "Build already in progress" });
+    }
+
+    await Project.findByIdAndUpdate(projectId, { buildJobStatus: "pending" });
+
+    // Fire-and-forget: AI generation, then the npm install + next build step.
+    // Client polls GET /yappaflow/:projectId for phase/progress.
+    (async () => {
+      try {
+        const genResult = await generateYappaflowSite(projectId, agencyId);
+        log(
+          `✅ Yappaflow gen done for ${projectId}: ${genResult.filesCreated} source files — starting build`
+        );
+        const buildResult = await buildYappaflowSite(projectId, agencyId);
+        log(
+          `✅ Yappaflow build done for ${projectId}: ${buildResult.filesExported} exported files`
+        );
+      } catch (err) {
+        logError(`❌ Yappaflow build failed for ${projectId}`, err);
+      }
+    })();
+
+    return res.json({ status: "started" });
+  } catch (err) {
+    logError("deploy/yappaflow/build failed", err);
+    return res.status(500).json({ error: (err as Error).message || "Build failed to start" });
+  }
+});
+
+router.get("/yappaflow/:projectId/download", async (req, res) => {
+  const agencyId = requireAuth(req, res);
+  if (!agencyId) return;
+
+  const { projectId } = req.params;
+  if (!isValidObjectId(projectId)) {
+    return res.status(400).json({ error: "Invalid projectId" });
+  }
+
+  try {
+    const project = await Project.findOne({ _id: projectId, agencyId, platform: "yappaflow" }).lean();
+    if (!project) return res.status(404).json({ error: "Yappaflow project not found" });
+
+    const baseName =
+      (project as any).domainPurchased?.split(".")[0] ||
+      (project as any).identity?.businessName ||
+      "yappaflow-site";
+
+    // No repack needed — the artifacts are already a flat static-site tree
+    // (index.html, about/index.html, _next/static/..., etc.) after buildYappaflowSite.
+    const { buffer, fileName, fileCount } = await buildProjectZip(projectId, agencyId, { baseName });
+
+    await Project.findByIdAndUpdate(projectId, {
+      downloadedAt: new Date(),
+      phase:        "live",
+      progress:     100,
+    });
+
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+    res.setHeader("X-File-Count", String(fileCount));
+    return res.send(buffer);
+  } catch (err) {
+    logError("deploy/yappaflow/download failed", err);
+    return res.status(500).json({ error: (err as Error).message || "Download failed" });
   }
 });
 

@@ -6,7 +6,9 @@
     "web",
     "server",
     "shared",
-    "tunnel"
+    "tunnel",
+    "packages/*",
+    "apps/*"
   ],
   "scripts": {
     "dev": "turbo dev --filter=@yappaflow/web --filter=@yappaflow/server",
@@ -18,6 +20,10 @@
     "build:web": "turbo build --filter=@yappaflow/web",
     "build:server": "turbo build --filter=@yappaflow/server",
     "build:shared": "turbo build --filter=@yappaflow/shared",
+    "build:ui": "turbo build --filter=yappaflow-ui",
+    "dev:ui": "turbo dev --filter=yappaflow-ui",
+    "build:ui-docs": "turbo build --filter=@yappaflow/ui-docs",
+    "dev:ui-docs": "turbo dev --filter=@yappaflow/ui-docs",
     "start": "turbo start",
     "lint": "turbo lint",
     "clean": "turbo clean"

@@ -1,6 +1,6 @@
 import mongoose, { Schema, Document, Types } from "mongoose";
 
-export type ProjectPlatform = "shopify" | "wordpress" | "webflow" | "ikas" | "custom";
+export type ProjectPlatform = "shopify" | "wordpress" | "webflow" | "ikas" | "custom" | "yappaflow";
 export type ProjectPhase    = "listening" | "building" | "deploying" | "live";
 export type BuildJobStatus  = "pending" | "running" | "done" | "failed";
 
@@ -141,7 +141,7 @@ const ProjectSchema = new Schema<IProject>(
     agencyId:        { type: Schema.Types.ObjectId, ref: "User",   required: true, index: true },
     name:            { type: String, required: true },
     clientName:      { type: String, required: true },
-    platform:        { type: String, enum: ["shopify", "wordpress", "webflow", "ikas", "custom"], required: true },
+    platform:        { type: String, enum: ["shopify", "wordpress", "webflow", "ikas", "custom", "yappaflow"], required: true },
     phase:           { type: String, enum: ["listening", "building", "deploying", "live"], default: "listening" },
     progress:        { type: Number, default: 0, min: 0, max: 100 },
     signalId:        { type: Schema.Types.ObjectId, ref: "Signal" },

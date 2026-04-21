@@ -18,6 +18,7 @@ export { getCodeGenerationPrompt } from "./code-generation.prompt";
 export { getGenerateWebflowPrompt } from "./generate-webflow.prompt";
 export { getGenerateWordPressPrompt } from "./generate-wordpress.prompt";
 export { getGenerateIkasPrompt } from "./generate-ikas.prompt";
+export { getGenerateYappaflowSitePrompt } from "./generate-yappaflow.prompt";
 
 // ── Context for dynamic prompt composition ────────────────────────────
 

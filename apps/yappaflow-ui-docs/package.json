@@ -1,0 +1,34 @@
+{
+  "name": "@yappaflow/ui-docs",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Documentation + component gallery + choreography lab for yappaflow-ui. Deployed to ui.yappaflow.com.",
+  "scripts": {
+    "dev": "next dev --port 3030",
+    "build": "next build",
+    "start": "next start --port 3030",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf .next dist"
+  },
+  "dependencies": {
+    "@mdx-js/loader": "^3.0.1",
+    "@mdx-js/react": "^3.0.1",
+    "@next/mdx": "^15.3.0",
+    "@types/mdx": "^2.0.13",
+    "next": "^15.3.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "rehype-pretty-code": "^0.14.0",
+    "rehype-slug": "^6.0.0",
+    "remark-gfm": "^4.0.0",
+    "shiki": "^1.22.0",
+    "yappaflow-ui": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "typescript": "~5.9.2"
+  }
+}

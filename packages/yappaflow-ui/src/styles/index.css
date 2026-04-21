@@ -1,0 +1,8 @@
+/**
+ * yappaflow-ui — full stylesheet entry.
+ * Consumers import "yappaflow-ui/styles.css" at the app root.
+ */
+
+@import "./tokens.css";
+@import "./reset.css";
+@import "./base.css";

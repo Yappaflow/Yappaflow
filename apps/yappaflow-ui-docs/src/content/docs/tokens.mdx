@@ -1,0 +1,130 @@
+## The `--ff-*` layer
+
+Every value the library cares about — color, space, type, radius, motion — is a CSS custom property under the `--ff-` prefix. Components read these variables at runtime, so **swapping one token restyles every site that uses the library**.
+
+Importing `yappaflow-ui/styles.css` declares all of them on `:root` for the light theme, and re-declares the color set on `[data-theme="dark"]`. If you only want tokens and no reset, import `yappaflow-ui/tokens.css` instead.
+
+## Color
+
+Never pure black or pure white — both themes use warm variants. Text hierarchy is opacity-driven off a single ink color, and the orange accent is the "moment of surprise," used sparingly.
+
+```css
+--ff-paper:           #fafaf9;   /* primary surface */
+--ff-surface-raised:  #ffffff;   /* cards, dialogs */
+--ff-ink:             #0a0a0a;   /* full-strength text */
+
+--ff-text-primary:    #0a0a0a;
+--ff-text-secondary:  rgba(10, 10, 10, 0.62);
+--ff-text-tertiary:   rgba(10, 10, 10, 0.38);
+
+--ff-border:          rgba(10, 10, 10, 0.10);
+--ff-border-strong:   rgba(10, 10, 10, 0.22);
+
+--ff-accent:          #ff4d00;   /* the signature orange */
+--ff-selection:       rgba(255, 77, 0, 0.24);
+```
+
+Dark theme flips `--ff-paper` to `#0e0d0c`, `--ff-ink` to `#f4f2ee`, and shifts the border alphas accordingly. Light is the Yappaflow default on every generated site.
+
+## Space
+
+Two scales. Fixed `--ff-space-*` steps for component-internal gaps, and fluid `--ff-rhythm-*` tiers for vertical page cadence.
+
+```css
+--ff-space-1:  0.25rem;
+--ff-space-2:  0.5rem;
+--ff-space-3:  0.75rem;
+--ff-space-4:  1rem;
+--ff-space-5:  1.5rem;
+--ff-space-6:  2rem;
+--ff-space-7:  3rem;
+--ff-space-8:  4rem;
+
+--ff-rhythm-gutter: clamp(2rem, 4vw, 4rem);
+--ff-rhythm-breath: clamp(4rem, 8vw, 8rem);
+--ff-rhythm-room:   clamp(6rem, 12vw, 12rem);
+--ff-rhythm-hall:   clamp(8rem, 16vw, 16rem);
+```
+
+Use the rhythm scale for `<Stack rhythm="...">` and `<Exhibit rhythm="...">`. Bigger tiers = more breathing room.
+
+## Type
+
+Three font roles: display (oversized editorial), body (reading), mono (code / timecode). Sizes are fluid `clamp()`s so pages look right at every viewport.
+
+```css
+--ff-font-display:    "Space Grotesk", sans-serif;
+--ff-font-body:       "Inter Tight", sans-serif;
+--ff-font-editorial:  "Instrument Serif", serif;
+--ff-font-mono:       "JetBrains Mono", ui-monospace;
+
+--ff-type-display-xl: clamp(3rem, 8vw, 7rem);
+--ff-type-display-lg: clamp(2.25rem, 5vw, 4.5rem);
+--ff-type-display-md: clamp(1.75rem, 3.5vw, 3rem);
+--ff-type-display-sm: clamp(1.25rem, 2vw, 2rem);
+
+--ff-type-body-lg:    clamp(1.125rem, 1.1vw, 1.375rem);
+--ff-type-body-md:    1rem;
+--ff-type-body-sm:    0.875rem;
+
+--ff-tracking-display-tight:  -0.04em;
+--ff-tracking-display-normal: -0.02em;
+--ff-tracking-eyebrow:        0.12em;
+
+--ff-measure-reading: 62ch;
+```
+
+Next.js docs apps typically remap these to `next/font` output CSS variables — see [Theming](/docs/theming).
+
+## Radius
+
+Four corners cover every surface in the library. Default is sharp — rounded corners look soft, and softness is a choice, not a default.
+
+```css
+--ff-radius-sharp:  0;
+--ff-radius-soft:   4px;
+--ff-radius-framed: 12px;
+--ff-radius-circle: 9999px;
+```
+
+## Motion
+
+The score. Structure lands first, then primary content, then supporting, then CTA. Every `<Reveal beat="...">` reads these.
+
+```css
+--ff-duration-structure: 600ms;
+--ff-duration-primary:   800ms;
+--ff-duration-secondary: 900ms;
+--ff-duration-cta:       700ms;
+
+--ff-stagger-text:    40ms;
+--ff-stagger-default: 80ms;
+--ff-stagger-section: 120ms;
+
+--ff-ease-expo-out:    cubic-bezier(0.16, 1, 0.3, 1);
+--ff-ease-quart-out:   cubic-bezier(0.25, 1, 0.5, 1);
+--ff-ease-expo-in-out: cubic-bezier(0.87, 0, 0.13, 1);
+```
+
+See [Motion system](/docs/motion-system) for the full choreography contract.
+
+## Overriding tokens
+
+Override any token on any scope. To rebrand, set the accent once at the root:
+
+```css
+:root {
+  --ff-accent: #00c2a3;
+  --ff-selection: rgba(0, 194, 163, 0.24);
+}
+```
+
+To restyle a single section, scope the override:
+
+```tsx
+<section style={{ ["--ff-accent" as never]: "#9b5cff" }}>
+  {/* every ff-accent usage inside this tree becomes purple */}
+</section>
+```
+
+Tokens are the contract. Components never hard-code these values — if you want a knob that doesn't exist, propose a new token first.

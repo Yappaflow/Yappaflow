@@ -1,0 +1,120 @@
+import { Reveal, Magnetic } from "yappaflow-ui/motion";
+import { Body, Display, Eyebrow } from "yappaflow-ui/primitives";
+
+## The engine
+
+yappaflow-ui's motion layer is a thin, opinionated wrapper over GSAP.
+
+- **GSAP** drives every tween. No framer-motion, no react-spring.
+- **Lenis** drives smooth scroll, sharing a single RAF loop with the GSAP ticker so you never pay two frame budgets.
+- **`gsap.matchMedia`** gates every hook on `prefers-reduced-motion`. No extra code in userland.
+
+`GalleryShell` mounts a single `MotionProvider` which boots the engine, registers plugins, instantiates Lenis, and establishes the reduced-motion flag every hook reads.
+
+## The choreography score
+
+Every entry on every page follows the same four-beat score:
+
+- **Structure** — 0–200ms, the shell settles.
+- **Primary** — 200–600ms, the main headline stagger.
+- **Secondary** — 400–900ms, supporting copy.
+- **CTA** — 600ms, the call to action lands.
+- **Sequence** — capped at 1200ms, to protect page load.
+
+These aren't durations you look up — they're semantic names you pass to `Reveal`:
+
+```tsx
+import { Reveal } from "yappaflow-ui/motion";
+
+<Reveal beat="structure" variant="fade-translate">
+  <Eyebrow>Studio</Eyebrow>
+</Reveal>
+
+<Reveal beat="primary" variant="text-lines" stagger="text">
+  <Display size="xl">Headline here</Display>
+</Reveal>
+
+<Reveal beat="cta" variant="fade-translate">
+  <a href="/work">See work</a>
+</Reveal>
+```
+
+No tween config. The delay, duration, and easing come from the choreography tokens — change them once and every page restyles.
+
+## Variants
+
+<LiveExample
+  title="Magnetic CTA"
+  code={`import { Magnetic } from "yappaflow-ui/motion";
+
+<Magnetic strength={0.4}>
+  <a className="btn">See work →</a>
+</Magnetic>`}
+>
+  <Magnetic strength={0.4} radius={140}>
+    <span style={{
+      display: "inline-flex",
+      alignItems: "center",
+      gap: "0.5rem",
+      padding: "0.7rem 1.3rem",
+      border: "1px solid var(--ff-text-primary)",
+      borderRadius: "9999px",
+      background: "var(--ff-text-primary)",
+      color: "var(--ff-paper)",
+      fontFamily: "var(--ff-font-body)",
+      fontWeight: 500,
+      cursor: "pointer",
+      userSelect: "none",
+    }}>
+      See work <span aria-hidden>→</span>
+    </span>
+  </Magnetic>
+</LiveExample>
+
+`Reveal` ships five variants:
+
+- `fade-translate` — the default; fade + short y-translation.
+- `text-lines` — split children by line and stagger.
+- `text-words` — same, but per word. Use sparingly.
+- `mask-up` — reveal from a clip-path mask.
+- `stagger-children` — animate each direct child on a cadence.
+
+Text variants take a `stagger` token (`"text" | "default" | "section"`).
+
+## When to reach for ScrollSection vs. Reveal
+
+- **`Reveal`** — the component has entered the DOM and should animate. Default `trigger="mount"`, or switch to `"in-view"` for below-the-fold content.
+- **`ScrollSection`** — you want motion tied to scroll progress. Supports `reveal`, `pinned-story`, and `parallax-subtle` modes.
+- **`useScrollTrigger`** — imperative escape hatch for the 5% of cases where the declarative wrappers aren't enough.
+
+Pick the most declarative thing that works. Only drop down to the hook when the declarative layer genuinely can't express the behavior.
+
+## Reduced motion
+
+`prefers-reduced-motion: reduce` disables every animation the library ships:
+
+- `Reveal` sets the final state immediately.
+- `Lenis` is not instantiated — native scroll takes over.
+- `Magnetic`, `AmbientLayer`, and `Cursor` become no-ops.
+
+You never need to check reduced-motion in userland. If you're writing imperative GSAP, gate on `useMotion().reducedMotion`:
+
+```tsx
+const { reducedMotion } = useMotion();
+if (reducedMotion) return;
+gsap.to(el, { x: 40, ease: easingsGsap.expoOut });
+```
+
+## Banned defaults
+
+Three GSAP defaults we explicitly override:
+
+- **`ease: "ease"`** → `"yf-expo-out"`. Browser "ease" is flat.
+- **`ease: "linear"`** → allowed only for ambient loops.
+- **`ease: "ease-in" / "ease-out"`** → use `yf-expo-out` or `yf-quart-out`.
+
+The engine registers three `CustomEase` curves at boot: `yf-expo-out`, `yf-quart-out`, `yf-expo-in-out`. Use them by name.
+
+## See it live
+
+The **[Motion Lab](/motion-lab)** is the interactive playground for all of this — pick a beat, pick a variant, replay the entry, and copy the snippet.

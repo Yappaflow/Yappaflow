@@ -57,11 +57,12 @@ export interface ProviderConfig {
    * `defaultModel` is still used for small calls (analysis, planning).
    * When the caller's requested output is big enough that we're clearly
    * in generation territory, `resolveModel` swaps to this large-context
-   * model instead. On OpenRouter that's `deepseek/deepseek-chat` —
-   * DeepSeek V3.2 routed through OpenRouter, which bypasses the 8k
-   * output cap the native DeepSeek API imposes. Same model we trust
-   * for everything else, just over a different route. See
-   * openrouter.provider.ts for the full history of models we tried.
+   * model instead. On OpenRouter that's `qwen/qwen3-coder` — Alibaba's
+   * 480B-A35B MoE code model, 262k context, no hidden output cap. This
+   * is the generation-phase default because its Liquid/HTML/Tailwind
+   * output quality materially beats DeepSeek V3.2's (the previous
+   * large-output pick). See openrouter.provider.ts for the full
+   * history of models we tried and why.
    *
    * DeepSeek doesn't need one — it has a single unified V3.2 route with
    * 128k input context and the output cap is enforced separately by

@@ -1,0 +1,412 @@
+/*
+ * Docs-site overrides. 99% of styling comes from yappaflow-ui/styles.css
+ * (tokens, reset, base). Use this file only for rules that belong to the
+ * docs chrome itself — never for generic primitives the library should own.
+ */
+
+/* Make the body fill the viewport so the GalleryShell background paints
+ * every corner even when a route renders short content. */
+html,
+body {
+  height: 100%;
+}
+
+/* Map next/font variables onto the library's type tokens. These override the
+ * :root defaults in yappaflow-ui/tokens.css because <html> (where next/font
+ * attaches its class-scoped --font-yf-* custom properties) is the same
+ * element :root matches and this stylesheet loads after tokens.css. */
+html {
+  --ff-font-display: var(--font-yf-display), "Space Grotesk", ui-sans-serif, system-ui,
+    -apple-system, sans-serif;
+  --ff-font-body: var(--font-yf-body), "Inter Tight", ui-sans-serif, system-ui,
+    -apple-system, sans-serif;
+  --ff-font-editorial: var(--font-yf-editorial), "Instrument Serif", ui-serif,
+    Georgia, serif;
+  --ff-font-mono: var(--font-yf-mono), "JetBrains Mono", ui-monospace, SFMono-Regular,
+    "SF Mono", Menlo, monospace;
+  font-family: var(--ff-font-body);
+  color: var(--ff-text-primary);
+  background: var(--ff-paper);
+}
+
+/* Sticky-nav breathing room. The NavShell is fixed, so pages need top
+ * padding equal to nav height (~60px) plus gallery gutter. Hero exhibits
+ * set their own full-bleed min-height so they don't need this. */
+.docs-page {
+  padding-top: calc(var(--ff-space-8, 60px) + var(--ff-space-5, 40px));
+  min-height: 100vh;
+}
+
+/* Docs-prose overrides for MDX content rendered inside .docs-prose.
+ * Inherits type scale from yappaflow-ui tokens but adds copy-ready spacing. */
+.docs-prose {
+  max-width: var(--ff-measure-reading, 68ch);
+  font-size: var(--ff-type-body-md);
+  line-height: var(--ff-leading-body, 1.6);
+  color: var(--ff-text-primary);
+}
+.docs-prose h1,
+.docs-prose h2,
+.docs-prose h3,
+.docs-prose h4 {
+  font-family: var(--ff-font-display);
+  font-weight: var(--ff-weight-medium);
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+.docs-prose h1 {
+  font-size: var(--ff-type-display-sm);
+  margin: 0 0 var(--ff-space-5);
+}
+.docs-prose h2 {
+  font-size: var(--ff-type-editorial-lg);
+  margin: var(--ff-space-7) 0 var(--ff-space-3);
+  scroll-margin-top: 6rem;
+}
+.docs-prose h3 {
+  font-size: var(--ff-type-editorial-md);
+  margin: var(--ff-space-6) 0 var(--ff-space-3);
+  scroll-margin-top: 6rem;
+}
+.docs-prose p {
+  margin: 0 0 var(--ff-space-4);
+}
+.docs-prose a {
+  color: var(--ff-accent);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+.docs-prose a:hover {
+  text-decoration-thickness: 2px;
+}
+.docs-prose ul,
+.docs-prose ol {
+  margin: 0 0 var(--ff-space-4);
+  padding-left: var(--ff-space-5);
+}
+.docs-prose li {
+  margin-bottom: var(--ff-space-2);
+}
+.docs-prose code {
+  font-family: var(--ff-font-mono);
+  font-size: 0.92em;
+  padding: 0.12em 0.36em;
+  border-radius: var(--ff-radius-sharp);
+  background: var(--ff-surface);
+  border: 1px solid var(--ff-border);
+}
+.docs-prose pre {
+  margin: var(--ff-space-5) 0;
+  padding: var(--ff-space-5);
+  border-radius: var(--ff-radius-sharp);
+  background: var(--ff-surface);
+  border: 1px solid var(--ff-border);
+  overflow-x: auto;
+  font-size: var(--ff-type-body-sm);
+  line-height: 1.55;
+}
+.docs-prose pre code {
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+.docs-prose blockquote {
+  margin: var(--ff-space-5) 0;
+  padding: var(--ff-space-4) var(--ff-space-5);
+  border-left: 2px solid var(--ff-accent);
+  background: var(--ff-surface);
+  color: var(--ff-text-secondary);
+  font-style: italic;
+}
+.docs-prose hr {
+  border: 0;
+  border-top: 1px solid var(--ff-border);
+  margin: var(--ff-space-7) 0;
+}
+
+/* rehype-pretty-code — keep line numbers + highlights tasteful. */
+.docs-prose [data-rehype-pretty-code-figure] pre {
+  padding: var(--ff-space-4) 0;
+}
+.docs-prose [data-rehype-pretty-code-figure] pre > code {
+  display: grid;
+  counter-reset: line;
+}
+.docs-prose [data-line] {
+  padding: 0 var(--ff-space-5);
+}
+.docs-prose [data-highlighted-line] {
+  background: color-mix(in srgb, var(--ff-accent) 12%, transparent);
+}
+
+/* Gallery card shared look. Also used in the landing pillars strip. */
+.gallery-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ff-space-3);
+  padding: var(--ff-space-6);
+  border: 1px solid var(--ff-border);
+  border-radius: var(--ff-radius-sharp);
+  background: var(--ff-surface);
+  color: var(--ff-text-primary);
+  text-decoration: none;
+  transition:
+    border-color 300ms cubic-bezier(0.25, 1, 0.5, 1),
+    transform 400ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.gallery-card:hover {
+  border-color: var(--ff-border-strong);
+  transform: translateY(-2px);
+}
+.gallery-card__eyebrow {
+  font-family: var(--ff-font-body);
+  font-size: var(--ff-type-body-xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ff-text-tertiary);
+}
+.gallery-card__title {
+  font-family: var(--ff-font-display);
+  font-size: var(--ff-type-editorial-md);
+  font-weight: var(--ff-weight-medium);
+  letter-spacing: -0.01em;
+}
+.gallery-card__description {
+  color: var(--ff-text-secondary);
+  font-size: var(--ff-type-body-sm);
+  line-height: var(--ff-leading-body, 1.55);
+}
+
+/* Shared CTA button look — used on landing + gallery index. */
+.landing-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ff-space-3);
+  padding: var(--ff-space-3) var(--ff-space-5);
+  font-family: var(--ff-font-body);
+  font-size: var(--ff-type-body-md);
+  font-weight: 500;
+  border-radius: var(--ff-radius-sharp);
+  text-decoration: none;
+  transition:
+    background 300ms cubic-bezier(0.25, 1, 0.5, 1),
+    color 300ms cubic-bezier(0.25, 1, 0.5, 1),
+    border-color 300ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+.landing-cta--primary {
+  background: var(--ff-text-primary);
+  color: var(--ff-paper);
+  border: 1px solid var(--ff-text-primary);
+}
+.landing-cta--primary:hover {
+  background: var(--ff-accent);
+  border-color: var(--ff-accent);
+  color: var(--ff-paper);
+}
+.landing-cta--ghost {
+  background: transparent;
+  color: var(--ff-text-primary);
+  border: 1px solid var(--ff-border-strong);
+}
+.landing-cta--ghost:hover {
+  border-color: var(--ff-text-primary);
+}
+
+/* ─── Preview canvas (gallery detail) ────────────────────────────── */
+.preview-canvas {
+  position: relative;
+  border: 1px solid var(--ff-border);
+  border-radius: var(--ff-radius-sharp);
+  background: var(--ff-surface);
+  overflow: hidden;
+  min-height: 220px;
+}
+.preview-canvas__grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, var(--ff-border) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--ff-border) 1px, transparent 1px);
+  background-size: 48px 48px;
+  opacity: 0.35;
+  pointer-events: none;
+}
+.preview-canvas__stage {
+  position: relative;
+  padding: var(--ff-space-7) var(--ff-space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ff-space-4);
+}
+
+/* ─── Props table ─────────────────────────────────────────────────── */
+.props-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--ff-border);
+  border-radius: var(--ff-radius-sharp);
+}
+.props-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--ff-font-body);
+  font-size: var(--ff-type-body-sm);
+  min-width: 560px;
+}
+.props-table th,
+.props-table td {
+  padding: var(--ff-space-3) var(--ff-space-4);
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--ff-border);
+}
+.props-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.props-table th {
+  font-weight: 500;
+  font-family: var(--ff-font-body);
+  font-size: var(--ff-type-eyebrow, 0.75rem);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ff-text-tertiary);
+  background: color-mix(in srgb, var(--ff-surface-raised) 50%, var(--ff-surface));
+}
+.props-table td code {
+  font-family: var(--ff-font-mono, ui-monospace, monospace);
+  font-size: 0.92em;
+  background: var(--ff-surface-raised);
+  padding: 0.08em 0.32em;
+  border-radius: 2px;
+  border: 1px solid var(--ff-border);
+}
+.props-table td:last-child {
+  color: var(--ff-text-secondary);
+}
+
+/* ─── Docs layout ─────────────────────────────────────────────────── */
+.docs-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 260px) 1fr;
+  gap: var(--ff-space-7);
+  align-items: start;
+}
+/* Slug pages add a right-rail TOC. On narrow screens the TOC hides itself
+ * via its own media query — we still drop to 2 columns at 1100px so
+ * the article reclaims the width. */
+.docs-layout--with-toc {
+  grid-template-columns: minmax(220px, 240px) minmax(0, 1fr) minmax(180px, 220px);
+}
+@media (max-width: 1100px) {
+  .docs-layout--with-toc {
+    grid-template-columns: minmax(220px, 260px) 1fr;
+  }
+}
+@media (max-width: 900px) {
+  .docs-layout,
+  .docs-layout--with-toc {
+    grid-template-columns: 1fr;
+    gap: var(--ff-space-5);
+  }
+}
+
+/* ─── Docs pager (prev / next) ────────────────────────────────────── */
+.docs-pager {
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch;
+  gap: var(--ff-space-4);
+  margin-top: var(--ff-space-7);
+  padding-top: var(--ff-space-5);
+  border-top: 1px solid var(--ff-border);
+}
+.docs-pager__link {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ff-space-1);
+  padding: var(--ff-space-4) var(--ff-space-5);
+  border: 1px solid var(--ff-border);
+  border-radius: var(--ff-radius-sharp);
+  background: var(--ff-surface-raised);
+  text-decoration: none;
+  color: var(--ff-text-primary);
+  min-width: 200px;
+  transition: border-color 300ms cubic-bezier(0.25, 1, 0.5, 1),
+              transform 400ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.docs-pager__link:hover {
+  border-color: var(--ff-border-strong);
+  transform: translateY(-1px);
+}
+.docs-pager__link--next {
+  text-align: right;
+  margin-left: auto;
+}
+.docs-pager__label {
+  font-family: var(--ff-font-body);
+  font-size: var(--ff-type-eyebrow);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ff-text-tertiary);
+}
+.docs-pager__title {
+  font-family: var(--ff-font-display);
+  font-size: var(--ff-type-body-md);
+  font-weight: 500;
+}
+.docs-sidebar {
+  position: sticky;
+  top: calc(var(--ff-space-8) + var(--ff-space-5));
+  display: flex;
+  flex-direction: column;
+  gap: var(--ff-space-5);
+}
+@media (max-width: 900px) {
+  .docs-sidebar {
+    position: static;
+  }
+}
+.docs-sidebar__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ff-space-2);
+}
+.docs-sidebar__section {
+  font-family: var(--ff-font-body);
+  font-size: var(--ff-type-eyebrow, 0.75rem);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ff-text-tertiary);
+  font-weight: 500;
+}
+.docs-sidebar ul {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.docs-sidebar__link {
+  display: block;
+  padding: 0.35rem 0;
+  color: var(--ff-text-secondary);
+  font-family: var(--ff-font-body);
+  font-size: var(--ff-type-body-sm);
+  text-decoration: none;
+  border-left: 2px solid transparent;
+  padding-left: var(--ff-space-3);
+  transition:
+    color 200ms cubic-bezier(0.25, 1, 0.5, 1),
+    border-color 200ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+.docs-sidebar__link:hover {
+  color: var(--ff-text-primary);
+}
+.docs-sidebar__link[data-active="true"] {
+  color: var(--ff-text-primary);
+  border-left-color: var(--ff-accent);
+  font-weight: 500;
+}
+

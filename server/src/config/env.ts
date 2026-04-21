@@ -89,8 +89,13 @@ export const env = {
   //                 DeepSeek V3.2 is a sweet spot on cost/quality.
   //
   //   generating  → emit Next.js / Shopify / WP / Webflow code. Pure
-  //                 code generation, DeepSeek V3.2 is strongest here
-  //                 and also the cheapest of comparable quality tiers.
+  //                 code generation. Default to Qwen3-Coder 480B on
+  //                 OpenRouter — purpose-built code model with 262k
+  //                 context, ~$0.22/$1.00 per 1M. Switched away from
+  //                 DeepSeek V3.2 on 2026-04-21 because V3.2's design
+  //                 quality on Shopify themes was consistently weak
+  //                 (default Dawn shapes, Inter hero type, centered
+  //                 safe composition — the "free AI" look).
   //
   // Any of {PROVIDER,MODEL} may be left unset — the resolver falls back
   // to the global primary/fallback provider + its default model.
@@ -98,8 +103,8 @@ export const env = {
   aiAnalysisModel:       process.env.AI_ANALYSIS_MODEL      || "google/gemini-2.5-flash-lite",
   aiPlanningProvider:   (process.env.AI_PLANNING_PROVIDER   || "deepseek") as "deepseek" | "openrouter" | "",
   aiPlanningModel:       process.env.AI_PLANNING_MODEL      || "deepseek-chat",
-  aiGenerationProvider: (process.env.AI_GENERATION_PROVIDER || "deepseek") as "deepseek" | "openrouter" | "",
-  aiGenerationModel:     process.env.AI_GENERATION_MODEL    || "deepseek-chat",
+  aiGenerationProvider: (process.env.AI_GENERATION_PROVIDER || "openrouter") as "deepseek" | "openrouter" | "",
+  aiGenerationModel:     process.env.AI_GENERATION_MODEL    || "qwen/qwen3-coder",
 
   // Legacy Anthropic settings — kept for backwards compatibility with
   // unrelated callers; no longer drives code generation.

@@ -1,0 +1,124 @@
+## The five layers
+
+yappaflow-ui is layered, and the import direction is one-way:
+
+1. **Tokens** — CSS variables + TS constants. Depends on nothing.
+2. **Motion** — hooks and declarative wrappers. Reads tokens.
+3. **Primitives** — `Frame`, `Stack`, `Spread`, `Display`, `Body`, `Eyebrow`, `Mark`, `Column`. Reads tokens + motion.
+4. **Shell** — `GalleryShell`, `Exhibit`, `NavShell`, `FootShell`. Reads everything below.
+5. **Exhibits** — `ExhibitHero` (and more). Reads everything below.
+
+A primitive never imports from a shell. A shell never imports from an exhibit. This is enforced architecturally, not just by convention — the tsup entry points expose these as separate subpaths, so if you try to bend the direction the build will complain.
+
+## A page is an Exhibit sequence
+
+Every page shape is a vertical sequence of `<Exhibit>` wrappers. `Exhibit` has three knobs:
+
+- **`tone`** — `"dense" | "breathing" | "signature"`. Affects vertical rhythm and type density.
+- **`edge`** — `"contained" | "full-bleed"`. Whether the exhibit bleeds to the viewport edge.
+- **`rhythm`** — `"gutter" | "breath" | "room" | "hall"`. Explicit vertical spacing override.
+
+Inside an `Exhibit`, you compose with primitives:
+
+```tsx
+<Exhibit tone="breathing" edge="contained" rhythm="room">
+  <Frame span={10} offset="center">
+    <Stack rhythm="breath">
+      <Eyebrow>Studio</Eyebrow>
+      <Display size="lg">Work</Display>
+      <Body tone="secondary">Projects from 2018 onward.</Body>
+    </Stack>
+  </Frame>
+</Exhibit>
+```
+
+That's 80% of what you'll write. The exhibit types in `yappaflow-ui/exhibits` are pre-composed versions of this pattern.
+
+## The grid
+
+Every frame lives in a 12-column grid.
+
+- `Frame span={12}` — full-width inside the gallery max-width.
+- `Frame span={10} offset="center"` — centered 10-col column, standard for reading-density exhibits.
+- `Frame span={8} offset="left"` — asymmetric, leaves right-side negative space.
+
+The grid isn't exposed directly as a component — it's embedded in `Frame`. This keeps the AI generator's vocabulary small: frames + offsets, no bare grid cells.
+
+## Vertical rhythm
+
+`Stack` enforces vertical rhythm inside a frame:
+
+- `rhythm="gutter"` — tight, within a paragraph (eyebrow + headline).
+- `rhythm="breath"` — between beats of one exhibit.
+- `rhythm="room"` — between exhibits on dense pages.
+- `rhythm="hall"` — between signature sections.
+
+Don't reach for `marginTop` on elements. If the rhythm you need doesn't exist, add a token — don't work around it.
+
+## Common recipes
+
+### Hero + two exhibits + foot
+
+```tsx
+<GalleryShell>
+  <NavShell brand="Studio" links={[{ label: "Work", href: "/work" }]} />
+  <ExhibitHero
+    eyebrow="Studio"
+    headline={"Work you can\nlive inside."}
+    cta={{ label: "See work", href: "/work" }}
+  />
+  <Exhibit tone="breathing">
+    <Frame span={10} offset="center">
+      <Stack rhythm="breath">
+        <Eyebrow>Selected</Eyebrow>
+        <Display size="md">Recent projects</Display>
+      </Stack>
+    </Frame>
+  </Exhibit>
+  <Exhibit tone="dense" edge="full-bleed">
+    <Frame span={12}>
+      {/* grid of projects */}
+    </Frame>
+  </Exhibit>
+  <FootShell brand="Studio" tagline="A small practice for large ideas." />
+</GalleryShell>
+```
+
+### Editorial article
+
+```tsx
+<Exhibit tone="breathing">
+  <Frame span={8} offset="center">
+    <Column measure="reading">
+      <Body size="lg">
+        {/* long-form text, capped at the reading measure */}
+      </Body>
+    </Column>
+  </Frame>
+</Exhibit>
+```
+
+### Asymmetric headline + copy
+
+```tsx
+<Exhibit>
+  <Frame span={12} offset="left">
+    <Spread ratio="phi">
+      <Display size="lg" tracking="tight">
+        Headline pulls the eye left.
+      </Display>
+      <Body size="lg" tone="secondary">
+        Counterweight copy on the right, at the golden-ratio split so the
+        composition reads as intended rather than balanced.
+      </Body>
+    </Spread>
+  </Frame>
+</Exhibit>
+```
+
+## What not to do
+
+- **Don't wrap everything in `<div>`.** `Stack` is a div. `Frame` is a div. Use the primitives — they encode the intent.
+- **Don't reach across layers.** If you find yourself importing a shell into a primitive, rethink.
+- **Don't hardcode colors or spacing.** Use tokens. Add a token if one is missing.
+- **Don't write raw GSAP unless you have to.** Start with `Reveal`. Drop to `useScrollTrigger` when the declarative layer falls short.

@@ -1,0 +1,17 @@
+## 0.1.0 — unreleased
+
+First cut of the library.
+
+**Added**
+
+- Layer 1 — tokens (color, typography, spacing, radius, motion, grid).
+- Layer 2 — motion engine, `MotionProvider`, `Reveal`, `ScrollSection`, `AmbientLayer`, `Magnetic`, `Cursor`, reduced-motion gating.
+- Layer 3 — primitives: `Frame`, `Column`, `Spread`, `Stack`, `Display`, `Body`, `Mark`, `Eyebrow`.
+- Layer 4 — shell: `GalleryShell`, `Exhibit`, `NavShell`, `FootShell`.
+- Layer 5 — first exhibit: `ExhibitHero`.
+- Theme — `ThemeProvider`, `ThemeToggle`, `[data-theme="dark"]` palette.
+- Build — dual ESM/CJS, per-layer entry points, CSS shipped to `dist/`.
+
+**Standing rules**
+
+- Every generated site is light by default and ships a dark toggle. The library enforces this — `NavShell` renders `<ThemeToggle />` unless explicitly disabled.

@@ -1,0 +1,78 @@
+## Every public component, in one place
+
+The library has **20** public components across five layers. The rule is strict — higher layers compose lower ones, never the other way around. Every name below is also a live preview in the [component gallery](/gallery).
+
+## Primitives
+
+The composition grammar. Layout + type, nothing more.
+
+| Component   | One-liner                                                                 |
+| ----------- | ------------------------------------------------------------------------- |
+| [`Frame`](/gallery/frame)       | 12-column page frame with span + offset.                                  |
+| [`Column`](/gallery/column)      | Column with a `measure` (reading, prose, wide, full).                     |
+| [`Stack`](/gallery/stack)       | Vertical rhythm container. Pick a rhythm token.                           |
+| [`Spread`](/gallery/spread)      | Justify-between horizontal layout.                                        |
+| [`Display`](/gallery/display)     | Oversized editorial type. Fluid sizes + balanced wrap.                    |
+| [`Body`](/gallery/body)        | Body copy with tone hierarchy (primary / secondary / tertiary).           |
+| [`Eyebrow`](/gallery/eyebrow)     | Uppercase label above a headline.                                         |
+| [`Mark`](/gallery/mark)        | Emphasis mark for inline phrases.                                         |
+
+## Motion
+
+GSAP + Lenis, wrapped in declarative components with reduced-motion gating baked in.
+
+| Component         | One-liner                                                                       |
+| ----------------- | ------------------------------------------------------------------------------- |
+| [`Reveal`](/gallery/reveal)          | Declarative entry animation. Pass a `beat` (`structure` / `primary` / `secondary` / `cta`). |
+| [`ScrollSection`](/gallery/scroll-section)   | Section that reveals, pins, or parallaxes on scroll.                            |
+| [`ScrambleText`](/gallery/scramble-text)    | Per-character scramble-and-settle text animation.                               |
+| [`AmbientLayer`](/gallery/ambient-layer)    | Background atmosphere — noise, drift, breathe.                                  |
+| [`Magnetic`](/gallery/magnetic)        | Cursor-follow wrapper for CTAs.                                                 |
+| [`Cursor`](/gallery/cursor)          | Opt-in custom cursor overlay. Grows over interactive elements.                  |
+
+Also exported from `yappaflow-ui/motion`: `MotionProvider`, `useMotion`, `useReveal`, `useScrollTrigger`, `useMagnetic`, `useAmbient`.
+
+## Shell
+
+The chrome of every site. Exactly one `GalleryShell` per app.
+
+| Component       | One-liner                                                              |
+| --------------- | ---------------------------------------------------------------------- |
+| [`GalleryShell`](/gallery/gallery-shell)  | Root wrapper — theme + motion + optional cursor.                       |
+| [`NavShell`](/gallery/nav-shell)      | Sticky top nav, transparent over hero, opaque once scrolled.           |
+| [`Exhibit`](/gallery/exhibit)       | Section wrapper with tone + edge + rhythm.                             |
+| [`FootShell`](/gallery/foot-shell)     | Editorial footer with oversized tagline and grouped columns.           |
+
+## Exhibits
+
+Composed patterns ready to ship.
+
+| Component        | One-liner                                                              |
+| ---------------- | ---------------------------------------------------------------------- |
+| [`ExhibitHero`](/gallery/exhibit-hero)    | Canonical gallery hero — eyebrow, headline, subtext, CTA, ambient.     |
+
+## Theme
+
+| Component        | One-liner                                                              |
+| ---------------- | ---------------------------------------------------------------------- |
+| `ThemeProvider`  | Wrapped automatically by `GalleryShell`. Provides `data-theme` + storage. |
+| [`ThemeToggle`](/gallery/theme-toggle)    | The toggle. Light default + dark on every site, per Yappaflow standing rule. |
+
+`useTheme()` is also exported for reading / writing the mode programmatically.
+
+## Imports
+
+The library ships per-layer subpaths so AI-generated sites pay only for what they use.
+
+```tsx
+// Everything at once
+import { GalleryShell, Reveal, Display, ExhibitHero } from "yappaflow-ui";
+
+// Or per layer
+import { GalleryShell } from "yappaflow-ui/shell";
+import { Reveal } from "yappaflow-ui/motion";
+import { Display } from "yappaflow-ui/primitives";
+import { ExhibitHero } from "yappaflow-ui/exhibits";
+```
+
+See [Composition patterns](/docs/composition-patterns) for how these fit together, and [Motion system](/docs/motion-system) for the beat-based choreography contract.

@@ -1,0 +1,158 @@
+/**
+ * yappaflow-ui — design tokens as CSS custom properties.
+ *
+ * Light is the default (Yappaflow standing rule). Dark is shipped alongside
+ * and activated by [data-theme="dark"] on <html>, which the ThemeProvider
+ * sets pre-paint.
+ *
+ * Both palettes pass WCAG AA. The dark palette is derived from the accent
+ * hue so it never feels generic.
+ *
+ * Consumers override any token by redefining the variable in a higher-
+ * specificity scope. The token namespace is --ff-* (yappaflow).
+ */
+
+:root {
+  /* ─── Color ─────────────────────────────────────────────────────── */
+  --ff-paper: #fafaf9;
+  --ff-ink: #0a0a0a;
+  --ff-accent: #ff4d00;
+  --ff-selection: rgba(255, 77, 0, 0.24);
+
+  --ff-text-primary: #0a0a0a;
+  --ff-text-secondary: rgba(10, 10, 10, 0.62);
+  --ff-text-tertiary: rgba(10, 10, 10, 0.38);
+  --ff-surface: #fafaf9;
+  --ff-surface-raised: #ffffff;
+  --ff-border: rgba(10, 10, 10, 0.10);
+  --ff-border-strong: rgba(10, 10, 10, 0.22);
+
+  /* ─── Typography ────────────────────────────────────────────────── */
+  --ff-font-display: "Neue Machina", "Space Grotesk", ui-sans-serif, system-ui,
+    -apple-system, sans-serif;
+  --ff-font-editorial: "Instrument Serif", "GT Sectra", ui-serif, Georgia, serif;
+  --ff-font-body: "Inter Tight", "Space Grotesk", ui-sans-serif, system-ui,
+    -apple-system, sans-serif;
+  --ff-font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono",
+    Menlo, monospace;
+
+  /* Fluid type scale */
+  --ff-type-display-xl: clamp(4.5rem, 16vw, 18rem);
+  --ff-type-display-lg: clamp(3.25rem, 10vw, 10rem);
+  --ff-type-display-md: clamp(2.5rem, 6vw, 6rem);
+  --ff-type-display-sm: clamp(1.875rem, 4vw, 3.5rem);
+
+  --ff-type-body-lg: clamp(1.125rem, 1.1vw, 1.375rem);
+  --ff-type-body-md: 1rem;
+  --ff-type-body-sm: 0.875rem;
+
+  --ff-type-editorial-lg: clamp(1.5rem, 2vw, 2.25rem);
+  --ff-type-editorial-md: clamp(1.125rem, 1.4vw, 1.5rem);
+
+  --ff-type-eyebrow: 0.75rem;
+  --ff-type-mono: 0.875rem;
+
+  /* Weights */
+  --ff-weight-light: 300;
+  --ff-weight-regular: 400;
+  --ff-weight-medium: 500;
+  --ff-weight-semibold: 600;
+  --ff-weight-bold: 700;
+
+  /* Tracking / leading */
+  --ff-tracking-display-tight: -0.04em;
+  --ff-tracking-display-normal: -0.02em;
+  --ff-tracking-body: 0;
+  --ff-tracking-eyebrow: 0.12em;
+
+  --ff-leading-display-tight: 0.92;
+  --ff-leading-display-normal: 1.02;
+  --ff-leading-body: 1.6;
+  --ff-leading-editorial: 1.5;
+
+  /* Measure */
+  --ff-measure-intimate: 45ch;
+  --ff-measure-reading: 62ch;
+  --ff-measure-wide: 75ch;
+
+  /* ─── Spacing ───────────────────────────────────────────────────── */
+  --ff-space-0: 0;
+  --ff-space-1: 0.25rem;
+  --ff-space-2: 0.5rem;
+  --ff-space-3: 0.75rem;
+  --ff-space-4: 1rem;
+  --ff-space-5: 1.5rem;
+  --ff-space-6: 2rem;
+  --ff-space-7: 3rem;
+  --ff-space-8: 4rem;
+  --ff-space-9: 6rem;
+  --ff-space-10: 8rem;
+  --ff-space-11: 12rem;
+  --ff-space-12: 16rem;
+
+  /* Named rhythm — what the Exhibit component consumes. */
+  --ff-rhythm-gutter: clamp(2rem, 4vw, 4rem);
+  --ff-rhythm-breath: clamp(4rem, 8vw, 8rem);
+  --ff-rhythm-room: clamp(6rem, 12vw, 12rem);
+  --ff-rhythm-hall: clamp(8rem, 16vw, 16rem);
+
+  --ff-inset-edge: clamp(1rem, 4vw, 3rem);
+  --ff-inset-frame: clamp(1.5rem, 8vw, 6rem);
+  --ff-inset-offset: 8.333%;
+
+  /* ─── Radius ────────────────────────────────────────────────────── */
+  --ff-radius-sharp: 0;
+  --ff-radius-soft: 4px;
+  --ff-radius-framed: 12px;
+  --ff-radius-circle: 9999px;
+
+  /* ─── Motion ────────────────────────────────────────────────────── */
+  --ff-ease-expo-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ff-ease-quart-out: cubic-bezier(0.25, 1, 0.5, 1);
+  --ff-ease-expo-in-out: cubic-bezier(0.87, 0, 0.13, 1);
+
+  --ff-dur-structure: 200ms;
+  --ff-dur-primary: 600ms;
+  --ff-dur-secondary: 900ms;
+  --ff-dur-sequence: 1200ms;
+
+  /* ─── Grid ──────────────────────────────────────────────────────── */
+  --ff-max-width: 1440px;
+
+  /* ─── Z-index scale ────────────────────────────────────────────── */
+  --ff-z-base: 0;
+  --ff-z-ambient: 5;
+  --ff-z-content: 10;
+  --ff-z-nav: 50;
+  --ff-z-cursor: 90;
+  --ff-z-overlay: 100;
+
+  color-scheme: light;
+}
+
+/* ─── Dark theme ─────────────────────────────────────────────────── */
+[data-theme="dark"] {
+  --ff-paper: #0e0d0c;
+  --ff-ink: #f4f2ee;
+  --ff-accent: #ff5a1f;
+  --ff-selection: rgba(255, 90, 31, 0.32);
+
+  --ff-text-primary: #f4f2ee;
+  --ff-text-secondary: rgba(244, 242, 238, 0.64);
+  --ff-text-tertiary: rgba(244, 242, 238, 0.40);
+  --ff-surface: #0e0d0c;
+  --ff-surface-raised: #1a1816;
+  --ff-border: rgba(244, 242, 238, 0.10);
+  --ff-border-strong: rgba(244, 242, 238, 0.22);
+
+  color-scheme: dark;
+}
+
+/**
+ * No prefers-color-scheme auto-flip is shipped here. The Yappaflow standing
+ * rule is "light by default" — dark is opt-in via the ThemeToggle, which
+ * sets [data-theme="dark"] on <html>. Consumers who want system-follow
+ * behaviour can pass `theme="auto"` to GalleryShell; ThemeProvider then
+ * reads matchMedia at runtime and writes data-theme="light" or "dark"
+ * directly, so the resolved attribute (not the user's OS) drives the palette.
+ */

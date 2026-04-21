@@ -201,9 +201,19 @@ export async function buildProjectZip(
   }
 
   // ── Default flat path ──────────────────────────────────────────────────
+  //
+  // Some platforms (e.g. yappaflow — Next.js static export) persist binary
+  // artifacts like fonts and favicons. We detect them via `language="binary"`
+  // and base64-decode before writing into the ZIP. Everything else stays
+  // UTF-8 so the existing platforms (custom static HTML, Shopify liquid,
+  // WordPress PHP) are untouched.
   const zip = new AdmZip();
   for (const a of artifacts) {
-    zip.addFile(a.filePath, Buffer.from(a.content, "utf8"));
+    const buf =
+      a.language === "binary"
+        ? Buffer.from(a.content, "base64")
+        : Buffer.from(a.content, "utf8");
+    zip.addFile(a.filePath, buf);
   }
 
   return {

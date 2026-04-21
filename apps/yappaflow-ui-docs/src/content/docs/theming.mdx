@@ -1,0 +1,95 @@
+import { ThemeToggle } from "yappaflow-ui/theme";
+
+## The token layer
+
+Every visual choice in the library reads from a single namespace of CSS custom properties: `--ff-*`. Colors, type scale, spacing, radii, motion — all tokens. This means:
+
+- **You can restyle every site by redefining a handful of variables.** No build step, no recompilation.
+- **No component hardcodes a hex value.** A palette swap in one place propagates everywhere.
+- **The AI generator only needs the tokens to produce a cohesive site.** It never writes raw hex.
+
+## Light default, dark toggle
+
+Every Yappaflow-generated site starts in light theme and ships a dark toggle. This is a standing project rule, not a stylistic preference — the library enforces it structurally:
+
+- `ThemeProvider` defaults to `defaultMode="light"`, with `"auto"` available to follow `prefers-color-scheme`.
+- `NavShell` renders `<ThemeToggle />` by default — pass `showThemeToggle={false}` to opt out.
+- The dark palette is derived from the accent hue so the dark mode never feels generic.
+
+<LiveExample
+  title="ThemeToggle — framed variant"
+  code={`import { ThemeToggle } from "yappaflow-ui/theme";
+
+export function Header() {
+  return (
+    <header>
+      {/* ... */}
+      <ThemeToggle variant="framed" />
+    </header>
+  );
+}`}
+>
+  <ThemeToggle variant="framed" />
+</LiveExample>
+
+```tsx
+import { GalleryShell } from "yappaflow-ui/shell";
+
+// Default — auto, respects system + stored choice.
+<GalleryShell>...</GalleryShell>
+
+// Force light. The toggle is still rendered — standing rule.
+<GalleryShell theme="light">...</GalleryShell>
+```
+
+## Overriding tokens
+
+Define a scope that wins specificity against `:root`:
+
+```css
+/* app/brand.css */
+:root {
+  --ff-accent: #5a3bff;           /* your brand accent */
+  --ff-selection: rgba(90, 59, 255, 0.24);
+}
+
+[data-theme="dark"] {
+  --ff-accent: #8f7bff;           /* slightly lifted in dark */
+}
+```
+
+Import after `yappaflow-ui/styles.css` and the whole library restyles.
+
+## Palette reference
+
+Light palette (subset):
+
+| Token | Value |
+| --- | --- |
+| `--ff-paper` | `#fafaf9` |
+| `--ff-ink` | `#0a0a0a` |
+| `--ff-accent` | `#ff4d00` |
+| `--ff-text-primary` | `#0a0a0a` |
+| `--ff-text-secondary` | `rgba(10, 10, 10, 0.62)` |
+| `--ff-surface` | `#fafaf9` |
+| `--ff-surface-raised` | `#ffffff` |
+| `--ff-border` | `rgba(10, 10, 10, 0.10)` |
+| `--ff-border-strong` | `rgba(10, 10, 10, 0.22)` |
+
+Dark palette flips each of these. Both pass WCAG AA.
+
+## When to write CSS vs. use the TS tokens
+
+- **CSS variables** — for styling. Every visual rule uses `var(--ff-*)`.
+- **TS tokens** (from `yappaflow-ui/tokens`) — for logic. Motion hooks read `choreography` and `easingsGsap` constants; if you need the same values at runtime in your own code, import them.
+
+```ts
+import { choreography, easingsGsap } from "yappaflow-ui/tokens";
+
+// Your own GSAP tween, staying on-score with the library:
+gsap.to(el, {
+  x: 40,
+  duration: choreography.primary.duration / 1000,
+  ease: easingsGsap.expoOut,
+});
+```

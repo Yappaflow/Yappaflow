@@ -1,0 +1,70 @@
+## Install
+
+```bash
+npm install yappaflow-ui
+# or
+pnpm add yappaflow-ui
+```
+
+React 18+ and React DOM are peer dependencies — yappaflow-ui doesn't bundle them.
+
+## Import the stylesheet once
+
+The library ships a compiled stylesheet that declares every `--ff-*` token and the minimal reset. Import it at the root of your app.
+
+```tsx
+// app/layout.tsx (Next.js) or src/main.tsx (Vite)
+import "yappaflow-ui/styles.css";
+```
+
+If you only want tokens (no reset, no base), import `yappaflow-ui/tokens.css` instead and bring your own reset.
+
+## Mount the shell
+
+Every yappaflow-ui page renders inside a single `GalleryShell`. It mounts the theme provider, the motion provider (GSAP + Lenis), and the paper background.
+
+```tsx
+import { GalleryShell, NavShell } from "yappaflow-ui/shell";
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="en">
+      <body>
+        <GalleryShell theme="auto">
+          <NavShell brand="Studio" />
+          <main>{children}</main>
+        </GalleryShell>
+      </body>
+    </html>
+  );
+}
+```
+
+`theme="auto"` follows system preference and honors the user's stored choice — this is the Yappaflow default and satisfies the "light default, dark toggle" standing rule without extra config.
+
+## Render your first exhibit
+
+```tsx
+import { ExhibitHero } from "yappaflow-ui/exhibits";
+
+export default function Home() {
+  return (
+    <ExhibitHero
+      eyebrow="Studio"
+      headline={"Work you can\nlive inside."}
+      subtext="A small practice for large ideas."
+      cta={{ label: "See work", href: "/work" }}
+      ambient="drift"
+    />
+  );
+}
+```
+
+That's a complete landing page — display-scale type, entry choreography, a magnetic CTA, and an ambient drift behind it. The fluid type scale and responsive rhythm take care of every breakpoint automatically.
+
+## Next
+
+- **[Theming](/docs/theming)** — how tokens and the light/dark system fit together.
+- **[Motion system](/docs/motion-system)** — GSAP, Lenis, and the choreography score.
+- **[Composition patterns](/docs/composition-patterns)** — how primitives become shells become exhibits.
+- **[Gallery](/gallery)** — every component, live, with copy-pasteable code.

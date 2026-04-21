@@ -1,0 +1,108 @@
+## What ships
+
+The `yappaflow-ui` package publishes a single `dist/` tree built by tsup. Exports are split per layer:
+
+```jsonc
+"exports": {
+  ".":            "yappaflow-ui",
+  "./tokens":     "yappaflow-ui/tokens",
+  "./motion":     "yappaflow-ui/motion",
+  "./primitives": "yappaflow-ui/primitives",
+  "./shell":      "yappaflow-ui/shell",
+  "./exhibits":   "yappaflow-ui/exhibits",
+  "./theme":      "yappaflow-ui/theme",
+  "./styles.css": "yappaflow-ui/styles.css",
+  "./tokens.css": "yappaflow-ui/tokens.css"
+}
+```
+
+Consumers can import the whole surface (`import { Display } from "yappaflow-ui"`) or a single layer (`import { Display } from "yappaflow-ui/primitives"`). The per-layer subpaths keep AI-generated static sites lean — only the code for the imports you actually use ends up in the bundle.
+
+## First-time publish
+
+You need an npm account with 2FA enabled and write access to the `yappaflow` scope/user.
+
+### 1. Log in
+
+```bash
+npm whoami
+# if nothing → npm login
+```
+
+### 2. Build a clean tarball
+
+From `packages/yappaflow-ui`:
+
+```bash
+npm run clean
+npm run build
+npm pack --dry-run
+```
+
+`--dry-run` prints every file the tarball will contain without actually writing it. The only things that should appear are:
+
+- `dist/**/*` (JS, CJS, `.d.ts`, `.d.cts`, CSS)
+- `README.md`
+- `CHANGELOG.md`
+- `package.json`
+
+If you see `src/**` or `node_modules` in the list, the `files` field in `package.json` is wrong — fix it before publishing.
+
+### 3. Verify the "use client" banners
+
+The React components in `motion/`, `shell/`, and `theme/` need a literal `"use client";` directive at the top of the built JS so Next.js RSC can import them. The tsup config re-prepends this banner in an `onSuccess` hook — verify it's intact:
+
+```bash
+head -1 dist/motion/index.js     # → "use client";
+head -1 dist/shell/index.js      # → "use client";
+head -1 dist/theme/index.js      # → "use client";
+```
+
+If any of these is missing, the build plugin drifted and consumers will hit `useState can only be used in a Client Component`.
+
+### 4. Bump the version
+
+Use `npm version` so git tags line up:
+
+```bash
+npm version patch   # 0.1.0 → 0.1.1
+npm version minor   # 0.1.0 → 0.2.0
+npm version major   # 0.1.0 → 1.0.0
+```
+
+Then update `CHANGELOG.md` — move the `[Unreleased]` entries under a new dated version heading.
+
+### 5. Publish
+
+```bash
+npm publish
+```
+
+`prepublishOnly` runs typecheck + build automatically. You'll be prompted for a 2FA code.
+
+For a pre-release, pass a dist-tag so consumers don't upgrade by accident:
+
+```bash
+npm version prerelease --preid=rc
+npm publish --tag next
+```
+
+Install it later with `npm install yappaflow-ui@next`.
+
+### 6. After publish
+
+- Push the version-bump commit and tag: `git push --follow-tags`
+- Cut a release on GitHub with the changelog entry
+- Bump `yappaflow-ui-docs` so the deployed docs site tracks the new version
+
+## Unpublishing / deprecating
+
+Don't unpublish a released version unless it leaked a secret — consumers lock to ranges and unpublishing breaks their installs. Deprecate instead:
+
+```bash
+npm deprecate yappaflow-ui@0.1.0 "bug in Reveal — upgrade to 0.1.1"
+```
+
+## Monorepo notes
+
+This package lives in a Turborepo at `packages/yappaflow-ui` with the docs app at `apps/yappaflow-ui-docs` consuming it via a workspace protocol. The docs app must import the built `dist/`, not `src/`, or the Next.js build fails on the `"use client"` banner handling. Running `npm run build` in the package root updates `dist/` in place; Turbo's cache keys on the dist outputs so downstream builds notice automatically.
