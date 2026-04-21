@@ -1,0 +1,28 @@
+{%- comment -%}
+  Meta tags — OG + Twitter + favicon. Shopify already emits its own
+  SEO meta via {{ content_for_header }}, so this just adds what Shopify
+  doesn't cover.
+{%- endcomment -%}
+{%- assign og_title = page_title | default: shop.name -%}
+{%- assign og_desc  = page_description | default: shop.meta_description | default: shop.name -%}
+{%- assign og_image = page_image | default: settings.brand_logo -%}
+
+<meta property="og:site_name" content="{{ shop.name }}">
+<meta property="og:title" content="{{ og_title | escape }}">
+<meta property="og:description" content="{{ og_desc | escape }}">
+<meta property="og:url" content="{{ canonical_url }}">
+<meta property="og:type" content="{% if template.name == 'product' %}product{% elsif template.name == 'article' %}article{% else %}website{% endif %}">
+{%- if og_image != blank -%}
+  <meta property="og:image" content="{{ og_image | image_url: width: 1200 }}">
+{%- endif -%}
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ og_title | escape }}">
+<meta name="twitter:description" content="{{ og_desc | escape }}">
+{%- if og_image != blank -%}
+  <meta name="twitter:image" content="{{ og_image | image_url: width: 1200 }}">
+{%- endif -%}
+
+{%- if settings.brand_logo != blank -%}
+  <link rel="icon" type="image/png" href="{{ settings.brand_logo | image_url: width: 64 }}">
+{%- endif -%}

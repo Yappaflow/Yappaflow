@@ -1,0 +1,49 @@
+{%- comment -%}
+  Customer account overview — orders list + "view addresses" link.
+{%- endcomment -%}
+<section class="section">
+  <div class="wrap">
+    <header class="account-header" data-reveal>
+      <h1 class="heading">{{ 'customer.account.title' | t }}</h1>
+      <p class="muted">{{ customer.email }}</p>
+      <div class="account-actions">
+        <a href="{{ routes.account_addresses_url }}" class="btn btn--ghost">
+          {{ 'customer.account.view_addresses' | t }}
+        </a>
+        <a href="{{ routes.account_logout_url }}" class="btn btn--link">
+          {{ 'customer.account.logout' | t }}
+        </a>
+      </div>
+    </header>
+
+    <h2 class="subheading" data-reveal>{{ 'customer.account.orders' | t }}</h2>
+
+    {%- if customer.orders.size > 0 -%}
+      <div class="orders-table" role="table" aria-label="{{ 'customer.account.orders' | t }}" data-reveal>
+        <div class="orders-table__head" role="row">
+          <span role="columnheader">{{ 'customer.account.order_number' | t }}</span>
+          <span role="columnheader">{{ 'customer.account.date' | t }}</span>
+          <span role="columnheader">{{ 'customer.account.payment_status' | t }}</span>
+          <span role="columnheader">{{ 'customer.account.fulfillment' | t }}</span>
+          <span role="columnheader">{{ 'customer.account.total' | t }}</span>
+        </div>
+        {%- paginate customer.orders by 20 -%}
+          {%- for order in customer.orders -%}
+            <a class="orders-table__row" role="row" href="{{ order.customer_url }}">
+              <span role="cell">{{ order.name }}</span>
+              <span role="cell">{{ order.created_at | date: format: 'date' }}</span>
+              <span role="cell">{{ order.financial_status_label }}</span>
+              <span role="cell">{{ order.fulfillment_status_label }}</span>
+              <span role="cell">{{ order.total_price | money }}</span>
+            </a>
+          {%- endfor -%}
+          {%- if paginate.pages > 1 -%}
+            <div class="orders-table__pagination">{%- render 'pagination', paginate: paginate -%}</div>
+          {%- endif -%}
+        {%- endpaginate -%}
+      </div>
+    {%- else -%}
+      <p class="muted" data-reveal>{{ 'customer.account.no_orders' | t }}</p>
+    {%- endif -%}
+  </div>
+</section>

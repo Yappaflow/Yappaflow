@@ -1,0 +1,48 @@
+{%- comment -%}
+  Blog index — article cards.
+{%- endcomment -%}
+<section class="section">
+  <div class="wrap">
+    <header class="section__head" data-reveal>
+      <h1 class="heading">{{ blog.title }}</h1>
+    </header>
+
+    {%- paginate blog.articles by section.settings.per_page -%}
+      <div class="article-grid article-grid--{{ section.settings.per_row }}">
+        {%- for article in blog.articles -%}
+          <article class="article-card" data-reveal>
+            <a href="{{ article.url }}">
+              {%- if article.image != blank -%}
+                <div class="article-card__media">
+                  <img src="{{ article.image | image_url: width: 900 }}"
+                       alt="{{ article.image.alt | default: article.title | escape }}"
+                       loading="lazy" width="600" height="400">
+                </div>
+              {%- endif -%}
+              <h2 class="article-card__title">{{ article.title }}</h2>
+              <p class="muted small">{{ article.published_at | date: format: 'date' }} · {{ article.author }}</p>
+              {%- if section.settings.show_excerpt and article.excerpt_or_content -%}
+                <p class="article-card__excerpt">{{ article.excerpt_or_content | strip_html | truncatewords: 28 }}</p>
+              {%- endif -%}
+            </a>
+          </article>
+        {%- endfor -%}
+      </div>
+
+      {%- if paginate.pages > 1 -%}
+        {%- render 'pagination', paginate: paginate -%}
+      {%- endif -%}
+    {%- endpaginate -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Blog",
+  "settings": [
+    { "type": "range","id": "per_row", "label": "Per row", "min": 2, "max": 4, "step": 1, "default": 3 },
+    { "type": "range","id": "per_page","label": "Per page","min": 3, "max": 24, "step": 3, "default": 12 },
+    { "type": "checkbox","id": "show_excerpt","label": "Show excerpt","default": true }
+  ]
+}
+{% endschema %}

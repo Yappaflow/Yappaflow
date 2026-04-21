@@ -1,0 +1,59 @@
+{%- comment -%}
+  Search page — query form + product results grid.
+{%- endcomment -%}
+<section class="section">
+  <div class="wrap">
+    <h1 class="heading" data-reveal>{{ 'general.search.title' | t }}</h1>
+
+    <form action="{{ routes.search_url }}" method="get" role="search" class="search-form" data-reveal>
+      <label class="sr-only" for="Search">{{ 'general.search.placeholder' | t }}</label>
+      <input type="search" id="Search" name="q" value="{{ search.terms | escape }}"
+             placeholder="{{ 'general.search.placeholder' | t }}" class="field__input">
+      <input type="hidden" name="type" value="product">
+      <button type="submit" class="btn btn--primary">{{ 'general.search.submit' | t }}</button>
+    </form>
+
+    {%- if search.performed -%}
+      <p class="muted small" data-reveal>
+        {{ 'general.search.results_for' | t: terms: search.terms }}
+      </p>
+
+      {%- paginate search.results by section.settings.products_per_page -%}
+        {%- if search.results.size > 0 -%}
+          <div class="product-grid product-grid--{{ section.settings.products_per_row }}">
+            {%- for item in search.results -%}
+              {%- if item.object_type == 'product' -%}
+                {%- render 'product-card', product: item -%}
+              {%- else -%}
+                <article class="product-card product-card--other">
+                  <a href="{{ item.url }}">
+                    <h3>{{ item.title }}</h3>
+                  </a>
+                  {%- if item.excerpt -%}
+                    <p class="muted small">{{ item.excerpt | strip_html | truncatewords: 28 }}</p>
+                  {%- endif -%}
+                </article>
+              {%- endif -%}
+            {%- endfor -%}
+          </div>
+
+          {%- if paginate.pages > 1 -%}
+            {%- render 'pagination', paginate: paginate -%}
+          {%- endif -%}
+        {%- else -%}
+          <p class="muted">{{ 'general.search.no_results' | t: terms: search.terms }}</p>
+        {%- endif -%}
+      {%- endpaginate -%}
+    {%- endif -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Search",
+  "settings": [
+    { "type": "range", "id": "products_per_row",  "label": "Products per row",  "min": 2, "max": 4, "step": 1, "default": 4 },
+    { "type": "range", "id": "products_per_page", "label": "Results per page",  "min": 8, "max": 48, "step": 4, "default": 24 }
+  ]
+}
+{% endschema %}

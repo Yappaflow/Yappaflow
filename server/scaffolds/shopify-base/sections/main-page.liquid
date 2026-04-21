@@ -1,0 +1,30 @@
+{%- comment -%}
+  Generic content page. Used by About, Contact, Shipping, etc.
+{%- endcomment -%}
+<section class="section">
+  <div class="wrap {% if section.settings.max_width == 'prose' %}wrap--prose{% endif %}">
+    {%- if section.settings.show_title -%}
+      <h1 class="heading" data-reveal>{{ page.title }}</h1>
+    {%- endif -%}
+    <article class="rte" data-reveal>
+      {{ page.content }}
+    </article>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Page",
+  "settings": [
+    { "type": "checkbox", "id": "show_title", "label": "Show title", "default": true },
+    {
+      "type": "select", "id": "max_width", "label": "Width",
+      "options": [
+        { "value": "prose", "label": "Prose (narrow)" },
+        { "value": "wide",  "label": "Wide" }
+      ],
+      "default": "prose"
+    }
+  ]
+}
+{% endschema %}

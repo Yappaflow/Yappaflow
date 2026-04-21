@@ -1,0 +1,111 @@
+{%- comment -%}
+  Sticky site header: brand, primary menu, search, account, cart.
+  Mobile collapses the nav into a drawer controlled by theme.js.
+{%- endcomment -%}
+<header class="site-header" role="banner">
+  <div class="site-header__inner wrap">
+    <button type="button" class="icon-btn site-header__nav-toggle" data-nav-toggle
+            aria-label="{{ 'general.accessibility.menu' | t }}" aria-expanded="false">
+      {%- render 'icon', name: 'menu' -%}
+    </button>
+
+    <a href="{{ routes.root_url }}" class="site-header__brand">
+      {%- if settings.brand_logo != blank -%}
+        <img src="{{ settings.brand_logo | image_url: width: 360 }}"
+             alt="{{ settings.brand_name | default: shop.name | escape }}"
+             width="180" height="40" loading="eager">
+      {%- else -%}
+        <span class="site-header__brand-text">
+          {{ settings.brand_name | default: shop.name }}
+        </span>
+      {%- endif -%}
+    </a>
+
+    {%- if linklists[section.settings.menu_primary] != blank -%}
+      <nav class="site-header__nav" aria-label="Primary">
+        <ul>
+          {%- for link in linklists[section.settings.menu_primary].links -%}
+            <li>
+              <a href="{{ link.url }}"
+                 class="site-header__link{% if link.active or link.child_active %} is-active{% endif %}">
+                {{ link.title }}
+              </a>
+              {%- if link.links.size > 0 -%}
+                <ul class="site-header__submenu">
+                  {%- for child in link.links -%}
+                    <li><a href="{{ child.url }}">{{ child.title }}</a></li>
+                  {%- endfor -%}
+                </ul>
+              {%- endif -%}
+            </li>
+          {%- endfor -%}
+        </ul>
+      </nav>
+    {%- endif -%}
+
+    <div class="site-header__actions">
+      {%- if section.settings.show_search -%}
+        <a href="{{ routes.search_url }}" class="icon-btn"
+           aria-label="{{ 'general.accessibility.search' | t }}">
+          {%- render 'icon', name: 'search' -%}
+        </a>
+      {%- endif -%}
+
+      <button type="button" class="icon-btn" data-theme-toggle
+              aria-label="{{ 'general.accessibility.theme_toggle' | t }}">
+        {%- render 'icon', name: 'moon' -%}
+      </button>
+
+      {%- if section.settings.show_account -%}
+        <a href="{{ routes.account_url }}" class="icon-btn"
+           aria-label="{{ 'general.accessibility.account' | t }}">
+          {%- render 'icon', name: 'user' -%}
+        </a>
+      {%- endif -%}
+
+      <a href="{{ routes.cart_url }}" class="icon-btn icon-btn--cart"
+         aria-label="{{ 'general.accessibility.cart' | t }}">
+        {%- render 'icon', name: 'bag' -%}
+        <span class="cart-badge" data-cart-count {% if cart.item_count == 0 %}data-empty{% endif %}>
+          {{ cart.item_count }}
+        </span>
+      </a>
+    </div>
+  </div>
+
+  {%- comment -%}Mobile nav drawer, controlled by data-nav-toggle.{%- endcomment -%}
+  <div class="nav-drawer" data-nav-drawer>
+    <div class="nav-drawer__panel">
+      <div class="nav-drawer__top">
+        <span class="site-header__brand-text">{{ settings.brand_name | default: shop.name }}</span>
+        <button type="button" class="icon-btn" data-nav-close
+                aria-label="{{ 'general.accessibility.close' | t }}">
+          {%- render 'icon', name: 'close' -%}
+        </button>
+      </div>
+      {%- if linklists[section.settings.menu_primary] != blank -%}
+        <ul class="nav-drawer__links">
+          {%- for link in linklists[section.settings.menu_primary].links -%}
+            <li><a href="{{ link.url }}">{{ link.title }}</a></li>
+          {%- endfor -%}
+        </ul>
+      {%- endif -%}
+    </div>
+  </div>
+</header>
+
+{% schema %}
+{
+  "name": "Header",
+  "settings": [
+    {
+      "type": "link_list",
+      "id":   "menu_primary",
+      "label":"Primary menu",
+      "default":"main-menu"
+    },
+    { "type": "checkbox", "id": "show_search",  "label": "Show search icon",  "default": true  },
+    { "type": "checkbox", "id": "show_account", "label": "Show account icon", "default": true  }
+  ]
+}
+{% endschema %}

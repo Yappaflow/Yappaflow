@@ -1,0 +1,23 @@
+{%- comment -%}
+  Thin top bar. Merchants can hide by leaving the message blank.
+{%- endcomment -%}
+{%- if section.settings.message != blank -%}
+  <aside class="announcement" role="note">
+    {%- if section.settings.link != blank -%}
+      <a href="{{ section.settings.link }}" class="announcement__link">{{ section.settings.message }}</a>
+    {%- else -%}
+      <span>{{ section.settings.message }}</span>
+    {%- endif -%}
+  </aside>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Announcement bar",
+  "settings": [
+    { "type": "text", "id": "message", "label": "Message", "default": "Free shipping on orders over $75." },
+    { "type": "url",  "id": "link",    "label": "Link" }
+  ],
+  "presets": [{ "name": "Announcement bar" }]
+}
+{% endschema %}

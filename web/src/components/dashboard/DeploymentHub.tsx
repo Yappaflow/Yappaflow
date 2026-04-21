@@ -282,7 +282,10 @@ function CustomWizard({ onExitToDashboard }: { onExitToDashboard: () => void }) 
   // ═══════════════════════════════════════════════════════════════════════
 
   return (
-    <div className="max-w-xl">
+    // The hero step needs room for three real desktop-sized previews
+    // (1280×800 scaled). Other steps stay narrow and form-like — mixing
+    // widths per-step looks cleaner than stretching them all.
+    <div className={step === "hero" ? "max-w-7xl" : "max-w-xl"}>
       {topError && (
         <div className="mb-4 flex items-start gap-2 rounded-xl border border-red-500/30 bg-red-500/5 p-3 text-[12px] text-red-300">
           <X size={14} className="mt-0.5 flex-shrink-0" />
@@ -779,7 +782,7 @@ function ShopifyWizard({ onExitToDashboard }: { onExitToDashboard: () => void })
   };
 
   return (
-    <div className="max-w-xl">
+    <div className={step === "hero" ? "max-w-7xl" : "max-w-xl"}>
       {topError && (
         <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-[12px] text-red-300">
           {topError}
@@ -1189,7 +1192,7 @@ function WordPressWizard({ onExitToDashboard }: { onExitToDashboard: () => void 
   const wordpressAccent = "#21759B"; // WordPress brand blue
 
   return (
-    <div className="max-w-xl">
+    <div className={step === "hero" ? "max-w-7xl" : "max-w-xl"}>
       {topError && (
         <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-[12px] text-red-300">
           {topError}

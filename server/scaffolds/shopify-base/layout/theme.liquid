@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="{{ request.locale.iso_code }}" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="{{ settings.color_bg | default: '#ffffff' }}">
+
+  <title>
+    {%- if template.name == 'index' -%}
+      {{ shop.name }}{% if shop.meta_description %} — {{ shop.meta_description | escape }}{% endif %}
+    {%- elsif template.name == 'product' -%}
+      {{ product.title | escape }} — {{ shop.name }}
+    {%- elsif template.name == 'collection' -%}
+      {{ collection.title | escape }} — {{ shop.name }}
+    {%- else -%}
+      {{ page_title | escape }}{% if page_title != shop.name %} — {{ shop.name }}{% endif %}
+    {%- endif -%}
+  </title>
+
+  {%- if page_description -%}
+    <meta name="description" content="{{ page_description | escape }}">
+  {%- elsif shop.meta_description -%}
+    <meta name="description" content="{{ shop.meta_description | escape }}">
+  {%- endif -%}
+
+  <link rel="canonical" href="{{ canonical_url }}">
+  <link rel="preconnect" href="https://cdn.shopify.com" crossorigin>
+
+  {% render 'meta-tags' %}
+
+  {%- comment -%}
+    Theme tokens as CSS custom properties. This is the SINGLE source of
+    truth for color + typography across the entire theme. The AI-generated
+    brand layer (config/settings_data.json) drives these values; base.css
+    below only reads them.
+  {%- endcomment -%}
+  <style>
+    :root {
+      --color-bg:        {{ settings.color_bg        | default: '#ffffff' }};
+      --color-fg:        {{ settings.color_fg        | default: '#0a0a0a' }};
+      --color-primary:   {{ settings.color_primary   | default: '#0a0a0a' }};
+      --color-on-primary:{{ settings.color_on_primary| default: '#ffffff' }};
+      --color-surface:   {{ settings.color_surface   | default: '#f6f6f4' }};
+      --color-muted:     {{ settings.color_muted     | default: '#6b6b6b' }};
+      --color-border:    {{ settings.color_border    | default: '#e6e6e3' }};
+      --color-accent:    {{ settings.color_accent    | default: '#d4a24c' }};
+
+      --font-display:    {{ settings.font_display_family | default: 'ui-serif, Georgia, "Times New Roman", serif' }};
+      --font-body:       {{ settings.font_body_family    | default: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif' }};
+
+      --radius-sm: 4px;
+      --radius-md: 10px;
+      --radius-lg: 22px;
+      --maxw:      1280px;
+      --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    html[data-theme="dark"] {
+      --color-bg:        {{ settings.color_bg_dark        | default: '#0a0a0a' }};
+      --color-fg:        {{ settings.color_fg_dark        | default: '#f5f5f4' }};
+      --color-primary:   {{ settings.color_primary_dark   | default: '#f5f5f4' }};
+      --color-on-primary:{{ settings.color_on_primary_dark| default: '#0a0a0a' }};
+      --color-surface:   {{ settings.color_surface_dark   | default: '#141414' }};
+      --color-muted:     {{ settings.color_muted_dark     | default: '#a0a0a0' }};
+      --color-border:    {{ settings.color_border_dark    | default: '#262626' }};
+      --color-accent:    {{ settings.color_accent_dark    | default: '#e4b867' }};
+    }
+  </style>
+
+  {%- comment -%}
+    Pre-paint theme resolution. Runs BEFORE the stylesheet so there's no
+    light-to-dark flash for users whose OS / previous visit put them in
+    dark mode. Kept tiny; stored in localStorage under a Yappaflow key
+    so other themes on the same origin don't collide.
+  {%- endcomment -%}
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('yappaflow_theme');
+        var prefersDark = window.matchMedia &&
+          window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = stored || (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { /* localStorage blocked — stay on light */ }
+    })();
+  </script>
+
+  {{ 'base.css' | asset_url | stylesheet_tag }}
+  {%- if settings.brand_css_enabled -%}
+    {{ 'brand.css' | asset_url | stylesheet_tag }}
+  {%- endif -%}
+
+  {{ content_for_header }}
+</head>
+<body class="template-{{ template.name }}">
+  <a href="#main-content" class="skip-link">Skip to content</a>
+
+  {% section 'announcement-bar' %}
+  {% section 'header' %}
+
+  <main id="main-content" role="main" tabindex="-1">
+    {{ content_for_layout }}
+  </main>
+
+  {% section 'footer' %}
+
+  {{ 'theme.js' | asset_url | script_tag }}
+</body>
+</html>

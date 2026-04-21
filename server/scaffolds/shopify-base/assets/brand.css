@@ -1,0 +1,39 @@
+/* brand.css — AI-generated brand overrides land here.
+ *
+ * This file is loaded AFTER base.css when settings.brand_css_enabled is
+ * true (see layout/theme.liquid). It exists in the scaffold so the base
+ * theme renders correctly even before the Yappaflow brand-layer prompt
+ * writes anything brand-specific. The generator overwrites the file
+ * contents — there's no defensive merge. Keep it lean.
+ *
+ * Typography niceties that the base theme doesn't want to impose go
+ * here too, so brand.css is the right place to ship real headline fonts
+ * or letter-spacing rules.
+ */
+
+/* Soft brand default — the AI will overwrite this block. */
+.display {
+  letter-spacing: -0.02em;
+}
+
+.hero__headline {
+  text-wrap: balance;
+}
+
+/* Small animation polish that looks nice but isn't strictly base. */
+.product-card {
+  transition: transform 0.4s var(--ease-smooth),
+              box-shadow 0.4s var(--ease-smooth);
+}
+.product-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 40px -20px rgba(0, 0, 0, 0.22);
+}
+
+.btn--primary {
+  transition: transform 0.25s var(--ease-smooth),
+              background 0.25s var(--ease-smooth);
+}
+.btn--primary:hover {
+  transform: translateY(-1px);
+}

@@ -1,0 +1,168 @@
+{
+  "sections": {
+    "hero": {
+      "type": "hero",
+      "settings": {
+        "eyebrow":    "New season",
+        "headline":   "Quietly crafted goods for everyday use.",
+        "subhead":    "Small-batch objects, sourced responsibly and shipped to your door. Updated weekly as new things come in from the workshop.",
+        "cta_label":  "Shop new arrivals",
+        "cta_link":   "/collections/all",
+        "cta2_label": "Our story",
+        "cta2_link":  "/pages/about",
+        "image":      ""
+      }
+    },
+
+    "featured-products": {
+      "type": "featured-products",
+      "settings": {
+        "heading":     "This week's picks",
+        "subheading":  "Six pieces the studio is leaning on right now.",
+        "collection":  "all",
+        "products_per_row": 3,
+        "show_vendor": false,
+        "cta_label":   "Browse the full collection",
+        "cta_link":    "/collections/all"
+      },
+      "blocks": {},
+      "block_order": []
+    },
+
+    "feature-grid": {
+      "type": "feature-grid",
+      "settings": {
+        "heading":    "What you get",
+        "subheading": "Every shipment leaves the studio on the same terms."
+      },
+      "blocks": {
+        "f1": {
+          "type": "feature",
+          "settings": {
+            "icon": "truck",
+            "heading": "Free shipping",
+            "body":    "Orders over $75 ship free, anywhere in the world."
+          }
+        },
+        "f2": {
+          "type": "feature",
+          "settings": {
+            "icon": "leaf",
+            "heading": "Responsibly sourced",
+            "body":    "Materials traced to workshops we've visited in person."
+          }
+        },
+        "f3": {
+          "type": "feature",
+          "settings": {
+            "icon": "shield",
+            "heading": "Lifetime repair",
+            "body":    "Hardware failure? Send it back, we'll make it right."
+          }
+        },
+        "f4": {
+          "type": "feature",
+          "settings": {
+            "icon": "package",
+            "heading": "Plastic-free packaging",
+            "body":    "Kraft paper, cotton twine, a letter from the maker."
+          }
+        }
+      },
+      "block_order": ["f1", "f2", "f3", "f4"]
+    },
+
+    "testimonials": {
+      "type": "testimonials",
+      "settings": {
+        "heading":    "What customers say",
+        "subheading": "A handful of notes from the last six months."
+      },
+      "blocks": {
+        "t1": {
+          "type": "testimonial",
+          "settings": {
+            "quote":  "Genuinely the most thoughtful packaging I've seen this year.",
+            "author": "Maya K.",
+            "role":   "Berlin"
+          }
+        },
+        "t2": {
+          "type": "testimonial",
+          "settings": {
+            "quote":  "Two years in and it still looks the day I bought it.",
+            "author": "Jordan P.",
+            "role":   "Chicago"
+          }
+        },
+        "t3": {
+          "type": "testimonial",
+          "settings": {
+            "quote":  "Replaced five cheaper versions with this one. Worth every dollar.",
+            "author": "Aisha O.",
+            "role":   "London"
+          }
+        }
+      },
+      "block_order": ["t1", "t2", "t3"]
+    },
+
+    "faq": {
+      "type": "faq",
+      "settings": {
+        "heading":    "Questions, answered",
+        "subheading": "Anything else — ask us, we read every email."
+      },
+      "blocks": {
+        "q1": {
+          "type": "item",
+          "settings": {
+            "question": "Where do you ship from?",
+            "answer":   "Everything goes out of our studio in Portland, Oregon, typically within 48 hours."
+          }
+        },
+        "q2": {
+          "type": "item",
+          "settings": {
+            "question": "What's your return policy?",
+            "answer":   "30 days, no questions asked. We'll email a prepaid label."
+          }
+        },
+        "q3": {
+          "type": "item",
+          "settings": {
+            "question": "Do you restock sold-out pieces?",
+            "answer":   "Sometimes — join the newsletter for restock notes."
+          }
+        },
+        "q4": {
+          "type": "item",
+          "settings": {
+            "question": "Do you offer wholesale?",
+            "answer":   "Yes, email wholesale@ with your shop and we'll follow up within a week."
+          }
+        }
+      },
+      "block_order": ["q1", "q2", "q3", "q4"]
+    },
+
+    "cta": {
+      "type": "cta",
+      "settings": {
+        "heading":   "Stay in the loop",
+        "subhead":   "Restocks, new arrivals, and the occasional letter from the studio.",
+        "cta_label": "Subscribe",
+        "cta_link":  "#newsletter"
+      }
+    }
+  },
+
+  "order": [
+    "hero",
+    "featured-products",
+    "feature-grid",
+    "testimonials",
+    "faq",
+    "cta"
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "sections": {
+    "main": {
+      "type": "main-cart",
+      "settings": {
+        "show_note":     true,
+        "show_terms":    false,
+        "empty_heading": "Your cart is empty.",
+        "empty_body":    "Explore the new arrivals or pick up where you left off — we saved your recently viewed.",
+        "empty_cta_label": "Start shopping",
+        "empty_cta_link":  "/collections/all"
+      }
+    }
+  },
+  "order": ["main"]
+}

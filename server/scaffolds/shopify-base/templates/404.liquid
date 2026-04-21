@@ -1,0 +1,17 @@
+{%- comment -%}
+  404 page. JSON templates can't render raw Liquid so this stays as a
+  .liquid template. Intentionally minimal — the main layout already
+  provides the chrome (header, footer).
+{%- endcomment -%}
+<section class="section section--center">
+  <div class="wrap wrap--prose">
+    <p class="eyebrow" data-reveal>{{ 'general.404.title' | t }}</p>
+    <h1 class="display" data-reveal>404</h1>
+    <p class="lede" data-reveal>{{ 'general.404.body' | t }}</p>
+    <p data-reveal>
+      <a href="{{ routes.root_url }}" class="btn btn--primary">
+        {{ 'general.404.cta' | t }}
+      </a>
+    </p>
+  </div>
+</section>

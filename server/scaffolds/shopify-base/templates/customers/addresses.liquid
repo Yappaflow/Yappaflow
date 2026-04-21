@@ -1,0 +1,92 @@
+{%- comment -%}
+  Customer addresses — list + add/edit forms.
+{%- endcomment -%}
+<section class="section">
+  <div class="wrap">
+    <h1 class="heading" data-reveal>{{ 'customer.addresses.title' | t }}</h1>
+
+    <details class="address-new" data-reveal>
+      <summary class="btn btn--primary">{{ 'customer.addresses.add' | t }}</summary>
+      {%- form 'customer_address', customer.new_address, class: 'address-form' -%}
+        <div class="field-row">
+          <label class="field">
+            <span class="field__label">{{ 'customer.addresses.first_name' | t }}</span>
+            <input type="text" name="address[first_name]" class="field__input">
+          </label>
+          <label class="field">
+            <span class="field__label">{{ 'customer.addresses.last_name' | t }}</span>
+            <input type="text" name="address[last_name]" class="field__input">
+          </label>
+        </div>
+        <label class="field">
+          <span class="field__label">{{ 'customer.addresses.company' | t }}</span>
+          <input type="text" name="address[company]" class="field__input">
+        </label>
+        <label class="field">
+          <span class="field__label">{{ 'customer.addresses.address1' | t }}</span>
+          <input type="text" name="address[address1]" class="field__input">
+        </label>
+        <label class="field">
+          <span class="field__label">{{ 'customer.addresses.address2' | t }}</span>
+          <input type="text" name="address[address2]" class="field__input">
+        </label>
+        <div class="field-row">
+          <label class="field">
+            <span class="field__label">{{ 'customer.addresses.city' | t }}</span>
+            <input type="text" name="address[city]" class="field__input">
+          </label>
+          <label class="field">
+            <span class="field__label">{{ 'customer.addresses.zip' | t }}</span>
+            <input type="text" name="address[zip]" class="field__input">
+          </label>
+        </div>
+        <div class="field-row">
+          <label class="field">
+            <span class="field__label">{{ 'customer.addresses.country' | t }}</span>
+            <select name="address[country]" class="field__input" data-country>
+              {{ all_country_option_tags }}
+            </select>
+          </label>
+          <label class="field">
+            <span class="field__label">{{ 'customer.addresses.province' | t }}</span>
+            <select name="address[province]" class="field__input" data-province></select>
+          </label>
+        </div>
+        <label class="field">
+          <span class="field__label">{{ 'customer.addresses.phone' | t }}</span>
+          <input type="tel" name="address[phone]" class="field__input">
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" name="address[default]" value="1">
+          <span>{{ 'customer.addresses.default' | t }}</span>
+        </label>
+        <button type="submit" class="btn btn--primary">{{ 'customer.addresses.save' | t }}</button>
+      {%- endform -%}
+    </details>
+
+    {%- if customer.addresses.size > 0 -%}
+      <div class="address-list">
+        {%- for address in customer.addresses -%}
+          <article class="address-card" data-reveal>
+            {%- if address == customer.default_address -%}
+              <span class="badge">{{ 'customer.addresses.default' | t }}</span>
+            {%- endif -%}
+            <p>{{ address | format_address }}</p>
+            <div class="address-card__actions">
+              <a href="#" class="btn btn--link" data-edit-address="{{ address.id }}">
+                {{ 'customer.addresses.edit' | t }}
+              </a>
+              {%- form 'customer_address', address, method: 'delete' -%}
+                <button type="submit" class="btn btn--link">
+                  {{ 'customer.addresses.delete' | t }}
+                </button>
+              {%- endform -%}
+            </div>
+          </article>
+        {%- endfor -%}
+      </div>
+    {%- endif -%}
+
+    <p><a href="{{ routes.account_url }}" class="btn btn--link">← {{ 'customer.account.title' | t }}</a></p>
+  </div>
+</section>

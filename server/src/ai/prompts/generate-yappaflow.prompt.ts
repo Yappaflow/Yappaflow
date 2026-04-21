@@ -172,7 +172,11 @@ its styles once and composes pages from six layers:
   \`Stack\`, \`Display\`, \`Body\`, \`Mark\`, \`Eyebrow\`. The composition grammar.
 - **Shell** (\`yappaflow-ui/shell\`) — \`GalleryShell\`, \`Exhibit\`, \`NavShell\`,
   \`FootShell\`. Site chrome.
-- **Exhibits** (\`yappaflow-ui/exhibits\`) — \`ExhibitHero\` (pre-composed hero).
+- **Exhibits** (\`yappaflow-ui/exhibits\`) — \`ExhibitHero\`, \`ExhibitFeatureGrid\`,
+  \`ExhibitTestimonials\`, \`ExhibitFAQ\`, \`ExhibitStats\`, \`ExhibitTimeline\`,
+  \`ExhibitLogoCloud\`, \`ExhibitPricing\`, \`ExhibitTeam\`, \`ExhibitSplit\`,
+  \`ExhibitCTA\`, \`ExhibitNewsletter\`, \`ExhibitContact\`. Each is a drop-in
+  section — pass structured props, the exhibit handles layout + motion.
 - **Theme** (\`yappaflow-ui/theme\`) — \`ThemeProvider\`, \`ThemeToggle\`,
   \`useTheme\`. \`NavShell\` renders the toggle by default — do not re-implement.
 
@@ -182,7 +186,11 @@ Import paths use the published subpath entries:
 import { GalleryShell, NavShell, FootShell, Exhibit } from "yappaflow-ui/shell";
 import { Frame, Stack, Display, Body, Eyebrow } from "yappaflow-ui/primitives";
 import { Reveal, AmbientLayer, Magnetic, ScrambleText } from "yappaflow-ui/motion";
-import { ExhibitHero } from "yappaflow-ui/exhibits";
+import {
+  ExhibitHero, ExhibitFeatureGrid, ExhibitTestimonials, ExhibitFAQ,
+  ExhibitStats, ExhibitTimeline, ExhibitLogoCloud, ExhibitPricing,
+  ExhibitTeam, ExhibitSplit, ExhibitCTA, ExhibitNewsletter, ExhibitContact,
+} from "yappaflow-ui/exhibits";
 \`\`\`
 
 ### Component API — authoritative cheatsheet
@@ -220,6 +228,67 @@ import { ExhibitHero } from "yappaflow-ui/exhibits";
 \`<ExhibitHero eyebrow headline subtext cta ambient="noise"|"drift"|"breathe" alignment size />\` —
   one-line hero exhibit. Use this for \`app/page.tsx\`'s hero unless the identity calls for
   something more bespoke (custom composition inside an \`<Exhibit>\`).
+
+### Exhibit catalog — drop-in sections (PREFER these over hand-rolled markup)
+
+Every non-hero section on the home page, about page, and contact page
+SHOULD use one of these — they already own composition, spacing, and
+motion. You pass structured data (flat arrays of strings) and the
+exhibit handles the visual. Hand-rolled sections are ONLY allowed if
+nothing in the catalog matches.
+
+- \`<ExhibitFeatureGrid eyebrow heading subheading blocks columns? variant? />\`
+  - \`blocks\`: \`{ title, body, icon? }[]\` — 3–6 entries is the sweet spot.
+  - \`icon\` picks from: \`spark\`, \`leaf\`, \`compass\`, \`shield\`, \`wave\`, \`grid\`, \`orbit\`, \`lock\`, \`seed\`, \`pulse\`, \`bolt\`, \`layers\`.
+  - \`columns\`: 2 | 3 | 4. \`variant\`: \`plain\` (default) | \`cards\`.
+  - Use for: Services, "What you get", "Our pillars", "Why us".
+
+- \`<ExhibitTestimonials eyebrow heading subheading blocks columns? />\`
+  - \`blocks\`: \`{ quote, author, role? }[]\` — 2–4 entries.
+  - Use for: Social proof, "Kind words", customer quotes.
+
+- \`<ExhibitFAQ eyebrow heading subheading blocks />\`
+  - \`blocks\`: \`{ question, answer }[]\` — 4–8 entries. Renders as native
+    \`<details>\` accordions (no JS needed).
+  - Use for: "Questions, answered", service FAQs, pricing questions.
+
+- \`<ExhibitStats eyebrow heading blocks />\`
+  - \`blocks\`: \`{ value, label, context? }[]\` — 3–5 entries.
+  - Use for: "By the numbers", proof stats, milestones.
+
+- \`<ExhibitTimeline eyebrow heading subheading entries />\`
+  - \`entries\`: \`{ marker, title, body }[]\` — 3–6 entries. \`marker\` is
+    a year, season, or "01"/"02" step tag.
+  - Use for: Process ("How we work"), company history, roadmap.
+
+- \`<ExhibitLogoCloud eyebrow heading labels />\`
+  - \`labels\`: \`string[]\` — 5–10 wordmarks rendered in the display font.
+  - Use for: Partners, clients, featured-in press strip.
+
+- \`<ExhibitPricing eyebrow heading subheading tiers />\`
+  - \`tiers\`: \`{ name, price, period?, description?, features[], cta, featured? }[]\`
+  - Use for: Packages, plans, engagement tiers. Mark ONE tier \`featured\`.
+
+- \`<ExhibitTeam eyebrow heading subheading members columns? />\`
+  - \`members\`: \`{ name, role, bio? }[]\` — monogram cards (no photos needed).
+  - Use for: "The studio", "Who we are", About-page people grid.
+
+- \`<ExhibitSplit eyebrow heading body cta? media?="left"|"right" mediaCaption? />\`
+  - Two-panel copy + media block. Media falls back to a stylised SVG
+    field — no external images needed.
+  - Use for: Feature spotlights, founder story callouts, manifesto blocks.
+
+- \`<ExhibitCTA eyebrow heading subheading primaryCta secondaryCta? invert? ambient? />\`
+  - Use as a closer above the footer or as a punchy break-band. Set
+    \`invert\` for the inverted (text-on-ink) visual.
+
+- \`<ExhibitNewsletter eyebrow heading subheading submitLabel? placeholder? action? fineprint? />\`
+  - Inline email capture. Leave \`action=""\` — agency wires the endpoint.
+
+- \`<ExhibitContact eyebrow heading subheading rows includeForm? formAction? />\`
+  - \`rows\`: \`{ label, value, href? }[]\` — address, hours, email, phone.
+  - Use this for the bulk of \`app/contact/page.tsx\` — skip hand-rolling a
+    contact form. Leave \`formAction=""\`.
 
 ### Required canonical layout.tsx shape
 
@@ -335,17 +404,51 @@ Next.js + yappaflow-ui project like this:
 - No parallax on headlines or body copy.
 - No drop shadows on cards — use a 1px border in an opacity-shifted ink.
 
-### Page content
+### Page content — density requirement
 
-- **\`app/page.tsx\`** — Hero (name, tagline, CTA → /contact), About
-  snippet, Services/Offering grid, (Shop teaser if products present),
-  Testimonial / Signal quote, Contact CTA.
-- **\`app/about/page.tsx\`** — Long-form story, founder note, values,
-  location (use \`city\` from identity if present).
-- **\`app/contact/page.tsx\`** — Working form (POSTs to the endpoint at
-  \`data-form-action\` on the \`<form>\` — leave empty string for now;
-  agency wires the real endpoint post-deploy), business-hours block,
-  CSS-only map-style address panel. No Google Maps embed.
+Every page must feel like a considered editorial piece, not a landing-
+page skeleton. Short, sparse pages read as AI slop. Use the exhibit
+catalog aggressively so content is cheap to emit but feels rich.
+
+**Home (\`app/page.tsx\`) — MINIMUM 8 sections, ideally 9–11**, in roughly
+this order:
+
+1. \`<ExhibitHero>\` (or a bespoke \`<Exhibit>\` if the direction calls for it)
+2. \`<ExhibitFeatureGrid>\` — 3–6 services / value props
+3. \`<ExhibitStats>\` or \`<ExhibitLogoCloud>\` — proof band
+4. \`<ExhibitSplit>\` — featured offering or manifesto moment
+5. \`<ExhibitTimeline>\` — "how we work" or "process" (3–5 steps)
+6. \`<ExhibitTestimonials>\` — 2–4 quotes
+7. (If products present) shop teaser — a trimmed grid + link to \`/shop\`
+8. \`<ExhibitFAQ>\` — 4–6 questions
+9. \`<ExhibitCTA invert>\` — closer above the footer
+
+**About (\`app/about/page.tsx\`) — MINIMUM 6 sections**:
+
+1. Narrow editorial intro (\`<Exhibit>\` + \`<Frame span={8}>\` with
+   \`<Display>\` and 2–3 paragraphs of \`<Body>\`)
+2. \`<ExhibitStats>\` — founding year, team size, projects, city
+3. \`<ExhibitTimeline>\` — company story or milestones
+4. \`<ExhibitTeam>\` — 3–6 members (or founder + collaborators)
+5. \`<ExhibitFeatureGrid>\` or \`<ExhibitSplit>\` — values / principles
+6. \`<ExhibitCTA>\` — closer
+
+**Contact (\`app/contact/page.tsx\`) — MINIMUM 4 sections**:
+
+1. Hero-ish intro (\`<Exhibit>\` + \`<Display size="lg">\` + \`<Body>\`)
+2. \`<ExhibitContact rows={[...]} includeForm>\` — address, hours, email,
+   phone. Leave \`formAction=""\` for now.
+3. \`<ExhibitFAQ>\` — 3–5 questions about contacting / engagement
+4. \`<ExhibitNewsletter>\` — optional closer
+
+Each \`<Body>\` block under a heading should be at least 2 sentences —
+write for a real audience, not placeholder lorem. Use the identity's
+\`industry\`, \`tone\`, and \`city\` to shape copy (never say "insert your
+copy here").
+
+**No Google Maps embed** — use an \`<ExhibitContact>\` detail row or an
+\`<ExhibitSplit>\` with an inline SVG motif if the direction wants a
+map-ish vibe.
 
 ### Hard requirements
 

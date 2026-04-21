@@ -1,0 +1,38 @@
+{%- comment -%}
+  Shared pagination control. Pass the `paginate` object.
+{%- endcomment -%}
+{%- if paginate and paginate.pages > 1 -%}
+  <nav class="pagination" aria-label="Pagination">
+    {%- if paginate.previous -%}
+      <a href="{{ paginate.previous.url }}" class="pagination__link pagination__link--prev">
+        ← {{ 'general.pagination.previous' | t }}
+      </a>
+    {%- else -%}
+      <span class="pagination__link pagination__link--prev is-disabled" aria-disabled="true">
+        ← {{ 'general.pagination.previous' | t }}
+      </span>
+    {%- endif -%}
+
+    <ul class="pagination__pages">
+      {%- for part in paginate.parts -%}
+        {%- if part.is_link -%}
+          <li><a href="{{ part.url }}">{{ part.title }}</a></li>
+        {%- elsif part.title == paginate.current_page -%}
+          <li><span class="is-current" aria-current="page">{{ part.title }}</span></li>
+        {%- else -%}
+          <li><span class="muted">{{ part.title }}</span></li>
+        {%- endif -%}
+      {%- endfor -%}
+    </ul>
+
+    {%- if paginate.next -%}
+      <a href="{{ paginate.next.url }}" class="pagination__link pagination__link--next">
+        {{ 'general.pagination.next' | t }} →
+      </a>
+    {%- else -%}
+      <span class="pagination__link pagination__link--next is-disabled" aria-disabled="true">
+        {{ 'general.pagination.next' | t }} →
+      </span>
+    {%- endif -%}
+  </nav>
+{%- endif -%}

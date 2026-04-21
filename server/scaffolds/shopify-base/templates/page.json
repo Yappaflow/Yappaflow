@@ -1,0 +1,12 @@
+{
+  "sections": {
+    "main": {
+      "type": "main-page",
+      "settings": {
+        "show_title": true,
+        "max_width":  "prose"
+      }
+    }
+  },
+  "order": ["main"]
+}

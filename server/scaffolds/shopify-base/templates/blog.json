@@ -1,0 +1,13 @@
+{
+  "sections": {
+    "main": {
+      "type": "main-blog",
+      "settings": {
+        "per_row":  3,
+        "per_page": 12,
+        "show_excerpt": true
+      }
+    }
+  },
+  "order": ["main"]
+}

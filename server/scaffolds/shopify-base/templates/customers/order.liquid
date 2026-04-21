@@ -1,0 +1,64 @@
+{%- comment -%}
+  Single order detail view. `order` is in scope.
+{%- endcomment -%}
+<section class="section">
+  <div class="wrap">
+    <p><a href="{{ routes.account_url }}" class="btn btn--link">← {{ 'customer.account.title' | t }}</a></p>
+
+    <h1 class="heading" data-reveal>
+      {{ 'customer.account.order_number' | t }} {{ order.name }}
+    </h1>
+    <p class="muted" data-reveal>{{ order.created_at | date: format: 'date' }}</p>
+
+    <div class="order-summary" data-reveal>
+      <dl>
+        <div><dt>{{ 'customer.account.payment_status' | t }}</dt><dd>{{ order.financial_status_label }}</dd></div>
+        <div><dt>{{ 'customer.account.fulfillment' | t }}</dt><dd>{{ order.fulfillment_status_label }}</dd></div>
+        <div><dt>{{ 'customer.account.total' | t }}</dt><dd>{{ order.total_price | money }}</dd></div>
+      </dl>
+    </div>
+
+    <table class="order-table" data-reveal>
+      <thead>
+        <tr>
+          <th scope="col">Item</th>
+          <th scope="col">Qty</th>
+          <th scope="col">Price</th>
+          <th scope="col">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {%- for line in order.line_items -%}
+          <tr>
+            <td>
+              <a href="{{ line.product.url | default: '#' }}">{{ line.title }}</a>
+              {%- if line.variant.title != 'Default Title' -%}
+                <span class="muted"> — {{ line.variant.title }}</span>
+              {%- endif -%}
+            </td>
+            <td>{{ line.quantity }}</td>
+            <td>{{ line.price | money }}</td>
+            <td>{{ line.final_line_price | money }}</td>
+          </tr>
+        {%- endfor -%}
+      </tbody>
+      <tfoot>
+        <tr><th scope="row" colspan="3">Subtotal</th><td>{{ order.subtotal_price | money }}</td></tr>
+        {%- for shipping in order.shipping_methods -%}
+          <tr><th scope="row" colspan="3">Shipping ({{ shipping.title }})</th><td>{{ shipping.price | money }}</td></tr>
+        {%- endfor -%}
+        {%- for tax_line in order.tax_lines -%}
+          <tr><th scope="row" colspan="3">Tax ({{ tax_line.title }})</th><td>{{ tax_line.price | money }}</td></tr>
+        {%- endfor -%}
+        <tr><th scope="row" colspan="3">Total</th><td>{{ order.total_price | money }}</td></tr>
+      </tfoot>
+    </table>
+
+    {%- if order.shipping_address -%}
+      <div class="order-shipping" data-reveal>
+        <h2 class="subheading">Shipping to</h2>
+        <p>{{ order.shipping_address | format_address }}</p>
+      </div>
+    {%- endif -%}
+  </div>
+</section>

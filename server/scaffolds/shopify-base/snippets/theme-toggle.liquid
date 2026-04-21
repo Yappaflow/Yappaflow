@@ -1,0 +1,8 @@
+{%- comment -%}
+  Standalone theme-toggle button. Drop into header / footer / any block.
+  theme.js wires the click via data-theme-toggle.
+{%- endcomment -%}
+<button type="button" class="icon-btn" data-theme-toggle
+        aria-label="{{ 'general.accessibility.theme_toggle' | t }}">
+  {%- render 'icon', name: 'moon' -%}
+</button>

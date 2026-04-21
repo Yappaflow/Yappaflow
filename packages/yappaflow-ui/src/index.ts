@@ -66,7 +66,46 @@ export {
 } from "./shell/index.js";
 
 // Layer 5 — Exhibits (art)
-export { ExhibitHero, type ExhibitHeroProps } from "./exhibits/index.js";
+export {
+  ExhibitHero,
+  type ExhibitHeroProps,
+  type ExhibitHeroCTA,
+  ExhibitFeatureGrid,
+  type ExhibitFeatureGridProps,
+  type FeatureGridBlock,
+  type FeatureIconName,
+  ExhibitTestimonials,
+  type ExhibitTestimonialsProps,
+  type TestimonialBlock,
+  ExhibitFAQ,
+  type ExhibitFAQProps,
+  type FAQBlock,
+  ExhibitStats,
+  type ExhibitStatsProps,
+  type StatBlock,
+  ExhibitTimeline,
+  type ExhibitTimelineProps,
+  type TimelineEntry,
+  ExhibitLogoCloud,
+  type ExhibitLogoCloudProps,
+  ExhibitPricing,
+  type ExhibitPricingProps,
+  type PricingTier,
+  ExhibitTeam,
+  type ExhibitTeamProps,
+  type TeamMember,
+  ExhibitSplit,
+  type ExhibitSplitProps,
+  type SplitCTA,
+  ExhibitCTA,
+  type ExhibitCTAProps,
+  type CTAButton,
+  ExhibitNewsletter,
+  type ExhibitNewsletterProps,
+  ExhibitContact,
+  type ExhibitContactProps,
+  type ContactDetailRow,
+} from "./exhibits/index.js";
 
 // Theme (cross-cutting)
 export {

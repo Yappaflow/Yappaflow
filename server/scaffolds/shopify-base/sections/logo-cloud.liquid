@@ -1,0 +1,50 @@
+{%- comment -%}
+  Logo cloud — social-proof row of press or partner logos.
+{%- endcomment -%}
+<section class="section section--surface">
+  <div class="wrap">
+    {%- if section.settings.heading != blank -%}
+      <header class="section__head">
+        <p class="eyebrow" data-reveal>{{ section.settings.heading }}</p>
+      </header>
+    {%- endif -%}
+
+    <div class="logo-cloud">
+      {%- for block in section.blocks -%}
+        {%- if block.settings.image != blank -%}
+          <a href="{{ block.settings.link | default: '#' }}" class="logo-cloud__item" data-reveal>
+            <img src="{{ block.settings.image | image_url: width: 240 }}"
+                 alt="{{ block.settings.name | escape }}" loading="lazy"
+                 width="120" height="40">
+          </a>
+        {%- else -%}
+          <span class="logo-cloud__item logo-cloud__item--text" data-reveal>{{ block.settings.name }}</span>
+        {%- endif -%}
+      {%- endfor -%}
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Logo cloud",
+  "max_blocks": 12,
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "As seen in" }
+  ],
+  "blocks": [
+    {
+      "type": "logo",
+      "name": "Logo",
+      "settings": [
+        { "type": "text",         "id": "name",  "label": "Name",  "default": "Publication" },
+        { "type": "image_picker", "id": "image", "label": "Logo" },
+        { "type": "url",          "id": "link",  "label": "Link (optional)" }
+      ]
+    }
+  ],
+  "presets": [
+    { "name": "Logo cloud", "blocks": [ { "type": "logo" }, { "type": "logo" }, { "type": "logo" }, { "type": "logo" }, { "type": "logo" } ] }
+  ]
+}
+{% endschema %}

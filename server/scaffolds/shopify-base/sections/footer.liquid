@@ -1,0 +1,81 @@
+{%- comment -%}
+  Site footer: 4 columns (3 menus + newsletter), bottom legal strip.
+{%- endcomment -%}
+<footer class="site-footer" role="contentinfo">
+  <div class="site-footer__inner wrap">
+    <div class="site-footer__grid">
+      {%- for i in (1..3) -%}
+        {%- assign heading_key = 'col' | append: i | append: '_heading' -%}
+        {%- assign menu_key    = 'col' | append: i | append: '_menu' -%}
+        {%- assign heading = section.settings[heading_key] -%}
+        {%- assign menu    = linklists[section.settings[menu_key]] -%}
+        {%- if heading != blank or menu != blank -%}
+          <div class="site-footer__col">
+            {%- if heading != blank -%}
+              <h3 class="site-footer__heading">{{ heading }}</h3>
+            {%- endif -%}
+            {%- if menu != blank -%}
+              <ul class="site-footer__menu">
+                {%- for link in menu.links -%}
+                  <li><a href="{{ link.url }}">{{ link.title }}</a></li>
+                {%- endfor -%}
+              </ul>
+            {%- endif -%}
+          </div>
+        {%- endif -%}
+      {%- endfor -%}
+
+      <div class="site-footer__col site-footer__col--wide">
+        {%- if section.settings.newsletter_heading != blank -%}
+          <h3 class="site-footer__heading">{{ section.settings.newsletter_heading }}</h3>
+        {%- endif -%}
+        {%- if section.settings.newsletter_copy != blank -%}
+          <p class="muted">{{ section.settings.newsletter_copy }}</p>
+        {%- endif -%}
+        {%- form 'customer', id: 'newsletter', class: 'newsletter__form' -%}
+          <input type="hidden" name="contact[tags]" value="newsletter">
+          <label class="sr-only" for="newsletter-email">{{ 'general.newsletter.email_label' | t }}</label>
+          <input type="email" id="newsletter-email" name="contact[email]"
+                 placeholder="{{ 'general.newsletter.email_placeholder' | t }}"
+                 class="newsletter__input" required autocomplete="email">
+          <button type="submit" class="btn btn--primary">
+            {{ 'general.newsletter.submit' | t }}
+          </button>
+          {%- if form.posted_successfully? -%}
+            <p class="form-success" role="status">{{ 'general.newsletter.success' | t }}</p>
+          {%- endif -%}
+        {%- endform -%}
+
+        <ul class="social">
+          {%- if settings.social_instagram != blank -%}<li><a href="{{ settings.social_instagram }}" aria-label="Instagram">{%- render 'icon', name: 'instagram' -%}</a></li>{%- endif -%}
+          {%- if settings.social_tiktok    != blank -%}<li><a href="{{ settings.social_tiktok    }}" aria-label="TikTok">{%- render 'icon', name: 'tiktok'    -%}</a></li>{%- endif -%}
+          {%- if settings.social_twitter   != blank -%}<li><a href="{{ settings.social_twitter   }}" aria-label="Twitter">{%- render 'icon', name: 'twitter'   -%}</a></li>{%- endif -%}
+          {%- if settings.social_facebook  != blank -%}<li><a href="{{ settings.social_facebook  }}" aria-label="Facebook">{%- render 'icon', name: 'facebook'  -%}</a></li>{%- endif -%}
+          {%- if settings.social_youtube   != blank -%}<li><a href="{{ settings.social_youtube   }}" aria-label="YouTube">{%- render 'icon', name: 'youtube'   -%}</a></li>{%- endif -%}
+        </ul>
+      </div>
+    </div>
+
+    <div class="site-footer__bottom">
+      <p class="muted">{{ section.settings.legal_copy | replace: '{{ year }}', 'now' | date: '%Y' | default: section.settings.legal_copy }}</p>
+      <p class="muted">{{ powered_by_link }}</p>
+    </div>
+  </div>
+</footer>
+
+{% schema %}
+{
+  "name": "Footer",
+  "settings": [
+    { "type": "text",      "id": "col1_heading", "label": "Column 1 heading", "default": "Shop" },
+    { "type": "link_list", "id": "col1_menu",    "label": "Column 1 menu",    "default": "footer" },
+    { "type": "text",      "id": "col2_heading", "label": "Column 2 heading", "default": "Company" },
+    { "type": "link_list", "id": "col2_menu",    "label": "Column 2 menu" },
+    { "type": "text",      "id": "col3_heading", "label": "Column 3 heading", "default": "Support" },
+    { "type": "link_list", "id": "col3_menu",    "label": "Column 3 menu" },
+    { "type": "text",      "id": "newsletter_heading", "label": "Newsletter heading", "default": "Stay in the loop" },
+    { "type": "textarea",  "id": "newsletter_copy",    "label": "Newsletter copy",    "default": "New arrivals and the occasional letter from the studio." },
+    { "type": "text",      "id": "legal_copy",         "label": "Legal copy",         "default": "© All rights reserved." }
+  ]
+}
+{% endschema %}

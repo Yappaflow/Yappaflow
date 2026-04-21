@@ -1,0 +1,32 @@
+{%- comment -%}
+  Price display. Pass `product` OR `variant`.
+  Handles: on-sale, price-range, sold-out.
+{%- endcomment -%}
+{%- if variant -%}
+  {%- assign obj = variant -%}
+  {%- assign price = variant.price -%}
+  {%- assign compare = variant.compare_at_price -%}
+  {%- assign available = variant.available -%}
+{%- else -%}
+  {%- assign obj = product -%}
+  {%- assign price = product.price -%}
+  {%- assign compare = product.compare_at_price -%}
+  {%- assign available = product.available -%}
+{%- endif -%}
+
+<span class="price-wrap">
+  {%- if product.price_varies and variant == nil -%}
+    {{ 'products.product.from_price_html' | t: price: product.price_min | money }}
+  {%- else -%}
+    <strong class="price">{{ price | money }}</strong>
+  {%- endif -%}
+
+  {%- if compare > price -%}
+    <span class="price price--compare">{{ compare | money }}</span>
+    <span class="badge badge--sale small">{{ 'products.product.on_sale' | t }}</span>
+  {%- endif -%}
+
+  {%- if available == false -%}
+    <span class="badge badge--soldout small">{{ 'products.product.sold_out' | t }}</span>
+  {%- endif -%}
+</span>

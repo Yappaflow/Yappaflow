@@ -1,0 +1,72 @@
+{%- comment -%}
+  Customer login. Shopify renders {% form 'customer_login' %} which
+  wires email/password to the backend. We just mark up the fields.
+{%- endcomment -%}
+<section class="section section--center">
+  <div class="wrap wrap--prose">
+    <h1 class="heading" data-reveal>{{ 'customer.login.title' | t }}</h1>
+
+    {%- form 'customer_login', class: 'auth-form', novalidate: 'novalidate' -%}
+      {%- if form.errors -%}
+        <div class="form-errors" role="alert" data-reveal>
+          {{ form.errors | default_errors }}
+        </div>
+      {%- endif -%}
+
+      <label class="field">
+        <span class="field__label">{{ 'customer.login.email' | t }}</span>
+        <input type="email" name="customer[email]" autocomplete="email" required class="field__input">
+      </label>
+
+      {%- if form.password_needed -%}
+        <label class="field">
+          <span class="field__label">{{ 'customer.login.password' | t }}</span>
+          <input type="password" name="customer[password]" autocomplete="current-password" required class="field__input">
+        </label>
+        <p class="auth-form__link">
+          <a href="#recover" data-recover-open>{{ 'customer.login.forgot_password' | t }}</a>
+        </p>
+      {%- endif -%}
+
+      <button type="submit" class="btn btn--primary btn--full">
+        {{ 'customer.login.submit' | t }}
+      </button>
+
+      <p class="auth-form__alt">
+        {{ 'customer.login.create' | t }}
+        <a href="{{ routes.account_register_url }}">{{ 'customer.register.title' | t }}</a>
+      </p>
+    {%- endform -%}
+
+    <section id="recover" class="auth-recover" hidden data-recover-panel>
+      <h2 class="heading">{{ 'customer.recover_password.title' | t }}</h2>
+      <p class="muted">{{ 'customer.recover_password.subtitle' | t }}</p>
+
+      {%- form 'recover_customer_password', class: 'auth-form', novalidate: 'novalidate' -%}
+        {%- if form.posted_successfully? -%}
+          <p class="form-success" role="status">{{ 'customer.recover_password.success' | t }}</p>
+        {%- endif -%}
+        <label class="field">
+          <span class="field__label">{{ 'customer.recover_password.email' | t }}</span>
+          <input type="email" name="email" required class="field__input">
+        </label>
+        <button type="submit" class="btn btn--primary">
+          {{ 'customer.recover_password.submit' | t }}
+        </button>
+      {%- endform -%}
+    </section>
+  </div>
+</section>
+
+<script>
+  (function () {
+    var opener = document.querySelector('[data-recover-open]');
+    var panel  = document.querySelector('[data-recover-panel]');
+    if (!opener || !panel) return;
+    opener.addEventListener('click', function (e) {
+      e.preventDefault();
+      panel.hidden = false;
+      panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  })();
+</script>

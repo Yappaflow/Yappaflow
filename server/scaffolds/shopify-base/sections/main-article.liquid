@@ -1,0 +1,81 @@
+{%- comment -%}
+  Single article view.
+{%- endcomment -%}
+<section class="section">
+  <div class="wrap wrap--prose">
+    <header class="article-header" data-reveal>
+      <p class="eyebrow">{{ blog.title }}</p>
+      <h1 class="display">{{ article.title }}</h1>
+      <p class="muted small">
+        {%- if section.settings.show_date -%}{{ article.published_at | date: format: 'date' }}{%- endif -%}
+        {%- if section.settings.show_author -%} · {{ article.author }}{%- endif -%}
+      </p>
+    </header>
+
+    {%- if article.image != blank -%}
+      <img class="article-hero" src="{{ article.image | image_url: width: 1600 }}"
+           alt="{{ article.image.alt | default: article.title | escape }}"
+           loading="eager" width="1200" height="700">
+    {%- endif -%}
+
+    <article class="rte" data-reveal>
+      {{ article.content }}
+    </article>
+
+    {%- if section.settings.show_tags and article.tags.size > 0 -%}
+      <ul class="tag-list" data-reveal>
+        {%- for tag in article.tags -%}
+          <li><a href="{{ blog.url }}/tagged/{{ tag | handle }}" class="tag">{{ tag }}</a></li>
+        {%- endfor -%}
+      </ul>
+    {%- endif -%}
+
+    {%- if blog.comments_enabled? -%}
+      <section class="comments" data-reveal>
+        <h2 class="subheading">Comments</h2>
+
+        {%- for comment in article.comments -%}
+          <article class="comment">
+            <p><strong>{{ comment.author }}</strong> <span class="muted small">{{ comment.created_at | date: format: 'date' }}</span></p>
+            <div class="rte">{{ comment.content }}</div>
+          </article>
+        {%- endfor -%}
+
+        {%- form 'new_comment', article, class: 'comment-form' -%}
+          {%- if form.errors -%}
+            <div class="form-errors" role="alert">{{ form.errors | default_errors }}</div>
+          {%- endif -%}
+          {%- if form.posted_successfully? -%}
+            <p class="form-success" role="status">Thanks — your comment is awaiting moderation.</p>
+          {%- endif -%}
+          <div class="field-row">
+            <label class="field">
+              <span class="field__label">Name</span>
+              <input type="text" name="comment[author]" required class="field__input">
+            </label>
+            <label class="field">
+              <span class="field__label">Email</span>
+              <input type="email" name="comment[email]" required class="field__input">
+            </label>
+          </div>
+          <label class="field">
+            <span class="field__label">Comment</span>
+            <textarea name="comment[body]" rows="4" required class="field__input"></textarea>
+          </label>
+          <button type="submit" class="btn btn--primary">Post comment</button>
+        {%- endform -%}
+      </section>
+    {%- endif -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Article",
+  "settings": [
+    { "type": "checkbox", "id": "show_author", "label": "Show author", "default": true },
+    { "type": "checkbox", "id": "show_date",   "label": "Show date",   "default": true },
+    { "type": "checkbox", "id": "show_tags",   "label": "Show tags",   "default": true }
+  ]
+}
+{% endschema %}

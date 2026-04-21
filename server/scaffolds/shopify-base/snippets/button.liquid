@@ -1,0 +1,20 @@
+{%- comment -%}
+  Button renderer — used in rare places the generator doesn't reach into
+  directly. Most CTAs use <a class="btn btn--primary"> inline.
+
+  Vars:
+    label   — required
+    href    — optional; emits <button> if absent
+    variant — 'primary' | 'ghost' | 'link' (default 'primary')
+    full    — true to emit btn--full
+    type    — when href is absent, the <button type> (default 'button')
+{%- endcomment -%}
+{%- assign v = variant | default: 'primary' -%}
+{%- assign classes = 'btn btn--' | append: v -%}
+{%- if full -%}{%- assign classes = classes | append: ' btn--full' -%}{%- endif -%}
+
+{%- if href != blank -%}
+  <a href="{{ href }}" class="{{ classes }}">{{ label }}</a>
+{%- else -%}
+  <button type="{{ type | default: 'button' }}" class="{{ classes }}">{{ label }}</button>
+{%- endif -%}

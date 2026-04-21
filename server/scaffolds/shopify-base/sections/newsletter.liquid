@@ -1,0 +1,37 @@
+{%- comment -%}
+  Standalone newsletter section — can be dropped on any page.
+{%- endcomment -%}
+<section class="section">
+  <div class="wrap cta-block cta-block--newsletter" data-reveal>
+    <div>
+      <h2 class="heading">{{ section.settings.heading }}</h2>
+      {%- if section.settings.subhead != blank -%}
+        <p class="muted">{{ section.settings.subhead }}</p>
+      {%- endif -%}
+    </div>
+    {%- form 'customer', id: 'newsletter-section', class: 'newsletter__form newsletter__form--wide' -%}
+      <input type="hidden" name="contact[tags]" value="newsletter">
+      <label class="sr-only" for="newsletter-section-email">{{ 'general.newsletter.email_label' | t }}</label>
+      <input type="email" id="newsletter-section-email" name="contact[email]"
+             placeholder="{{ 'general.newsletter.email_placeholder' | t }}"
+             class="newsletter__input" required autocomplete="email">
+      <button type="submit" class="btn btn--primary">
+        {{ 'general.newsletter.submit' | t }}
+      </button>
+      {%- if form.posted_successfully? -%}
+        <p class="form-success" role="status">{{ 'general.newsletter.success' | t }}</p>
+      {%- endif -%}
+    {%- endform -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Newsletter",
+  "settings": [
+    { "type": "text",     "id": "heading", "label": "Heading", "default": "Stay in the loop" },
+    { "type": "textarea", "id": "subhead", "label": "Subhead", "default": "Restocks, new arrivals, and the occasional letter from the studio." }
+  ],
+  "presets": [{ "name": "Newsletter" }]
+}
+{% endschema %}

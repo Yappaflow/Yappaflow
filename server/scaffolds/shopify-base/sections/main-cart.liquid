@@ -1,0 +1,99 @@
+{%- comment -%}
+  Cart page main section — items, qty update, remove, subtotal, checkout.
+  Uses /cart as the form action so it works with or without JS.
+{%- endcomment -%}
+<section class="section">
+  <div class="wrap">
+    <h1 class="heading" data-reveal>{{ 'cart.general.title' | t }}</h1>
+
+    {%- if cart.item_count > 0 -%}
+      <form action="{{ routes.cart_url }}" method="post" class="cart">
+        <div class="cart__items" data-reveal>
+          {%- for item in cart.items -%}
+            <div class="cart__row">
+              <a href="{{ item.url }}" class="cart__media">
+                {%- if item.image != blank -%}
+                  <img src="{{ item.image | image_url: width: 240 }}"
+                       alt="{{ item.image.alt | default: item.title | escape }}"
+                       width="120" height="150" loading="lazy">
+                {%- else -%}
+                  {{ 'product-1' | placeholder_svg_tag: 'placeholder-svg' }}
+                {%- endif -%}
+              </a>
+              <div class="cart__info">
+                <a href="{{ item.url }}"><strong>{{ item.product.title }}</strong></a>
+                {%- unless item.variant.title == 'Default Title' -%}
+                  <div class="muted small">{{ item.variant.title }}</div>
+                {%- endunless -%}
+                <div class="muted small">{{ item.final_price | money }}</div>
+
+                <label class="field field--qty">
+                  <span class="sr-only">{{ 'products.product.quantity' | t }}</span>
+                  <input type="number" name="updates[{{ item.key }}]" value="{{ item.quantity }}" min="0"
+                         aria-label="{{ 'products.product.quantity' | t }}" class="field__input">
+                </label>
+
+                <a href="{{ item.url_to_remove }}" class="btn btn--link">
+                  {{ 'cart.general.remove' | t }}
+                </a>
+              </div>
+              <div class="cart__line-total">{{ item.final_line_price | money }}</div>
+            </div>
+          {%- endfor -%}
+        </div>
+
+        <aside class="cart__summary" data-reveal>
+          <div class="cart__subtotal">
+            <span>{{ 'cart.general.subtotal' | t }}</span>
+            <strong>{{ cart.total_price | money }}</strong>
+          </div>
+          <p class="muted small">{{ 'cart.general.shipping_note' | t }}</p>
+
+          {%- if section.settings.show_note -%}
+            <label class="field">
+              <span class="field__label">{{ 'cart.general.note' | t }}</span>
+              <textarea name="note" rows="3" class="field__input"
+                        placeholder="{{ 'cart.general.note_placeholder' | t }}">{{ cart.note }}</textarea>
+            </label>
+          {%- endif -%}
+
+          <div class="cart__actions">
+            <button type="submit" name="update" class="btn btn--ghost btn--full">
+              {{ 'cart.general.update' | t }}
+            </button>
+            <button type="submit" name="checkout" class="btn btn--primary btn--full">
+              {{ 'cart.general.checkout' | t }}
+            </button>
+          </div>
+
+          <p class="cart__continue"><a href="{{ routes.all_products_collection_url }}" class="btn btn--link">← {{ 'cart.general.continue' | t }}</a></p>
+        </aside>
+      </form>
+    {%- else -%}
+      <div class="cart-empty" data-reveal>
+        <h2 class="subheading">{{ section.settings.empty_heading | default: 'cart.general.empty' | t }}</h2>
+        {%- if section.settings.empty_body != blank -%}
+          <p class="muted">{{ section.settings.empty_body }}</p>
+        {%- endif -%}
+        <a href="{{ section.settings.empty_cta_link | default: routes.all_products_collection_url }}"
+           class="btn btn--primary">
+          {{ section.settings.empty_cta_label | default: 'cart.general.continue' | t }}
+        </a>
+      </div>
+    {%- endif -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Cart",
+  "settings": [
+    { "type": "checkbox", "id": "show_note",  "label": "Show order note", "default": true },
+    { "type": "checkbox", "id": "show_terms", "label": "Require terms checkbox", "default": false },
+    { "type": "text",     "id": "empty_heading",  "label": "Empty state heading", "default": "Your cart is empty." },
+    { "type": "textarea", "id": "empty_body",     "label": "Empty state body",    "default": "" },
+    { "type": "text",     "id": "empty_cta_label","label": "Empty state CTA label", "default": "Start shopping" },
+    { "type": "url",      "id": "empty_cta_link", "label": "Empty state CTA link",  "default": "/collections/all" }
+  ]
+}
+{% endschema %}

@@ -194,11 +194,11 @@ export function HeroChooser({ projectId, onReady, onSkip }: HeroChooserProps) {
           <Loader2 className="h-4 w-4 animate-spin" />
           Generating three variants — about 30 seconds…
         </div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
           {[0, 1, 2].map((i) => (
             <div
               key={i}
-              className="aspect-[4/3] animate-pulse rounded-xl border border-white/10 bg-white/[0.03]"
+              className="aspect-[1280/800] animate-pulse rounded-xl border border-white/10 bg-white/[0.03]"
             />
           ))}
         </div>
@@ -246,7 +246,12 @@ export function HeroChooser({ projectId, onReady, onSkip }: HeroChooserProps) {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      {/*
+        Grid layout: stacks vertically on narrow screens, side-by-side at lg.
+        We intentionally do NOT use xl: here — the wizard wraps the whole step
+        in a wider container (max-w-7xl) so lg (≥1024px) is the right knee.
+      */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         {variants.map((v) => {
           const isPicked = v.id === pickedId;
           // Dim non-picked variants after a pick, and disable clicks
@@ -274,14 +279,36 @@ export function HeroChooser({ projectId, onReady, onSkip }: HeroChooserProps) {
                 )}
               </div>
 
-              {/* srcdoc iframe: zero network, same-origin-blocked sandbox.
-                  aspect-[4/3] matches a common hero preview ratio. */}
-              <iframe
-                title={`Hero variant ${v.flavor}`}
-                sandbox="allow-scripts"
-                srcDoc={v.html}
-                className="aspect-[4/3] w-full rounded-md border-0 bg-white"
-              />
+              {/*
+                Desktop-scale preview:
+                  - Outer `@container` establishes a Tailwind 4 container-query
+                    context so we can use `cqw` units inside.
+                  - `aspect-[1280/800]` locks the preview to real desktop ratio.
+                  - The iframe is rendered at 1280×800 (a "normal" desktop
+                    viewport) and scaled down via CSS so the user sees the true
+                    desktop rendering — typography proportions, spacing, hero
+                    composition all behave the way they will on a real laptop.
+                    This is the only honest way to show a hero preview at
+                    3-up size; rendering the iframe at its column width makes
+                    the AI's 72px headline look like 14px and is misleading.
+                  - scale factor = container-width / 1280, expressed via cqw.
+              */}
+              <div className="@container/preview w-full">
+                <div className="relative aspect-[1280/800] w-full overflow-hidden rounded-md border border-white/5 bg-white">
+                  <iframe
+                    title={`Hero variant ${v.flavor}`}
+                    sandbox="allow-scripts"
+                    srcDoc={v.html}
+                    style={{
+                      width:           "1280px",
+                      height:          "800px",
+                      transform:       "scale(calc(100cqw / 1280))",
+                      transformOrigin: "top left",
+                    }}
+                    className="absolute left-0 top-0 border-0 bg-white"
+                  />
+                </div>
+              </div>
 
               <div className="flex items-center justify-between px-4 pb-3">
                 <span className="text-xs text-white/40">

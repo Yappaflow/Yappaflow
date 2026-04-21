@@ -1,0 +1,48 @@
+{%- comment -%}
+  Static product card. Rendered from a section block of type
+  'static_product' (see sections/featured-products.liquid). Used as the
+  ZIP-preview fallback when the live Shopify collection has no products
+  yet — the Yappaflow generator writes one block per identity.products
+  entry so the preview looks correct before CSV import.
+
+  Expected vars:
+    block — section block with these settings:
+      title, description, price, compare_price, image, image_url, link
+{%- endcomment -%}
+<article class="product-card" data-reveal>
+  <a href="{{ block.settings.link | default: '#' }}" class="product-card__media">
+    {%- if block.settings.image != blank -%}
+      <img src="{{ block.settings.image | image_url: width: 900 }}"
+           alt="{{ block.settings.title | escape }}"
+           loading="lazy" width="800" height="1000">
+    {%- elsif block.settings.image_url != blank -%}
+      <img src="{{ block.settings.image_url }}"
+           alt="{{ block.settings.title | escape }}"
+           loading="lazy" width="800" height="1000">
+    {%- else -%}
+      {{ 'product-1' | placeholder_svg_tag: 'placeholder-svg' }}
+    {%- endif -%}
+
+    {%- if block.settings.compare_price != blank -%}
+      <span class="badge badge--sale">{{ 'products.product.on_sale' | t }}</span>
+    {%- endif -%}
+  </a>
+  <div class="product-card__body">
+    <h3 class="product-card__title">
+      {%- if block.settings.link != blank -%}
+        <a href="{{ block.settings.link }}">{{ block.settings.title }}</a>
+      {%- else -%}
+        {{ block.settings.title }}
+      {%- endif -%}
+    </h3>
+    {%- if block.settings.description != blank -%}
+      <p class="product-card__desc muted small">{{ block.settings.description }}</p>
+    {%- endif -%}
+    <div class="product-card__price">
+      <strong>{{ block.settings.price }}</strong>
+      {%- if block.settings.compare_price != blank -%}
+        <span class="price price--compare">{{ block.settings.compare_price }}</span>
+      {%- endif -%}
+    </div>
+  </div>
+</article>

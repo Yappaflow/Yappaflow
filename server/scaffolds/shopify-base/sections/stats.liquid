@@ -1,0 +1,46 @@
+{%- comment -%}
+  Stats row — 3–4 numeric or short-phrase blocks.
+{%- endcomment -%}
+<section class="section">
+  <div class="wrap">
+    {%- if section.settings.heading != blank -%}
+      <header class="section__head"><h2 class="heading" data-reveal>{{ section.settings.heading }}</h2></header>
+    {%- endif -%}
+    <div class="stats">
+      {%- for block in section.blocks -%}
+        <div class="stat" data-reveal>
+          <strong class="stat__value">{{ block.settings.value }}</strong>
+          <span class="stat__label">{{ block.settings.label }}</span>
+        </div>
+      {%- endfor -%}
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Stats",
+  "max_blocks": 6,
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "" }
+  ],
+  "blocks": [
+    {
+      "type": "stat",
+      "name": "Stat",
+      "settings": [
+        { "type": "text", "id": "value", "label": "Value", "default": "10k+" },
+        { "type": "text", "id": "label", "label": "Label", "default": "Happy customers" }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Stats",
+      "blocks": [
+        { "type": "stat" }, { "type": "stat" }, { "type": "stat" }, { "type": "stat" }
+      ]
+    }
+  ]
+}
+{% endschema %}

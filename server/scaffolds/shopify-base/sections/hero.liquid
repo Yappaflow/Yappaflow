@@ -1,0 +1,51 @@
+{%- comment -%}
+  Hero. Supports an optional media background. The AI-generated hero
+  HTML from the hero-chooser is embedded via section settings when the
+  merchant wants to override the base layout — otherwise this structured
+  markup renders.
+{%- endcomment -%}
+<section class="hero section"
+         {% if section.settings.image != blank %}
+           style="background-image: linear-gradient(to bottom, rgba(0,0,0,0.15), rgba(0,0,0,0.45)), url('{{ section.settings.image | image_url: width: 2000 }}');"
+           data-with-media
+         {% endif %}>
+  <div class="wrap hero__inner">
+    {%- if section.settings.eyebrow != blank -%}
+      <p class="eyebrow" data-reveal>{{ section.settings.eyebrow }}</p>
+    {%- endif -%}
+    <h1 class="hero__headline display" data-reveal>{{ section.settings.headline }}</h1>
+    {%- if section.settings.subhead != blank -%}
+      <p class="hero__subhead lede" data-reveal>{{ section.settings.subhead }}</p>
+    {%- endif -%}
+
+    <div class="hero__ctas" data-reveal>
+      {%- if section.settings.cta_label != blank -%}
+        <a href="{{ section.settings.cta_link | default: '/collections/all' }}" class="btn btn--primary">
+          {{ section.settings.cta_label }}
+        </a>
+      {%- endif -%}
+      {%- if section.settings.cta2_label != blank -%}
+        <a href="{{ section.settings.cta2_link | default: '#' }}" class="btn btn--ghost">
+          {{ section.settings.cta2_label }}
+        </a>
+      {%- endif -%}
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Hero",
+  "settings": [
+    { "type": "text",         "id": "eyebrow",    "label": "Eyebrow",    "default": "New season" },
+    { "type": "text",         "id": "headline",   "label": "Headline",   "default": "Quietly crafted goods for everyday use." },
+    { "type": "textarea",     "id": "subhead",    "label": "Subhead",    "default": "Small-batch objects, sourced responsibly and shipped to your door." },
+    { "type": "text",         "id": "cta_label",  "label": "Primary CTA label", "default": "Shop new arrivals" },
+    { "type": "url",          "id": "cta_link",   "label": "Primary CTA link",  "default": "/collections/all" },
+    { "type": "text",         "id": "cta2_label", "label": "Secondary CTA label", "default": "Our story" },
+    { "type": "url",          "id": "cta2_link",  "label": "Secondary CTA link",  "default": "/pages/about" },
+    { "type": "image_picker", "id": "image",      "label": "Background image" }
+  ],
+  "presets": [{ "name": "Hero" }]
+}
+{% endschema %}
