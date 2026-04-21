@@ -146,7 +146,14 @@ export function getGenerateHeroVariantPrompt(
 ): string {
   const { direction, flavor, variantIndex, totalVariants, refinement } = opts;
 
-  const directionBlock = renderDesignDirectionBlock(direction);
+  // For the preview-generation path we strip the dark palette from the
+  // direction block. The preview is light-only (see "Theme (STRICT)" block
+  // below); showing the model a dark palette only tempts it to emit
+  // `@media (prefers-color-scheme: dark)` overrides that then render
+  // dark when the viewer's OS is in dark mode. The shared `renderDesign-
+  // DirectionBlock` is still used as-is by the Shopify + Yappaflow
+  // full-site generators, which DO want the dark palette.
+  const directionBlock = stripDarkPalette(renderDesignDirectionBlock(direction));
 
   if (refinement) {
     return buildRefinementPrompt({
@@ -182,14 +189,37 @@ Return exactly ONE complete HTML document. No prose, no filepath fences, no mark
 4. Include Google Fonts via \`@import\` inside the \`<style>\` block. Stick to fonts named in the design direction's type pair. If a font isn't on Google Fonts, use the direction's named fallback.
 5. Target the hero + ONE section below it. Total document ~6-10 KB. Tiny enough to iframe, substantive enough to represent the design.
 
+## Theme (STRICT — LIGHT ONLY, this is a design preview)
+
+The preview MUST render in light mode, regardless of the viewer's OS color scheme. This is the three-variant chooser — it's a side-by-side comparison of compositions on an identical canvas. Dark-mode styling belongs to the downstream full-site build, NOT to this preview.
+
+Therefore:
+
+1. Add \`<meta name="color-scheme" content="light">\` inside \`<head>\`.
+2. At the very top of \`<style>\`, include: \`html { color-scheme: light; } :root { color-scheme: light; }\`.
+3. Use ONLY the "Palette (light)" block from the design direction above. \`Surface\` is the page background, \`Ink\` is all default text, \`Recess\` is cards/rails, \`Accent\` is CTAs + single-detail moments.
+4. Do NOT emit \`@media (prefers-color-scheme: dark) { ... }\` anywhere. Do NOT reference the dark palette at all. Ignore it for the preview.
+5. \`body\` must explicitly set both \`background\` (to Surface) and \`color\` (to Ink). Do not rely on inherited defaults — the host iframe has its own \`<html>\` and the user-agent could otherwise leak in a dark UA stylesheet.
+6. Do not use pure white (#fff) as Surface unless the palette literally specifies it. Do not use pure black (#000) as Ink unless the palette specifies it. Stick to the palette values as written — the whole point of the design direction is that its off-white and off-black are chosen deliberately.
+
 ## Content rules
 
 1. The headline, subhead, and CTA copy must speak to the specific business — use the businessName, tagline, industry, and tone from the identity block below. Sentence case unless the direction requires uppercase.
 2. If the identity has products, you may reference them by name in below-the-fold content. Do not fabricate SKUs or prices.
 3. Every visible string must be real copy — no "Lorem ipsum", no "Your tagline here", no bracketed placeholders.
 4. Include a \`prefers-reduced-motion\` media query that disables non-essential transforms.
-5. Dark-mode isn't required for the preview, but if the direction has a paletteDark, emit a \`@media (prefers-color-scheme: dark)\` override for the root.
-6. All interactive elements (buttons, links) need real \`:hover\` and \`:focus-visible\` treatments — the user will mouse over them.
+5. All interactive elements (buttons, links) need real \`:hover\` and \`:focus-visible\` treatments — the user will mouse over them.
+
+## Minimum visible content (MANDATORY — never ship a blank canvas)
+
+At a desktop viewport of 1280×800 (which is what the user is going to see), the following must ALL be rendered and readable with your own eyes on the page. If you mentally render the HTML you're about to emit and can't see every item below, rewrite before you respond.
+
+- A headline (real copy, not a placeholder) at the flavor's specified size.
+- A subhead (1–2 sentences of real copy).
+- A primary CTA (a real \`<a>\` or \`<button>\` with a non-empty label).
+- One below-the-fold section with at least three substantive elements (a paragraph + a list, a row of detail cards, a strip of tiles — flavor-appropriate).
+
+Make sure the text is high-contrast against the background you picked. If Ink is #1a1a1a and Surface is #f6f4ef, that's fine; never set text to the same value as the background.
 
 ## Signature motion (MANDATORY — this is how variants differentiate)
 
@@ -197,6 +227,16 @@ Return exactly ONE complete HTML document. No prose, no filepath fences, no mark
 - Entry choreography on page load: use \`IntersectionObserver\` OR CSS \`@keyframes\` fired off a class added by a tiny inline script on DOMContentLoaded.
 - Animate only \`transform\`, \`opacity\`, \`filter\`, \`clip-path\`. GPU-accelerated properties only.
 - The user will stare at each variant for ~3 seconds before picking — the first 2 seconds of motion matter most.
+
+### Motion safety (must survive a JS failure)
+
+The iframe runs with \`sandbox="allow-scripts"\` but the host page is strict CSP and extensions sometimes block inline script. If your entry animation relies on JS adding a class, the headline MUST still be visible when JS never runs. Concretely:
+
+- The CSS rule for the hero headline and subhead must set \`opacity: 1\` by DEFAULT.
+- Only the ENTRY state (e.g. \`.is-revealing h1 { opacity: 0; transform: translateY(24px); }\`) may be \`opacity: 0\`, and you must add that class with inline JS AT THE TOP of a \`<script>\` that runs synchronously before paint, then remove it on \`DOMContentLoaded\` / \`requestAnimationFrame\` to play the transition.
+- Equivalently: wrap the "hidden" entry state in \`@supports (animation-timeline: view())\` or a \`@media (scripting: enabled)\` guard, so a no-JS environment simply shows the finished composition instantly.
+
+A preview that renders as a blank canvas because JS didn't run is a failed preview. The user discards it.
 
 ## DO NOT
 
@@ -252,7 +292,26 @@ Return exactly ONE complete HTML document — the refined version of the previou
 - If the user asks for a color / type / size change, update only the relevant CSS rules.
 - If the user asks for "more X" without specifics, interpret conservatively — make ONE substantive change, not five.
 - If the user's request is incompatible with the direction (e.g. "add a big gradient" on a direction that bans gradients), keep the direction's rule and add a \`<!-- refinement note: ... -->\` comment near the top explaining which rule you held.
-- Preserve all \`prefers-reduced-motion\` guards, \`@media (prefers-color-scheme: dark)\` overrides, and accessibility attributes from the previous version.
+- Preserve the light-only theme (no dark-mode media query), the \`color-scheme: light\` declarations, the \`<meta name="color-scheme" content="light">\` tag, all \`prefers-reduced-motion\` guards, and accessibility attributes from the previous version.
 
 Begin.`;
 }
+
+/**
+ * Strip the "Palette (dark — ...)" block from a rendered design-direction
+ * string. Only used for the hero-variant preview path: the preview renders
+ * light-only, and showing the dark palette in the prompt tempts the model
+ * into emitting a `@media (prefers-color-scheme: dark)` override that then
+ * fires when the viewer's OS is in dark mode, producing the empty-looking
+ * dark iframes the user reported.
+ *
+ * We match from the "**Palette (dark" heading up to the next blank-line-
+ * followed-by-heading (which is "**Typography**" in the current template).
+ */
+function stripDarkPalette(block: string): string {
+  return block.replace(
+    /\n\*\*Palette \(dark[^\n]*\n(?:- [^\n]*\n)+/g,
+    "\n"
+  );
+}
+
