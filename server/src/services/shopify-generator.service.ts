@@ -33,6 +33,7 @@ import {
   LiquidBundleValidationError,
   type LiquidValidationIssue,
 } from "./liquid-validator.service";
+import { pickDesignDirection } from "../ai/design-directions";
 import { log, logError } from "../utils/logger";
 
 /**
@@ -235,6 +236,19 @@ export async function generateShopifyBundle(
   const identity = project.identity as IProjectIdentity;
   const promptProducts = productsForPrompt(identity);
 
+  // Pick ONCE at the top of the build and reuse on every attempt + every
+  // patch call. Retry attempts must speak the same visual vocabulary as the
+  // original — a Dialect Brutalist build whose patched header turns out
+  // Editorial Minimal is unusable.
+  const direction = pickDesignDirection({
+    tone:         identity.tone,
+    industry:     identity.industry,
+    businessName: identity.businessName,
+    city:         identity.city,
+    hasProducts:  Boolean(identity.products?.length),
+  });
+  log(`   ↳ design direction: ${direction.key} — "${direction.label}"`);
+
   await Project.findByIdAndUpdate(projectId, {
     buildJobStatus:  "running",
     buildPhase:      "analyzing",
@@ -254,7 +268,7 @@ export async function generateShopifyBundle(
   });
   const sessionId = session._id;
 
-  const systemPrompt = getGenerateShopifyPrompt({ products: promptProducts });
+  const systemPrompt = getGenerateShopifyPrompt({ products: promptProducts, direction });
   const userContent =
     "## Business Identity\n\n" +
     "```json\n" +
@@ -372,6 +386,7 @@ export async function generateShopifyBundle(
         })),
         keepPaths,
         products: promptProducts,
+        direction,
       });
       const patchUserContent =
         "## Business Identity (unchanged since the full-bundle call)\n\n" +

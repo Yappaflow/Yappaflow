@@ -10,7 +10,17 @@
  *   • Output a complete, uploadable Shopify theme directory structure.
  *   • Default LIGHT, with a working DARK toggle (same rule as custom sites).
  *   • Top-designer aesthetic — not a default Dawn fork.
+ *   • Commit to ONE design direction (see `direction` option) so the bundle
+ *     reads as a signature theme, not a hybrid template. Directions are
+ *     grounded in real Awwwards SOTD references (Dialect, Telha Clarke,
+ *     Lightweight, OCCUPY, Better Off\u00ae) and come from
+ *     `src/ai/design-directions.ts`.
  */
+
+import {
+  renderDesignDirectionBlock,
+  type DesignDirection,
+} from "../design-directions";
 
 export interface ShopifyProductForPrompt {
   handle:     string;
@@ -23,11 +33,21 @@ export interface ShopifyProductForPrompt {
 }
 
 export interface GenerateShopifyOptions {
-  products?: ShopifyProductForPrompt[];
+  products?:  ShopifyProductForPrompt[];
+  /**
+   * The chosen design archetype for this build. Passed in by the generator
+   * service after calling `pickDesignDirection(identity)`. The SAME direction
+   * must flow into any patch calls on subsequent attempts so the patched
+   * files speak the same visual language as the files we're keeping.
+   */
+  direction?: DesignDirection;
 }
 
 export function getGenerateShopifyPrompt(opts: GenerateShopifyOptions = {}): string {
   const hasProducts = Array.isArray(opts.products) && opts.products.length > 0;
+  const directionBlock = opts.direction
+    ? renderDesignDirectionBlock(opts.direction)
+    : "";
 
   return `## Task: Generate Shopify Theme Bundle (one-click import)
 
@@ -170,18 +190,71 @@ Same rule as our custom sites: light by default, dark toggle that:
 - Renders a button via \`{% render 'theme-toggle' %}\` inside the header.
 - Both palettes pass WCAG AA. Dark palette derived from the brand accent.
 
-### Design guidance
+${directionBlock}
 
-This should feel like a top-tier Shopify theme — NOT a Dawn clone.
+### Scroll & image animation primitives (MANDATORY — Liquid/CSS track)
 
-- Pick a cohesive aesthetic direction tied to the identity tone
-  (editorial / luxury / playful / brutalist / etc.) and commit to it.
-- Distinctive typography pairing via system fallbacks
-  (e.g. \`Georgia, "Times New Roman", serif\` for display).
-- ONE dominant color, ONE accent. Avoid pure black/white.
-- Hero with one strong visual idea (oversized lockup, diagonal rule, etc.).
-- Subtle motion only. \`prefers-reduced-motion\` respected.
-- Inline SVGs for logo/icons. CSS-only decorative details preferred.
+The signature motion described in the DESIGN DIRECTION block above is the
+standard. Implement it with the following primitives — no JS animation
+libraries, no external CDNs:
+
+1. **Entry choreography (page load).**
+   In \`assets/theme.js\` add an \`IntersectionObserver\` that toggles a
+   \`.is-revealed\` class on every element with \`data-reveal\`. In
+   \`assets/theme.css\` define:
+
+   \`\`\`css
+   [data-reveal] {
+     opacity: 0;
+     transform: translate3d(0, 24px, 0);
+     transition:
+       opacity 900ms cubic-bezier(0.16, 1, 0.3, 1),
+       transform 900ms cubic-bezier(0.16, 1, 0.3, 1);
+     transition-delay: calc(var(--reveal-index, 0) * 80ms);
+     will-change: opacity, transform;
+   }
+   [data-reveal].is-revealed {
+     opacity: 1;
+     transform: translate3d(0, 0, 0);
+   }
+   @media (prefers-reduced-motion: reduce) {
+     [data-reveal] { opacity: 1 !important; transform: none !important; transition: none !important; }
+   }
+   \`\`\`
+
+   Sprinkle \`data-reveal\` on hero headline lines, section titles, product
+   cards. Use \`style="--reveal-index:N"\` (0, 1, 2, …) to stagger.
+
+2. **Scroll-driven reveal for below-the-fold imagery.**
+   Use the same \`IntersectionObserver\` (\`threshold: 0.2\`) to add
+   \`.is-in-view\` to any element with \`data-scroll-reveal\`. For the
+   image-treatment animation described in the direction above, express it
+   as a CSS transition between \`data-scroll-reveal\` and
+   \`.is-in-view\` states (clip-path sweep, scale, filter-saturate, etc.
+   — pick whichever matches the direction).
+
+3. **Product-card hover animations.**
+   Match the direction's image-treatment spec EXACTLY. Default transitions
+   are \`transform 500ms\` + \`filter 500ms\` with the expo-out easing above.
+   Use \`transform: scale(1.03)\` + \`filter: saturate(0.6)\` for any
+   "others desaturate, hovered pops" pattern. Drop shadows are banned.
+
+4. **Smooth scroll.**
+   Add \`html { scroll-behavior: smooth; }\` at the top of
+   \`assets/theme.css\` and \`@supports (scroll-behavior: smooth) { ... }\`.
+   Do NOT try to import Lenis — this is a Liquid theme, no Node runtime.
+
+5. **No parallax on text.** Parallax is reserved for decorative background
+   elements (grain layers, gradient drifts) only. Headlines and body copy
+   never move relative to scroll.
+
+6. **60fps floor.** Only animate \`transform\` and \`opacity\` (plus
+   \`filter\` and \`clip-path\` when explicitly specified above). Never
+   animate \`width\`, \`height\`, \`top\`, \`left\`, or \`margin\`.
+
+7. **prefers-reduced-motion.** Every animation + transition must fall back
+   to no-op when the user opts out. Use the \`@media (prefers-reduced-motion)\`
+   guard shown in primitive #1.
 
 ${hasProducts
   ? `### Products
@@ -257,6 +330,14 @@ export interface PatchShopifyOptions {
    */
   keepPaths: string[];
   products?: ShopifyProductForPrompt[];
+  /**
+   * The SAME design direction used on the full-regen attempt. Critical:
+   * without this, a patched \`sections/header.liquid\` can drift into
+   * Editorial Minimal while the rest of the bundle is Dialect Brutalist,
+   * and the whole theme reads as a hybrid template. We re-inject the
+   * direction's palette + type + copy voice as non-negotiable anchors.
+   */
+  direction?: DesignDirection;
 }
 
 /**
@@ -277,6 +358,9 @@ export interface PatchShopifyOptions {
  */
 export function getPatchShopifyPrompt(opts: PatchShopifyOptions): string {
   const hasProducts = Array.isArray(opts.products) && opts.products.length > 0;
+  const directionBlock = opts.direction
+    ? renderDesignDirectionBlock(opts.direction)
+    : "";
 
   const issueLines = opts.issues
     .map((i) => `- \`${i.filePath}\` [${i.kind}]: ${i.message}`)
@@ -311,7 +395,7 @@ ${issueLines}
 
 ${keepLines}
 
-### Constraints (same as the original generation)
+${directionBlock ? directionBlock + "\n\nThe palette, type pair, copy voice, and signature micro-detail above\nMUST match the rest of the bundle. If the flagged files currently use a\ndifferent palette or typography than what's described above, that's a bug\n— re-emit them aligned with this direction.\n\n" : ""}### Constraints (same as the original generation)
 
 1. **Liquid syntax must parse.** No unbalanced \`{% if %}/{% endif %}\`,
    no mis-closed \`{% for %}\` loops, no malformed \`{{ }}\` expressions.

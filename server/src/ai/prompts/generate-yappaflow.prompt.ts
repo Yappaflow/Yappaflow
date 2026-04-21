@@ -14,7 +14,18 @@
  * instead of re-implementing layout or motion from scratch. The result
  * should feel like a top-tier studio shipped it — art-gallery grade,
  * committed aesthetic, considered motion, zero "AI slop".
+ *
+ * A design direction (editorial-minimal, dialect-brutalist, …) is picked
+ * once per build by `pickDesignDirection(identity)` and threaded through
+ * the prompt as a MANDATORY lane the generator must commit to. This is
+ * how we push output from 7/10 to 9/10 — by eliminating the default
+ * middle-ground drift.
  */
+
+import {
+  renderDesignDirectionBlock,
+  type DesignDirection,
+} from "../design-directions";
 
 export interface YfProductVariantForPrompt {
   label:  string;
@@ -32,13 +43,18 @@ export interface YfProductForPrompt {
 }
 
 export interface GenerateYappaflowSiteOptions {
-  products?: YfProductForPrompt[];
+  products?:  YfProductForPrompt[];
+  /** Chosen archetype for this build (see src/ai/design-directions.ts). */
+  direction?: DesignDirection;
 }
 
 export function getGenerateYappaflowSitePrompt(
   opts: GenerateYappaflowSiteOptions = {}
 ): string {
   const hasProducts = Array.isArray(opts.products) && opts.products.length > 0;
+  const directionBlock = opts.direction
+    ? renderDesignDirectionBlock(opts.direction)
+    : "";
 
   const shopBlock = hasProducts
     ? `
@@ -219,27 +235,66 @@ primary CTA that points to \`/contact\`.
    \`<html>\`) onto \`--ff-font-display\` / \`--ff-font-body\` so the library's
    type tokens pick them up.
 
-### Design guidance (aim: top-tier studio, not "AI template")
+${directionBlock}
 
-Before writing a line, pick a cohesive aesthetic direction true to the
-identity's tone + industry. Commit to it. Examples: brutally minimal,
-editorial magazine, warm organic, art-deco geometric, retro-futuristic,
-soft pastel, refined luxury, playful toy-like, raw brutalist,
-industrial utilitarian. Mix only where it serves the brand.
+### How to implement the direction with yappaflow-ui primitives
 
-- **Typography.** Pair a distinctive DISPLAY family with a clean BODY
-  family from \`next/font/google\` (Space Grotesk / Instrument Serif /
-  Fraunces / Syne / Inter Tight / JetBrains Mono / Bricolage Grotesque /
-  DM Mono, etc.). Never default to Inter alone.
-- **Color.** One dominant color, one accent, neutrals built around them.
-  Avoid pure black/white. Warm near-neutrals (e.g. #FAF7F2 / #1A1714).
-- **Layout.** Asymmetry, intentional overlap, grid-breaking moments.
-  Either generous negative space OR controlled density — commit.
-- **Motion.** One orchestrated page-load reveal using \`<Reveal beat>\`.
-  Subtle hover states. No parallax/carousels/marquees unless the tone
-  demands them.
-- **Visual details.** Inline SVG decorations over image requests.
-  CSS-only illustrations preferred. \`AmbientLayer\` for grain/noise.
+The DESIGN DIRECTION above is platform-neutral. Translate it into this
+Next.js + yappaflow-ui project like this:
+
+- **Typography lives in \`globals.css\`.** Load the two display/body families
+  named in the direction above via \`next/font/google\` in \`app/layout.tsx\`
+  (expose them as \`--font-yf-display\` and \`--font-yf-body\` CSS variables),
+  then map those variables onto \`--ff-font-display\` / \`--ff-font-body\` in
+  \`globals.css\`. The library's \`<Display>\` and \`<Body>\` components pick
+  them up automatically.
+- **Palette lives in \`globals.css\`.** Override \`--ff-color-surface\`,
+  \`--ff-color-ink\`, \`--ff-color-recess\`, \`--ff-color-accent\` (and their
+  dark equivalents under \`[data-theme="dark"]\`) with the EXACT hex values
+  from the direction's palette tables. Do not invent new shades.
+- **Signature motion lives in \`components/SiteShell.tsx\`** (or a dedicated
+  client-component hero). Use these yappaflow-ui primitives to perform the
+  "signature motion" paragraph above:
+  - \`<Reveal beat="structure" variant="fade-translate">\` — hero background/frame
+  - \`<Reveal beat="primary" variant="text-lines" stagger={120}>\` — hero headline
+  - \`<Reveal beat="secondary" variant="fade-translate">\` — subhead
+  - \`<Reveal beat="cta" variant="scale">\` — primary CTA
+  - \`<AmbientLayer pattern="noise|drift|breathe" intensity="low|mid|high">\` —
+    for grain/backdrop treatments specified in the direction
+  - \`<Magnetic>\` — wrap primary CTAs if the direction calls for pull-hover
+  - \`<ScrambleText>\` — use ONLY when the copy voice is clipped/technical
+    (Dialect Brutalist, OCCUPY Metallic) — never on editorial directions.
+- **Scroll-driven content reveals.** Wrap below-the-fold content in
+  \`<ScrollSection>\` (which internally uses GSAP ScrollTrigger + Lenis).
+  Each \`<Reveal>\` inside a \`<ScrollSection>\` animates as the section
+  crosses 20% into the viewport. Do not re-implement IntersectionObserver
+  — the library already owns this.
+- **Image animations.** Match the direction's image-treatment spec. Express
+  it through \`<Reveal variant>\` + inline \`style\`/\`className\` transitions:
+  - "clip-path sweep" → \`<Reveal variant="scale">\` wrapping the \`<img>\`
+  - "scatter-at-varied-sizes" → absolute-positioned \`<img>\`s inside a
+    relative \`<Frame>\`, each wrapped in its own \`<Reveal>\` with
+    increasing \`delay\` via \`beat\`
+  - "saturate-on-neighbours" → CSS \`filter: saturate()\` transitions
+    triggered by a JS hover listener on the parent gallery
+  - "horizontal drag strip" → a flex row overflowing the viewport, scroll
+    velocity read via Lenis (import from \`yappaflow-ui/motion\`) and
+    applied as a horizontal transform.
+- **Lenis smooth scroll is AUTO-WIRED** by \`<GalleryShell smoothScroll>\`
+  (default true). Do not import Lenis directly.
+- **Respect \`prefers-reduced-motion\`** — every yappaflow-ui motion primitive
+  honours it by default. Do NOT add bespoke GSAP timelines that bypass this;
+  if you need a custom sequence, use the library's \`<Reveal>\` + \`<ScrollSection>\`
+  composition instead.
+
+### Performance & banned patterns
+
+- Only animate \`transform\`, \`opacity\`, \`filter\`, \`clip-path\`. Never
+  \`width\` / \`height\` / \`top\` / \`left\` / \`margin\`.
+- No carousels, no marquees, no auto-playing video hero, no infinite-scroll
+  product grids — unless the direction explicitly calls for one.
+- No parallax on headlines or body copy.
+- No drop shadows on cards — use a 1px border in an opacity-shifted ink.
 
 ### Page content
 

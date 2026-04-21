@@ -26,6 +26,7 @@ import {
   type YfProductForPrompt,
 } from "../ai/prompts/generate-yappaflow.prompt";
 import { parseArtifacts } from "./static-site-generator.service";
+import { pickDesignDirection } from "../ai/design-directions";
 import { log, logError } from "../utils/logger";
 
 // The Yappaflow track emits TSX — more chars per file than the terse HTML
@@ -99,6 +100,17 @@ export async function generateYappaflowSite(
   const hasProducts  = products.length > 0;
   const expectedFiles = hasProducts ? ECOMMERCE_EXPECTED_FILES : BASE_EXPECTED_FILES;
 
+  // Pick the design direction BEFORE the prompt is assembled. Logged so
+  // we can reproduce a given build from logs alone.
+  const direction = pickDesignDirection({
+    tone:         identity.tone,
+    industry:     identity.industry,
+    businessName: identity.businessName,
+    city:         identity.city,
+    hasProducts,
+  });
+  log(`   ↳ design direction: ${direction.key} — "${direction.label}"`);
+
   await Project.findByIdAndUpdate(projectId, {
     buildJobStatus:  "running",
     buildPhase:      "generating",
@@ -116,7 +128,7 @@ export async function generateYappaflowSite(
   });
   const sessionId = session._id;
 
-  const systemPrompt = getGenerateYappaflowSitePrompt({ products });
+  const systemPrompt = getGenerateYappaflowSitePrompt({ products, direction });
 
   const identityForPrompt = {
     businessName:      identity.businessName,
