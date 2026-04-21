@@ -14,6 +14,9 @@ export type BuildJobStatus  = "pending" | "running" | "done" | "failed";
  *   queued      → request accepted, not yet picked up
  *   analyzing   → optional identity-extraction / planning step
  *   generating  → AI is producing the theme/site files (the long phase)
+ *   patching    → re-running the AI on a small subset of files the
+ *                 validator flagged (much faster than a full regen —
+ *                 ~30 s vs ~3-4 min for Shopify bundles)
  *   validating  → parser + content-depth checks on the AI output
  *   packaging   → persisting artifacts, building the ZIP
  *   done / failed — terminal
@@ -22,6 +25,7 @@ export type BuildPhase =
   | "queued"
   | "analyzing"
   | "generating"
+  | "patching"
   | "validating"
   | "packaging"
   | "done"
@@ -151,7 +155,7 @@ const ProjectSchema = new Schema<IProject>(
     identity:        { type: ProjectIdentitySchema },
     domainPurchased: { type: String },
     buildJobStatus:  { type: String, enum: ["pending", "running", "done", "failed"] },
-    buildPhase:      { type: String, enum: ["queued", "analyzing", "generating", "validating", "packaging", "done", "failed"] },
+    buildPhase:      { type: String, enum: ["queued", "analyzing", "generating", "patching", "validating", "packaging", "done", "failed"] },
     buildFilesDone:  { type: Number, default: 0 },
     buildFilesTotal: { type: Number, default: 0 },
     buildError:      { type: String },

@@ -83,6 +83,7 @@ export type BuildPhase =
   | "queued"
   | "analyzing"
   | "generating"
+  | "patching"
   | "validating"
   | "packaging"
   | "done"

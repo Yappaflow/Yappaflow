@@ -237,3 +237,134 @@ your bundle gets rejected and you'll be asked to regenerate everything.
 
 Begin.`;
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// Patch prompt — regenerate just the files the validator flagged
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface PatchShopifyIssue {
+  filePath: string;
+  kind:     "liquid-parse" | "json-parse" | "content-empty" | "missing-required" | "missing-token" | "missing-snippet";
+  message:  string;
+}
+
+export interface PatchShopifyOptions {
+  issues:    PatchShopifyIssue[];
+  /**
+   * Paths of files that already exist in the previous attempt and must NOT
+   * be re-emitted — they're working fine. We tell the model this so it
+   * doesn't accidentally "help" by rewriting files we didn't ask for.
+   */
+  keepPaths: string[];
+  products?: ShopifyProductForPrompt[];
+}
+
+/**
+ * Build the system prompt for a *targeted* regeneration of ONLY the files
+ * the validator flagged. Much shorter than the full-bundle prompt because
+ * the expensive parts (whole directory layout, section architecture
+ * lecture, content-depth floors for every section, design direction) are
+ * already baked into the files we're keeping. All we need here is:
+ *
+ *   • The constraints that keep patched files compatible with the rest of
+ *     the bundle (BEM naming, SVG sizing, snippet closure, Liquid syntax).
+ *   • A concrete list of (filePath, kind, message) tuples — the model
+ *     does its best work when told exactly what to fix.
+ *   • An explicit ban on re-emitting the "keep" files.
+ *
+ * Cost: typical patch is 2–5 files × ~1 KB each = comfortably under 4 k
+ * tokens, vs. ~30 k for a full regeneration.
+ */
+export function getPatchShopifyPrompt(opts: PatchShopifyOptions): string {
+  const hasProducts = Array.isArray(opts.products) && opts.products.length > 0;
+
+  const issueLines = opts.issues
+    .map((i) => `- \`${i.filePath}\` [${i.kind}]: ${i.message}`)
+    .join("\n");
+
+  const toEmit = Array.from(new Set(opts.issues.map((i) => i.filePath)));
+  const toEmitLines = toEmit.map((p) => `- \`${p}\``).join("\n");
+
+  // We pass a truncated list of kept paths to anchor the "don't touch these"
+  // rule. If the model tries to re-emit one, the merge step below will
+  // overwrite what was working — worth an explicit warning.
+  const keepLines = opts.keepPaths.map((p) => `- \`${p}\``).join("\n");
+
+  return `## Task: Patch a Shopify theme (regenerate ONLY these files)
+
+You previously generated a full Shopify theme bundle. An automated validator
+ran and found problems in a small subset of files. Your job now is to
+regenerate ONLY those files — keep the rest of the bundle as-is.
+
+### Files to regenerate
+
+Emit each of the following as a separate fenced \`filepath:\` block,
+completely rewritten (not a partial diff). Nothing else.
+
+${toEmitLines}
+
+### What was wrong with each file
+
+${issueLines}
+
+### DO NOT re-emit these — they are already correct
+
+${keepLines}
+
+### Constraints (same as the original generation)
+
+1. **Liquid syntax must parse.** No unbalanced \`{% if %}/{% endif %}\`,
+   no mis-closed \`{% for %}\` loops, no malformed \`{{ }}\` expressions.
+2. **JSON files must parse** (\`templates/*.json\`,
+   \`config/settings_*.json\`, \`locales/*.json\`). \`templates/*.json\`
+   must declare at least one section AND an \`order\` array.
+3. **Snippet closure.** Every \`{% render 'NAME' %}\` / \`{% include 'NAME' %}\`
+   MUST refer to a \`snippets/NAME.liquid\` that either (a) exists in the
+   "DO NOT re-emit" list above or (b) you ALSO emit as part of this patch.
+   Do NOT introduce new references to snippets that don't exist in either
+   set. This was the validator's top complaint — don't make it worse by
+   patching in more dangling references.
+4. **Inline SVG sizing.** Every \`<svg>\` in your patch MUST have both
+   \`width\` and \`height\` attributes (in px / rem / em). No bare
+   \`viewBox\`-only SVGs — they expand to fill their parent.
+5. **Class-naming consistency.** The existing \`assets/theme.css\` (which
+   you are NOT re-emitting) uses BEM naming (\`block\`, \`block__element\`,
+   \`block--modifier\`). Your patched Liquid files MUST use the same
+   convention. Don't invent new class names that won't have matching CSS.
+6. **No external CDNs, no external fonts.** All styling still lives in the
+   existing \`assets/theme.css\`.
+7. **\`{% schema %}\` blocks.** Every \`sections/*.liquid\` must end with a
+   valid \`{% schema %}\` block (JSON) declaring settings.
+8. **Mandatory tokens.** If you are regenerating \`layout/theme.liquid\`,
+   it MUST contain BOTH \`{{ content_for_header }}\` (in \`<head>\`) AND
+   \`{{ content_for_layout }}\` (in \`<body>\`).
+
+### Content depth
+
+Don't ship stubs. Each regenerated file must have real, production-grade
+content — same floors as the original generation: \`layout/theme.liquid\`
+at least 500 meaningful bytes, \`sections/header.liquid\` and
+\`sections/footer.liquid\` at least 300, any other \`sections/*.liquid\`
+at least 200. Comments and whitespace don't count.
+
+${hasProducts
+  ? `### Product catalog reference (unchanged since the first pass)
+
+\`\`\`json
+${JSON.stringify(opts.products, null, 2)}
+\`\`\``
+  : ""}
+
+### Output format
+
+Emit ONLY the files listed under "Files to regenerate". Each as a fenced
+block with a \`filepath:\` marker, e.g.:
+
+\`\`\`filepath:snippets/social-meta-tags.liquid
+<meta property="og:title" content="{{ page_title | escape }}">
+...
+\`\`\`
+
+No prose outside the fences. No commentary. No re-emission of files in
+the "DO NOT re-emit" list. Begin.`;
+}

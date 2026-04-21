@@ -24,6 +24,7 @@ import { AISession } from "../models/AISession.model";
 import { analyzeOnce, trackUsage } from "./ai-client.service";
 import {
   getGenerateShopifyPrompt,
+  getPatchShopifyPrompt,
   type ShopifyProductForPrompt,
 } from "../ai/prompts/generate-shopify.prompt";
 import { parseArtifacts } from "./static-site-generator.service";
@@ -285,34 +286,184 @@ export async function generateShopifyBundle(
   // Self-critique retry loop. Generating 17 full theme files is long and
   // stochastic; a single stumble can sink the whole build, so we try up to
   // MAX_ATTEMPTS times and feed the validator's structured errors from each
-  // failed attempt BACK into the next retry's user message. That last part
-  // is the important one: "you said hero.liquid is 57 bytes, regenerate it
-  // with real content" works far better than a generic "try harder" nudge.
+  // failed attempt BACK into the next attempt's prompt.
   //
-  // Cost budget: each attempt is ~$0.02 on OpenRouter/DeepSeek for the full
-  // theme. Three attempts = ~$0.06 worst-case, which is a trivial price to
-  // pay to avoid shipping a hollow-stub theme to a paying merchant (the
-  // 2026-04-21 prod failure mode). The loop short-circuits the moment we
-  // get a clean pass.
-  const MAX_ATTEMPTS = 3;
+  // Retry strategy:
+  //   • Attempt 1 → full-bundle generation (SHOPIFY_MAX_TOKENS, ~3-4 min).
+  //   • Attempts 2-3 → PATCH mode when possible: regenerate only the files
+  //     the validator flagged, merge them onto the previous attempt's good
+  //     files, re-validate. Typical patch is 2-5 files × ~1 KB, so the AI
+  //     call is ~30 s instead of ~3-4 min. Falls back to a full regen when
+  //     attempt 1 produced no parseable output at all, or when too many
+  //     files are broken to make patching worthwhile.
+  //
+  // Cost budget: full regen ~$0.02, patch call ~$0.005. Worst case:
+  //   full + full + full = ~$0.06  (today's behaviour pre-patching).
+  //   full + patch + patch = ~$0.03  (typical after this change).
+  // The loop short-circuits the moment we get a clean pass.
+  const MAX_ATTEMPTS       = 3;
+  const PATCH_MAX_TOKENS   = 10_000;
+  /** If more than this many files need patching, full regen is cleaner. */
+  const PATCH_FILE_CEILING = 6;
 
   let raw = "";
   let themeFiles: ReturnType<typeof parseArtifacts> = [];
   let lastIssues: LiquidValidationIssue[] | null = null;
   let validated = false;
 
+  /**
+   * Decide: can we fix `issues` with a targeted patch instead of a full
+   * regeneration? Every current issue kind is keyed on a single filePath,
+   * so "patchable" is purely a question of headcount.
+   *
+   * Returns true when:
+   *   • we have a non-empty `themeFiles` from the previous attempt (can't
+   *     patch the void — need something to merge onto), AND
+   *   • the unique set of flagged files is ≤ PATCH_FILE_CEILING.
+   */
+  function canPatch(
+    issues: LiquidValidationIssue[] | null,
+    prev: ReturnType<typeof parseArtifacts>
+  ): boolean {
+    if (!issues || issues.length === 0) return false;
+    if (prev.length === 0) return false;
+    const unique = new Set(issues.map((i) => i.filePath));
+    return unique.size <= PATCH_FILE_CEILING;
+  }
+
+  /**
+   * Merge patched files onto the previous attempt's file list. Replaces by
+   * filePath; new files (e.g. a previously-missing snippet) are appended.
+   */
+  function mergePatch(
+    prev: ReturnType<typeof parseArtifacts>,
+    patched: ReturnType<typeof parseArtifacts>
+  ): ReturnType<typeof parseArtifacts> {
+    const byPath = new Map(prev.map((f) => [f.filePath, f] as const));
+    for (const f of patched) {
+      byPath.set(f.filePath, f);
+    }
+    return Array.from(byPath.values());
+  }
+
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    // Tell the UI which attempt we're on, so the progress widget can show
-    // "Generating theme (retry 2/3)" when the validator forces a rerun.
+    const tryPatch = attempt > 1 && canPatch(lastIssues, themeFiles);
+
+    // Tell the UI which attempt we're on + whether it's a patch. The
+    // progress widget can surface e.g. "Patching 3 files (retry 2/3)".
     await Project.findByIdAndUpdate(projectId, {
-      buildPhase:   "generating",
+      buildPhase:   tryPatch ? "patching" : "generating",
       buildAttempt: attempt,
     });
 
-    // Build the per-attempt user message:
-    //   attempt 1 → original userContent.
-    //   attempt 2+ → userContent + targeted critique of the LAST attempt's
-    //                specific failures (parse or validation).
+    // ── PATCH PATH ─────────────────────────────────────────────────────
+    if (tryPatch && lastIssues) {
+      const issues = lastIssues; // narrow for TS below
+      const flaggedPaths = Array.from(new Set(issues.map((i) => i.filePath)));
+      const keepPaths = themeFiles
+        .map((f) => f.filePath)
+        .filter((p) => !flaggedPaths.includes(p));
+
+      const patchSystemPrompt = getPatchShopifyPrompt({
+        issues: issues.map((i) => ({
+          filePath: i.filePath,
+          kind:     i.kind,
+          message:  i.message,
+        })),
+        keepPaths,
+        products: promptProducts,
+      });
+      const patchUserContent =
+        "## Business Identity (unchanged since the full-bundle call)\n\n" +
+        "```json\n" +
+        JSON.stringify(
+          {
+            businessName: identity.businessName,
+            tagline:      identity.tagline,
+            industry:     identity.industry,
+            tone:         identity.tone,
+            city:         identity.city,
+          },
+          null,
+          2
+        ) +
+        "\n```\n\n" +
+        "Emit ONLY the files listed under \"Files to regenerate\" in the system " +
+        "prompt. One fenced block per file, nothing else.";
+
+      log(
+        `🩹 Shopify gen attempt ${attempt}/${MAX_ATTEMPTS} (patch): ` +
+        `regenerating ${flaggedPaths.length} file(s) — ${flaggedPaths.join(", ")}`
+      );
+
+      let patchRaw: string;
+      try {
+        const { text, usage } = await analyzeOnce(patchSystemPrompt, patchUserContent, {
+          phase:     "generating",
+          maxTokens: PATCH_MAX_TOKENS,
+        });
+        patchRaw = text;
+        await trackUsage(sessionId.toString(), usage);
+      } catch (err) {
+        logError(`Shopify patch AI call failed (attempt ${attempt})`, err);
+        await Project.findByIdAndUpdate(projectId, {
+          buildJobStatus: "failed",
+          buildPhase:     "failed",
+          buildError:     (err as Error).message,
+        });
+        await AISession.findByIdAndUpdate(sessionId, { phase: "failed", status: "failed", error: (err as Error).message });
+        throw err;
+      }
+
+      const patchedFiles = parseArtifacts(patchRaw);
+      if (patchedFiles.length === 0) {
+        log(
+          `⚠️  Shopify gen attempt ${attempt}/${MAX_ATTEMPTS} (patch): ` +
+          `parseArtifacts found 0 blocks in ${patchRaw.length} chars. ` +
+          `Output head: ${JSON.stringify(patchRaw.slice(0, 400))}`
+        );
+        // Patch itself didn't parse — on the next attempt we'll fall back
+        // to a full regen because `themeFiles` (from the previous good-ish
+        // attempt) is still populated but lastIssues still has the same
+        // list. Force a full regen next round by clearing themeFiles.
+        themeFiles = [];
+        lastIssues = null;
+        continue;
+      }
+
+      const merged = mergePatch(themeFiles, patchedFiles);
+
+      await Project.findByIdAndUpdate(projectId, { buildPhase: "validating" });
+      try {
+        validateShopifyBundle(merged);
+        themeFiles = merged;
+        validated  = true;
+        log(
+          `✅ Shopify gen attempt ${attempt}/${MAX_ATTEMPTS} (patch): ` +
+          `validation passed after patching ${patchedFiles.length} file(s) ` +
+          `(${merged.length} files total)`
+        );
+        break;
+      } catch (err) {
+        if (err instanceof LiquidBundleValidationError) {
+          lastIssues = err.issues;
+          themeFiles = merged; // next attempt patches on top of this
+          log(
+            `⚠️  Shopify gen attempt ${attempt}/${MAX_ATTEMPTS} (patch): ` +
+            `merged bundle still has ${err.issues.length} issue(s) — ` +
+            err.issues.slice(0, 3).map((i) => `${i.filePath}:${i.kind}`).join(", ") +
+            (err.issues.length > 3 ? `, …+${err.issues.length - 3}` : "")
+          );
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    // ── FULL-REGEN PATH ────────────────────────────────────────────────
+    //
+    // Either we're on attempt 1, or the last attempt produced nothing
+    // parseable / too many files are broken for patching to pay off.
     let attemptUserContent = userContent;
     if (attempt > 1) {
       if (themeFiles.length === 0) {
@@ -352,23 +503,15 @@ export async function generateShopifyBundle(
 
     themeFiles = parseArtifacts(raw);
     if (themeFiles.length === 0) {
-      // Diagnostic snapshot BEFORE we retry/fail — without this we're flying
-      // blind on future parse failures. Head+tail so the log doesn't balloon.
       log(
         `⚠️  Shopify gen attempt ${attempt}/${MAX_ATTEMPTS}: parseArtifacts found 0 blocks in ${raw.length} chars. ` +
         `Output head: ${JSON.stringify(raw.slice(0, 400))} … ` +
         `tail: ${JSON.stringify(raw.slice(-400))}`
       );
-      lastIssues = null; // parse-level failure, not a validator issues list
+      lastIssues = null;
       continue;
     }
 
-    // Pre-send testing: parse-check + content-depth-check every .liquid /
-    // .json file before we persist anything. If the model produced broken
-    // Liquid, malformed JSON, or hollow stubs, we loop and feed the issues
-    // back into the next attempt's user message. Shipping a bundle Shopify
-    // refuses at upload — or worse, accepts but renders as a blank store —
-    // is unacceptable for a production SaaS.
     await Project.findByIdAndUpdate(projectId, { buildPhase: "validating" });
     try {
       validateShopifyBundle(themeFiles);
@@ -387,7 +530,6 @@ export async function generateShopifyBundle(
         );
         continue;
       }
-      // Non-LiquidBundleValidationError: something unexpected — don't retry.
       throw err;
     }
   }

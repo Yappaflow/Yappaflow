@@ -55,6 +55,10 @@ const BAND: Record<Exclude<BuildPhase, "done" | "failed">, [number, number]> = {
   queued:     [0,  5],
   analyzing:  [5,  12],
   generating: [12, 78],
+  // Patching reuses the generating band so the bar stays put during a
+  // retry — by the time we're patching the user has already seen the bar
+  // climb to ~78% once, and resetting it would feel like regression.
+  patching:   [12, 78],
   validating: [78, 85],
   packaging:  [85, 99],
 };
@@ -72,6 +76,7 @@ function phaseLabel(phase: BuildPhase | null, status: BuildJobStatus | null): st
   if (phase === "done")            return "Ready to download";
   if (phase === "packaging")       return "Packaging bundle";
   if (phase === "validating")      return "Validating output";
+  if (phase === "patching")        return "Patching flagged files";
   if (phase === "generating")      return "Generating theme";
   if (phase === "analyzing")       return "Analyzing identity";
   if (phase === "queued")          return "Queued";
@@ -108,9 +113,11 @@ function computePercent(
   const [lo, hi] = band;
   const span = hi - lo;
 
-  if (phase === "generating") {
+  if (phase === "generating" || phase === "patching") {
     // Asymptotic: percent = lo + span * (1 - e^(-elapsed / T)).
     // At t=0 we're at `lo`, at t≈3T we're near `hi` but never cross it.
+    // Patching shares the same curve — by the time we enter it, elapsed
+    // is already large so the bar sits near the top of the band.
     const ratio = 1 - Math.exp(-elapsed / EXPECTED_GENERATING_SECONDS);
     return lo + span * ratio;
   }
@@ -161,12 +168,20 @@ export function BuildProgress(props: BuildProgressProps) {
     queued:     "Queued",
     analyzing:  "Analyze",
     generating: "Generate",
+    // Patching isn't in STEP_ORDER — it's a transient sub-state of the
+    // generate step. When we're patching, the step indicator still reads
+    // "Generate" with the retry badge next to it.
+    patching:   "Patch",
     validating: "Validate",
     packaging:  "Package",
     done:       "Done",
     failed:     "Failed",
   };
-  const currentIdx = phase ? STEP_ORDER.indexOf(phase) : -1;
+  // Map transient sub-phases back onto their visible step so the
+  // breadcrumb doesn't blank out while we're patching.
+  const visiblePhase: BuildPhase | null =
+    phase === "patching" ? "generating" : phase;
+  const currentIdx = visiblePhase ? STEP_ORDER.indexOf(visiblePhase) : -1;
 
   return (
     <div className="rounded-2xl border border-white/[0.05] bg-[#111114] p-6">
