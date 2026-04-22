@@ -20,6 +20,7 @@
     "build:web": "turbo build --filter=@yappaflow/web",
     "build:server": "turbo build --filter=@yappaflow/server",
     "build:shared": "turbo build --filter=@yappaflow/shared",
+    "start:mcp": "cd apps/yappaflow-mcp && node dist/mcp/server.js",
     "build:ui": "turbo build --filter=yappaflow-ui",
     "dev:ui": "turbo dev --filter=yappaflow-ui",
     "build:ui-docs": "turbo build --filter=@yappaflow/ui-docs",
