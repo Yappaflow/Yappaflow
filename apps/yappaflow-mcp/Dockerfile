@@ -5,14 +5,18 @@
 #
 # To bump: check `grep -A1 '"node_modules/playwright"' package-lock.json`
 # at the repo root and update both sides.
+#
+# Build context = monorepo root (that's how Railway invokes it when
+# railway.json is the Config-as-code file). All COPY paths below are
+# therefore relative to the repo root, not to apps/yappaflow-mcp/.
 FROM mcr.microsoft.com/playwright:v1.59.1-jammy
 
 WORKDIR /app
 
-# Deps first for better layer caching. The monorepo lockfile lives at the
-# repo root, so with Railway Root Directory = apps/yappaflow-mcp there is
-# no package-lock.json available here — use `npm install` rather than `npm ci`.
-COPY package.json ./
+# Copy just the MCP app's package.json so deps install from its manifest
+# without dragging every workspace's dependencies into the image.
+COPY apps/yappaflow-mcp/package.json ./package.json
+
 RUN npm install --no-audit --no-fund
 
 # Safety net: if playwright resolves to a revision the base image wasn't
@@ -21,7 +25,8 @@ RUN npm install --no-audit --no-fund
 # no-op, rescues the build when the image and lockfile drift.
 RUN npx playwright install --with-deps chromium
 
-COPY . .
+# Now copy the rest of the MCP app source.
+COPY apps/yappaflow-mcp/ ./
 
 RUN npm run build
 
