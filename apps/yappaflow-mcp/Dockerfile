@@ -1,15 +1,25 @@
-# Playwright image already has Chromium + all OS deps preinstalled.
-# Keep this in sync with the `playwright` version in package.json.
-FROM mcr.microsoft.com/playwright:v1.49.0-jammy
+# Keep this tag in sync with the resolved `playwright` version in the monorepo
+# package-lock.json (currently 1.59.1). Mismatch → npm downloads a newer
+# Chromium revision while the image carries OS libs for an older one, and
+# launch fails with "libglib-2.0.so.0: cannot open shared object file".
+#
+# To bump: check `grep -A1 '"node_modules/playwright"' package-lock.json`
+# at the repo root and update both sides.
+FROM mcr.microsoft.com/playwright:v1.59.1-jammy
 
 WORKDIR /app
 
-# Deps first for better layer caching.
+# Deps first for better layer caching. The monorepo lockfile lives at the
+# repo root, so with Railway Root Directory = apps/yappaflow-mcp there is
+# no package-lock.json available here — use `npm install` rather than `npm ci`.
 COPY package.json ./
-# The monorepo lockfile lives at the repo root, not inside the app.
-# Railway deploys this app with Root Directory = apps/yappaflow-mcp,
-# so we fall back to `npm install` (writes a fresh lockfile on each build).
 RUN npm install --no-audit --no-fund
+
+# Safety net: if playwright resolves to a revision the base image wasn't
+# pre-seeded with, pull the matching browser + OS deps now. `--with-deps`
+# needs root, which the Dockerfile build step runs as. Cheap when it's a
+# no-op, rescues the build when the image and lockfile drift.
+RUN npx playwright install --with-deps chromium
 
 COPY . .
 
