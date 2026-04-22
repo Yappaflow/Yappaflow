@@ -60,7 +60,12 @@ HARD RULES:
     user: prompt,
     responseFormat: "json",
     temperature: 0.3,
-    maxTokens: 8192,
+    // 8192 got the model cut off mid-JSON for richer briefs — the JSON
+    // parse then fails and we fall back to the offline scaffold. Sonnet
+    // supports much higher output budgets; 32K gives breathing room for
+    // a full landing page (index.html + styles.css + optional script.js)
+    // without blowing past the per-request cost ceiling in practice.
+    maxTokens: 32768,
   });
 
   let parsed: { "index.html": string; "styles.css": string; "script.js"?: string };
