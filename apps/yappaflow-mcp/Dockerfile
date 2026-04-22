@@ -13,6 +13,14 @@ FROM mcr.microsoft.com/playwright:v1.59.1-jammy
 
 WORKDIR /app
 
+# better-sqlite3 is native code. If prebuild-install can't fetch a
+# matching binary for this Node/arch, npm falls back to compiling from
+# source — which needs python3 + a C++ toolchain. The Playwright image
+# ships a lot, but not always build-essential, so install defensively.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 make g++ \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy just package.json so deps install from the manifest and cache well.
 COPY package.json ./package.json
 
@@ -38,4 +46,4 @@ EXPOSE 3000
 
 CMD ["npm", "start"]
 
-# rebuild 2
+# rebuild 3
