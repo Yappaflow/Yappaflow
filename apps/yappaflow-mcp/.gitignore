@@ -9,3 +9,5 @@ samples/*.json
 smoke-output/
 *.log
 .DS_Store
+.env
+.env.local
