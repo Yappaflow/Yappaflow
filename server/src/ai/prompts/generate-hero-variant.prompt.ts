@@ -210,20 +210,20 @@ Therefore:
 4. Include a \`prefers-reduced-motion\` media query that disables non-essential transforms.
 5. All interactive elements (buttons, links) need real \`:hover\` and \`:focus-visible\` treatments — the user will mouse over them.
 
-## Minimum visible content (MANDATORY — full-page preview, not a cropped hero)
+## Minimum visible content (MANDATORY — a single, richly composed hero)
 
-The user sees this in a tall preview card (desktop viewport 1280px wide × ~2000px tall) — think Webflow template thumbnail: they scan the ENTIRE page at once, hero through below-the-fold, to judge the composition. If the only thing visible is a giant headline with empty space underneath, the variant reads as broken and the user discards it. Fill the full 2000px canvas with substantive, on-brand content.
+The user sees this in a desktop preview card at **1280×900** — a one-screen hero frame, Webflow-template-thumbnail style. Your job is ONE hero section that FILLS this frame edge-to-edge. This is an agency-style design conversation starter: the user is picking a visual direction, not auditing a full site. Treat the 900px height as a hard canvas — every part of it should be intentional, no dead white space.
 
 Required on the page (all must render without JS, see Motion safety below):
 
-1. **Hero / first fold** (occupies ~600–900px of vertical space):
-   - A headline (real copy, not a placeholder) at the flavor's specified size.
-   - A subhead (1–2 sentences of real copy).
-   - A primary CTA (a real \`<a>\` or \`<button>\` with a non-empty label) and ideally a secondary CTA.
-2. **Second section** (below the fold, ~400–600px tall): a meaningful content block — a row of 3 feature cards, a stats strip, a quote, a featured-product grid, a short About paragraph paired with a visual — flavor-appropriate.
-3. **Third section** (~300–500px tall): a complementary block that's visually different from section 2 — e.g. a testimonial row, a logo/trust strip, an FAQ teaser, a newsletter signup, or a footer-like link grid. Two below-the-fold sections beats one tall one; the user should feel the page has RHYTHM.
+- A headline (real copy, not a placeholder) at the flavor's specified size — occupying meaningful vertical presence.
+- A subhead (1–2 sentences of real copy).
+- A primary CTA (a real \`<a>\` or \`<button>\` with a non-empty label) and ideally a secondary CTA or lightweight link.
+- At least ONE supporting visual element appropriate to the flavor — an inline SVG mark, a full-bleed image block with overlay, a split panel with a secondary visual, a numbered detail row (e.g. "01 / EDITORIAL — NEW SEASON"), a tiny scrolling marquee strip, or a thin accent bar. The composition must look complete, not bare.
 
-Make sure the text is high-contrast against the background you picked. If Ink is #1a1a1a and Surface is #f6f4ef, that's fine; never set text to the same value as the background. Use the palette's Surface variants to alternate section backgrounds so the rhythm is visible in the scaled preview.
+Structure the hero so it OCCUPIES the whole 900px canvas — use generous vertical padding, let the headline breathe, give the subhead and CTAs their own tier, and place any secondary elements (marquee, meta row, thumbnail strip, trust logos, stats caption) so they anchor the top or bottom edge. If a pure-typography flavor produces too much empty space, fill edges with intentional type — small caps meta labels, numerals, a date, an index mark — rather than leaving raw background.
+
+Make sure the text is high-contrast against the background you picked. If Ink is #1a1a1a and Surface is #f6f4ef, that's fine; never set text to the same value as the background. A blank cream rectangle with one word floating in it is a failed preview — the user discards the whole batch.
 
 ## Signature motion (MANDATORY — this is how variants differentiate)
 
