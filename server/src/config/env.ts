@@ -208,4 +208,13 @@ export const env = {
   ikasApiBase:      process.env.IKAS_API_BASE      || "https://api.myikas.com",
   ikasApiVersion:   process.env.IKAS_API_VERSION   || "v1",
   ikasAdminDomainSuffix: process.env.IKAS_ADMIN_DOMAIN_SUFFIX || "myikas.com",
+
+  // ── Yappaflow MCP (design-reference pipeline) ───────────────────────
+  //
+  // The design-reference-driven site generator runs as a separate MCP
+  // server (apps/yappaflow-mcp) deployed on Railway. The main API talks
+  // to it over HTTP with a bearer token. Set YAPPAFLOW_MCP_URL to empty
+  // string to disable the feature (routes will return 503).
+  yappaflowMcpUrl:   process.env.YAPPAFLOW_MCP_URL   || "http://localhost:7777",
+  yappaflowMcpToken: process.env.YAPPAFLOW_MCP_TOKEN || "",
 } as const;

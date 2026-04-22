@@ -1,0 +1,38 @@
+{
+  "name": "@yappaflow/mcp",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Design DNA extraction + MCP server for Yappaflow. Phase 0 ships the extractor; Phases 1–6 add the MCP server, search, ranking, merge, and platform build adapters.",
+  "type": "module",
+  "main": "dist/cli.js",
+  "bin": {
+    "yappaflow-dna": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "node dist/mcp/server.js",
+    "dev": "tsx src/mcp/server.ts",
+    "extract": "tsx src/cli.ts",
+    "extract:samples": "tsx src/cli.ts --from references.json --out samples --concurrency 3",
+    "clean": "rm -rf dist samples/*.json data/*.db"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "better-sqlite3": "^11.5.0",
+    "express": "^4.21.2",
+    "openai": "^4.73.0",
+    "playwright": "^1.49.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.9.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

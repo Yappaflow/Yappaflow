@@ -26,6 +26,7 @@ import aiDebugRouter   from "./routes/ai-debug.route";
 import chatImportRouter from "./routes/chat-import.route";
 import deployRouter      from "./routes/deploy.route";
 import authSessionRouter from "./routes/auth-session.route";
+import referenceRouter   from "./routes/reference.route";
 
 // ── Allow-list for cross-origin callers ──────────────────────────────────────
 // Exact-match origins. Add production/preview URLs here as we spin them up.
@@ -209,6 +210,7 @@ async function main() {
   app.use("/ai/debug", cors(corsOptions), express.json(), aiDebugRouter);
   app.use("/import",   cors(corsOptions), uploadLimiter, chatImportRouter); // multer handles its own body parsing
   app.use("/deploy",   cors(corsOptions), deployLimiter, express.json(), deployRouter);
+  app.use("/reference", cors(corsOptions), apiLimiter, express.json({ limit: "8mb" }), referenceRouter);
 
   const apolloServer = createApolloServer();
   await apolloServer.start();

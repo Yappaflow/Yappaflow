@@ -1,0 +1,15 @@
+{
+  "description": "Phase 0 reference set — 10 sites chosen to span different design aesthetics. Goal: validate that the extractor produces useful DNA across the range, not that any single site is 'the best'.",
+  "sites": [
+    { "url": "https://linear.app",            "category": "saas",        "note": "Modern minimal SaaS — clean scale, restrained palette, subtle motion." },
+    { "url": "https://stripe.com",            "category": "saas",        "note": "Sophisticated developer marketing — gradients, detailed scroll work." },
+    { "url": "https://vercel.com",            "category": "saas",        "note": "Minimalist monochrome, sharp typography, large type." },
+    { "url": "https://www.framer.com",        "category": "design-tool", "note": "Motion-heavy, illustrative — lots of CSS animation." },
+    { "url": "https://resend.com",            "category": "saas",        "note": "Restrained editorial developer tool." },
+    { "url": "https://rauno.me",              "category": "editorial",   "note": "Personal site, strong editorial + motion vocabulary." },
+    { "url": "https://www.anthropic.com",     "category": "editorial",   "note": "Editorial tech — serif/sans mix, warm palette." },
+    { "url": "https://posthog.com",           "category": "saas",        "note": "Playful SaaS — colorful, hand-drawn accents." },
+    { "url": "https://tailwindcss.com",       "category": "docs",        "note": "Utility-first aesthetic, dense information design." },
+    { "url": "https://www.apple.com",         "category": "premium",     "note": "Premium product marketing — SF type stack, large imagery." }
+  ]
+}

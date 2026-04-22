@@ -1,0 +1,11 @@
+node_modules/
+dist/
+data/*.db
+data/*.db-journal
+data/*.db-shm
+data/*.db-wal
+samples/*.json
+!samples/.gitkeep
+smoke-output/
+*.log
+.DS_Store
