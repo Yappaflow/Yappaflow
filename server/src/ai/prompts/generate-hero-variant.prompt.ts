@@ -210,16 +210,20 @@ Therefore:
 4. Include a \`prefers-reduced-motion\` media query that disables non-essential transforms.
 5. All interactive elements (buttons, links) need real \`:hover\` and \`:focus-visible\` treatments — the user will mouse over them.
 
-## Minimum visible content (MANDATORY — never ship a blank canvas)
+## Minimum visible content (MANDATORY — full-page preview, not a cropped hero)
 
-At a desktop viewport of 1280×800 (which is what the user is going to see), the following must ALL be rendered and readable with your own eyes on the page. If you mentally render the HTML you're about to emit and can't see every item below, rewrite before you respond.
+The user sees this in a tall preview card (desktop viewport 1280px wide × ~2000px tall) — think Webflow template thumbnail: they scan the ENTIRE page at once, hero through below-the-fold, to judge the composition. If the only thing visible is a giant headline with empty space underneath, the variant reads as broken and the user discards it. Fill the full 2000px canvas with substantive, on-brand content.
 
-- A headline (real copy, not a placeholder) at the flavor's specified size.
-- A subhead (1–2 sentences of real copy).
-- A primary CTA (a real \`<a>\` or \`<button>\` with a non-empty label).
-- One below-the-fold section with at least three substantive elements (a paragraph + a list, a row of detail cards, a strip of tiles — flavor-appropriate).
+Required on the page (all must render without JS, see Motion safety below):
 
-Make sure the text is high-contrast against the background you picked. If Ink is #1a1a1a and Surface is #f6f4ef, that's fine; never set text to the same value as the background.
+1. **Hero / first fold** (occupies ~600–900px of vertical space):
+   - A headline (real copy, not a placeholder) at the flavor's specified size.
+   - A subhead (1–2 sentences of real copy).
+   - A primary CTA (a real \`<a>\` or \`<button>\` with a non-empty label) and ideally a secondary CTA.
+2. **Second section** (below the fold, ~400–600px tall): a meaningful content block — a row of 3 feature cards, a stats strip, a quote, a featured-product grid, a short About paragraph paired with a visual — flavor-appropriate.
+3. **Third section** (~300–500px tall): a complementary block that's visually different from section 2 — e.g. a testimonial row, a logo/trust strip, an FAQ teaser, a newsletter signup, or a footer-like link grid. Two below-the-fold sections beats one tall one; the user should feel the page has RHYTHM.
+
+Make sure the text is high-contrast against the background you picked. If Ink is #1a1a1a and Surface is #f6f4ef, that's fine; never set text to the same value as the background. Use the palette's Surface variants to alternate section backgrounds so the rhythm is visible in the scaled preview.
 
 ## Signature motion (MANDATORY — this is how variants differentiate)
 

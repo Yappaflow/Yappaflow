@@ -198,7 +198,7 @@ export function HeroChooser({ projectId, onReady, onSkip }: HeroChooserProps) {
           {[0, 1, 2].map((i) => (
             <div
               key={i}
-              className="aspect-[1280/800] animate-pulse rounded-xl border border-white/10 bg-white/[0.03]"
+              className="aspect-[1280/2000] animate-pulse rounded-xl border border-white/10 bg-white/[0.03]"
             />
           ))}
         </div>
@@ -280,28 +280,36 @@ export function HeroChooser({ projectId, onReady, onSkip }: HeroChooserProps) {
               </div>
 
               {/*
-                Desktop-scale preview:
+                Desktop-scale full-page preview (Webflow-style):
                   - Outer `@container` establishes a Tailwind 4 container-query
                     context so we can use `cqw` units inside.
-                  - `aspect-[1280/800]` locks the preview to real desktop ratio.
-                  - The iframe is rendered at 1280×800 (a "normal" desktop
-                    viewport) and scaled down via CSS so the user sees the true
-                    desktop rendering — typography proportions, spacing, hero
+                  - `aspect-[1280/2000]` locks the card to a tall portrait
+                    ratio so the user sees the ENTIRE generated page — hero,
+                    first-fold composition, and the below-the-fold section —
+                    not just the top 800px. The hero variant prompt requires
+                    a below-fold section with ≥3 substantive elements, and we
+                    want the chooser to surface that so the user is picking
+                    on real content, not a cropped headline.
+                  - The iframe is rendered at 1280×2000 (a "normal" desktop
+                    viewport, tall enough to capture the full mockup) and
+                    scaled down via CSS so the user sees the true desktop
+                    rendering — typography proportions, spacing, hero
                     composition all behave the way they will on a real laptop.
-                    This is the only honest way to show a hero preview at
-                    3-up size; rendering the iframe at its column width makes
-                    the AI's 72px headline look like 14px and is misleading.
+                    This is the only honest way to show a full-page preview
+                    at 3-up size; rendering the iframe at its column width
+                    makes the AI's 72px headline look like 14px and misleads.
                   - scale factor = container-width / 1280, expressed via cqw.
               */}
               <div className="@container/preview w-full">
-                <div className="relative aspect-[1280/800] w-full overflow-hidden rounded-md border border-white/5 bg-white">
+                <div className="relative aspect-[1280/2000] w-full overflow-hidden rounded-md border border-white/5 bg-white">
                   <iframe
                     title={`Hero variant ${v.flavor}`}
                     sandbox="allow-scripts"
                     srcDoc={v.html}
+                    scrolling="no"
                     style={{
                       width:           "1280px",
-                      height:          "800px",
+                      height:          "2000px",
                       transform:       "scale(calc(100cqw / 1280))",
                       transformOrigin: "top left",
                     }}
