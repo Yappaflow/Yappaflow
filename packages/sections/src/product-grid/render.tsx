@@ -1,5 +1,6 @@
 import type { Section } from "@yappaflow/types";
 import { PlaceholderSection } from "../internal/placeholder.js";
+import { EditableText } from "../internal/editable-text.js";
 import { ProductGridContentSchema } from "./schema.js";
 import { DEFAULT_PRODUCT_GRID_VARIANT } from "./variants.js";
 
@@ -28,15 +29,27 @@ export function ProductGridSection({ section }: { section: Section }) {
         <header className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-end">
           <div className="max-w-xl">
             {content.eyebrow ? (
-              <p className="mb-3 text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">
-                {content.eyebrow}
-              </p>
+              <EditableText
+                as="p"
+                field="eyebrow"
+                value={content.eyebrow}
+                className="mb-3 text-xs font-medium uppercase tracking-[0.2em] text-neutral-500"
+              />
             ) : null}
-            <h2 className="text-3xl font-semibold tracking-tight text-neutral-950 md:text-5xl">
-              {content.heading}
-            </h2>
+            <EditableText
+              as="h2"
+              field="heading"
+              value={content.heading}
+              className="text-3xl font-semibold tracking-tight text-neutral-950 md:text-5xl"
+            />
             {content.subhead ? (
-              <p className="mt-3 text-lg text-neutral-600">{content.subhead}</p>
+              <EditableText
+                as="p"
+                field="subhead"
+                multiline
+                value={content.subhead}
+                className="mt-3 text-lg text-neutral-600"
+              />
             ) : null}
           </div>
           {content.ctaAll ? (
@@ -44,14 +57,15 @@ export function ProductGridSection({ section }: { section: Section }) {
               href={content.ctaAll.href}
               className="text-sm font-medium text-neutral-900 underline underline-offset-4 hover:no-underline"
             >
-              {content.ctaAll.label} →
+              <EditableText field="ctaAll.label" value={content.ctaAll.label} />
+              {" "}→
             </a>
           ) : null}
         </header>
         <div
           className={`mt-10 grid grid-cols-2 gap-6 md:mt-14 md:gap-8 ${COLUMN_CLASS[content.columns]}`}
         >
-          {content.products.map((p) => (
+          {content.products.map((p, i) => (
             <a
               key={p.id}
               href={p.href}
@@ -65,22 +79,27 @@ export function ProductGridSection({ section }: { section: Section }) {
                 />
               </div>
               <div className="flex items-start justify-between gap-4">
-                <h3
+                <EditableText
+                  field={`products.${i}.title`}
+                  value={p.title}
                   className={
                     variant === "minimal"
                       ? "text-sm font-medium"
                       : "text-base font-medium"
                   }
-                >
-                  {p.title}
-                </h3>
+                />
                 <div className="text-right text-sm">
                   {p.compareAtPrice ? (
-                    <span className="mr-2 text-neutral-400 line-through">
-                      {p.compareAtPrice}
-                    </span>
+                    <EditableText
+                      field={`products.${i}.compareAtPrice`}
+                      value={p.compareAtPrice}
+                      className="mr-2 text-neutral-400 line-through"
+                    />
                   ) : null}
-                  <span>{p.price}</span>
+                  <EditableText
+                    field={`products.${i}.price`}
+                    value={p.price}
+                  />
                 </div>
               </div>
             </a>

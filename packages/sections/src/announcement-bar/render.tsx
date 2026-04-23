@@ -1,5 +1,6 @@
 import type { Section } from "@yappaflow/types";
 import { PlaceholderSection } from "../internal/placeholder.js";
+import { EditableText } from "../internal/editable-text.js";
 import { AnnouncementBarContentSchema } from "./schema.js";
 import { DEFAULT_ANNOUNCEMENT_BAR_VARIANT } from "./variants.js";
 
@@ -17,13 +18,14 @@ export function AnnouncementBarSection({ section }: { section: Section }) {
       <div className="mx-auto flex max-w-6xl items-center justify-center gap-3 px-6 py-2.5 text-xs md:px-10">
         {content ? (
           <>
-            <span>{content.message}</span>
+            <EditableText as="span" field="message" value={content.message} />
             {content.cta ? (
               <a
                 href={content.cta.href}
                 className="font-medium underline underline-offset-2 hover:opacity-80"
               >
-                {content.cta.label} →
+                <EditableText field="cta.label" value={content.cta.label} />
+                {" "}→
               </a>
             ) : null}
           </>

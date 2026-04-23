@@ -35,6 +35,19 @@ interface ProductsState {
   replaceAll(products: LibraryProduct[]): void;
 }
 
+/**
+ * One-off migration for the v1 → v2 seed id change. Earlier builds seeded
+ * with `p_sample1/2/3` ids that didn't match the product-grid default
+ * content's `p-001/2/3` — `syncLibraryProduct` never found matches and
+ * library edits appeared to do nothing. Map any old ids we find to the
+ * new scheme and persist once.
+ */
+const LEGACY_ID_MIGRATION: Record<string, string> = {
+  p_sample1: "p-001",
+  p_sample2: "p-002",
+  p_sample3: "p-003",
+};
+
 function readFromStorage(): LibraryProduct[] {
   if (typeof window === "undefined") return [];
   try {
@@ -42,7 +55,17 @@ function readFromStorage(): LibraryProduct[] {
     if (!raw) return SAMPLE_PRODUCTS;
     const parsed = JSON.parse(raw) as LibraryProduct[];
     if (!Array.isArray(parsed)) return SAMPLE_PRODUCTS;
-    return parsed;
+    let migrated = false;
+    const next = parsed.map((p) => {
+      const migratedId = LEGACY_ID_MIGRATION[p.id];
+      if (migratedId) {
+        migrated = true;
+        return { ...p, id: migratedId };
+      }
+      return p;
+    });
+    if (migrated) writeToStorage(next);
+    return next;
   } catch {
     return SAMPLE_PRODUCTS;
   }
@@ -65,10 +88,17 @@ function makeId(): string {
  * Seed catalog. When an agency has never touched their product library,
  * we pre-populate with these so the UI isn't empty on first visit. They
  * can delete or edit freely.
+ *
+ * IMPORTANT: these ids MUST match the product ids in
+ * `packages/sections/src/product-grid/default.ts`. The canvas's fixture
+ * product-grid section seeds from the sections library's default content,
+ * and `syncLibraryProduct` finds products to update by matching `id`. If
+ * the ids drift, editing the library silently has no effect on the
+ * pre-seeded canvas products — which is confusing.
  */
 const SAMPLE_PRODUCTS: LibraryProduct[] = [
   {
-    id: "p_sample1",
+    id: "p-001",
     title: "Classic tee",
     handle: "classic-tee",
     price: "$42",
@@ -78,7 +108,7 @@ const SAMPLE_PRODUCTS: LibraryProduct[] = [
     tags: ["apparel"],
   },
   {
-    id: "p_sample2",
+    id: "p-002",
     title: "Studio cap",
     handle: "studio-cap",
     price: "$28",
@@ -88,7 +118,7 @@ const SAMPLE_PRODUCTS: LibraryProduct[] = [
     tags: ["apparel", "headwear"],
   },
   {
-    id: "p_sample3",
+    id: "p-003",
     title: "Canvas tote",
     handle: "canvas-tote",
     price: "$34",

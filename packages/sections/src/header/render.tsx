@@ -1,5 +1,6 @@
 import type { Section } from "@yappaflow/types";
 import { PlaceholderSection } from "../internal/placeholder.js";
+import { EditableText } from "../internal/editable-text.js";
 import { HeaderContentSchema } from "./schema.js";
 import { DEFAULT_HEADER_VARIANT } from "./variants.js";
 
@@ -18,7 +19,7 @@ export function HeaderSection({ section }: { section: Section }) {
 
   const logo = (
     <a href="/" className="text-lg font-semibold tracking-tight text-neutral-900">
-      {content.logo.text}
+      <EditableText field="logo.text" value={content.logo.text} />
     </a>
   );
 
@@ -26,7 +27,7 @@ export function HeaderSection({ section }: { section: Section }) {
     <nav className="hidden items-center gap-7 text-sm text-neutral-700 md:flex">
       {content.nav.map((link, i) => (
         <a key={`${link.href}-${i}`} href={link.href} className="transition hover:text-neutral-950">
-          {link.label}
+          <EditableText field={`nav.${i}.label`} value={link.label} />
         </a>
       ))}
     </nav>
@@ -37,7 +38,7 @@ export function HeaderSection({ section }: { section: Section }) {
       href={content.cta.href}
       className="inline-flex items-center rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-neutral-800"
     >
-      {content.cta.label}
+      <EditableText field="cta.label" value={content.cta.label} />
     </a>
   ) : null;
 

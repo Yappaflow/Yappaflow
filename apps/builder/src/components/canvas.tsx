@@ -297,10 +297,14 @@ function RenderSection({ section }: { section: Section }) {
 
 /**
  * Renders a section inside a SectionEditContext provider so any EditableText
- * inside can flush field-path edits back to the store. Dot-path fields walk
- * one level deep into nested objects (e.g. `primaryCta.label` →
- * `{primaryCta: {...existing, label: value}}`). Deeper nesting can be added
- * when a section actually needs it.
+ * inside can flush field-path edits back to the store. Supports arbitrary
+ * nested paths — dot-separated segments that are numeric are treated as
+ * array indices. Examples:
+ *
+ *   heading                 → { heading: value }
+ *   primaryCta.label        → { primaryCta: { ...existing, label: value } }
+ *   items.0.quote           → { items: [{ ...items[0], quote: value }, ...] }
+ *   cols.2.links.0.label    → deep-set through any mix of arrays/objects
  */
 function EditableSection({
   section,
@@ -312,23 +316,16 @@ function EditableSection({
   const contextValue = {
     onEdit(field: string, value: string) {
       const parts = field.split(".");
-      if (parts.length === 1) {
-        onPatch({ [field]: value });
-        return;
-      }
+      if (parts.length === 0) return;
       const [root, ...rest] = parts;
       if (!root) return;
-      const existing =
-        ((section.content as Record<string, unknown>)[root] as
-          | Record<string, unknown>
-          | undefined) ?? {};
-      const next: Record<string, unknown> = { ...existing };
-      // Single-level nested support covers every current case
-      // (primaryCta.label, secondaryCta.label, cta.label, logo.text, etc.).
-      const leaf = rest[rest.length - 1];
-      if (!leaf) return;
-      next[leaf] = value;
-      onPatch({ [root]: next });
+      if (rest.length === 0) {
+        onPatch({ [root]: value });
+        return;
+      }
+      const existing = (section.content as Record<string, unknown>)[root];
+      const updated = setDeep(existing, rest, value);
+      onPatch({ [root]: updated });
     },
   };
   return (
@@ -336,6 +333,35 @@ function EditableSection({
       <RenderSection section={section} />
     </SectionEditContext.Provider>
   );
+}
+
+/**
+ * Pure deep-set. Walks the path, cloning arrays and objects along the way
+ * so React sees new references at every ancestor. Numeric segments become
+ * array indices; non-numeric segments become object keys. The first segment
+ * determines whether a missing parent should be created as [] or {}.
+ */
+function setDeep(target: unknown, path: string[], value: unknown): unknown {
+  if (path.length === 0) return value;
+  const [head, ...rest] = path;
+  if (head == null) return value;
+  const headIsIndex = /^\d+$/.test(head);
+
+  if (headIsIndex) {
+    const idx = Number(head);
+    const arr = Array.isArray(target) ? [...target] : [];
+    const child = arr[idx];
+    arr[idx] = setDeep(child, rest, value);
+    return arr;
+  }
+
+  const obj =
+    target && typeof target === "object" && !Array.isArray(target)
+      ? { ...(target as Record<string, unknown>) }
+      : {};
+  const child = (obj as Record<string, unknown>)[head];
+  (obj as Record<string, unknown>)[head] = setDeep(child, rest, value);
+  return obj;
 }
 
 function findSectionOwner(
