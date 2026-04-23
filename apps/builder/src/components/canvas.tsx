@@ -38,6 +38,7 @@ export function Canvas() {
   const selectSection = useProjectStore((s) => s.selectSection);
   const updateSectionContent = useProjectStore((s) => s.updateSectionContent);
   const updateGlobalContent = useProjectStore((s) => s.updateGlobalContent);
+  const previewMode = useProjectStore((s) => s.previewMode);
 
   // Whether a palette drag is in-flight. When true, drop zones become
   // visible (otherwise they stay at zero height — invisible but still
@@ -118,13 +119,18 @@ export function Canvas() {
   const { maxWidth, label } = VIEWPORT_STYLE[viewport];
   const pageSections = homePage?.sections ?? [];
 
-  const selectedRing = selection?.sectionId
-    ? `[data-yf-section-id="${escapeForAttrSelector(selection.sectionId)}"] {
-         outline: 2px solid rgb(37 99 235);
-         outline-offset: -2px;
-       }`
-    : "";
-  const hoverRules = `
+  // Preview mode kills the editing affordances — no selection ring, no
+  // hover outline, links become clickable, drop zones stay collapsed.
+  const selectedRing =
+    !previewMode && selection?.sectionId
+      ? `[data-yf-section-id="${escapeForAttrSelector(selection.sectionId)}"] {
+           outline: 2px solid rgb(37 99 235);
+           outline-offset: -2px;
+         }`
+      : "";
+  const hoverRules = previewMode
+    ? ""
+    : `
     [data-yf-section]:hover {
       outline: 1px dashed rgba(37, 99, 235, 0.45);
       outline-offset: -1px;
@@ -133,15 +139,21 @@ export function Canvas() {
   `;
 
   return (
-    <div className="flex w-full flex-col items-center p-6">
-      <div className="mb-3 text-[11px] uppercase tracking-[0.2em] text-neutral-400">
-        {label} · {maxWidth === "100%" ? "fluid" : maxWidth}
-      </div>
+    <div className={previewMode ? "flex w-full flex-col items-center" : "flex w-full flex-col items-center p-6"}>
+      {previewMode ? null : (
+        <div className="mb-3 text-[11px] uppercase tracking-[0.2em] text-neutral-400">
+          {label} · {maxWidth === "100%" ? "fluid" : maxWidth}
+        </div>
+      )}
       <div
         ref={canvasRef}
-        style={{ maxWidth, width: "100%" }}
-        className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm transition-[max-width] duration-200 ease-out"
-        onClickCapture={onCanvasClick}
+        style={{ maxWidth: previewMode ? "100%" : maxWidth, width: "100%" }}
+        className={
+          previewMode
+            ? "bg-white"
+            : "overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm transition-[max-width] duration-200 ease-out"
+        }
+        onClickCapture={previewMode ? undefined : onCanvasClick}
       >
         <style dangerouslySetInnerHTML={{ __html: `${hoverRules}${selectedRing}` }} />
         {announcementBar ? (

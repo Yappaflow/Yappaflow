@@ -12,6 +12,7 @@ import {
   Mail,
   Megaphone,
   Minus,
+  Package,
   Quote,
   ShoppingBag,
   Sparkles,
@@ -52,6 +53,9 @@ export const SECTION_ICONS: Record<SectionType, LucideIcon> = {
   team: Users,
   newsletter: Mail,
   contact: Contact,
+
+  // Phase 8d — product-detail page section
+  "product-detail": Package,
 };
 
 export function iconForSection(type: SectionType): LucideIcon {

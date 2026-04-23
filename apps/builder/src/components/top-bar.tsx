@@ -1,19 +1,49 @@
 "use client";
 
 import Link from "next/link";
-import { RotateCw } from "lucide-react";
+import { Eye, ExternalLink, RotateCw } from "lucide-react";
 import { useProjectStore } from "@/lib/store";
 import { ViewportSwitcher } from "./viewport-switcher";
 import { ThemeToggle } from "./theme-toggle";
 import { ExportButton } from "./export-button";
 
-export function TopBar({ onLoadJson }: { onLoadJson: () => void }) {
+export function TopBar({
+  onLoadJson,
+  projectId,
+}: {
+  onLoadJson: () => void;
+  projectId: string;
+}) {
   const project = useProjectStore((s) => s.project);
+  const activePageId = useProjectStore((s) => s.activePageId);
   const dirty = useProjectStore((s) => s.dirty);
   const lastSavedAt = useProjectStore((s) => s.lastSavedAt);
   const replayAnimations = useProjectStore((s) => s.replayAnimations);
+  const previewMode = useProjectStore((s) => s.previewMode);
+  const setPreviewMode = useProjectStore((s) => s.setPreviewMode);
 
-  const pageTitle = project?.pages[0]?.title ?? "untitled";
+  const activePage =
+    project?.pages.find((p) => p.id === activePageId) ?? project?.pages[0];
+  const pageTitle = activePage?.title ?? "untitled";
+
+  if (previewMode) {
+    return (
+      <header className="flex items-center justify-between gap-3 border-b border-current/10 bg-black/80 px-4 py-2 text-xs text-white backdrop-blur">
+        <div className="flex items-center gap-2">
+          <span className="inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+          <span className="font-medium">Preview</span>
+          <span className="opacity-60">·</span>
+          <span className="opacity-80">{pageTitle}</span>
+        </div>
+        <button
+          onClick={() => setPreviewMode(false)}
+          className="rounded-full border border-white/25 px-3 py-1 hover:border-white/60"
+        >
+          Exit preview
+        </button>
+      </header>
+    );
+  }
 
   return (
     <header className="flex items-center justify-between gap-4 border-b border-current/10 px-5 py-3">
@@ -41,6 +71,24 @@ export function TopBar({ onLoadJson }: { onLoadJson: () => void }) {
           <RotateCw className="h-3 w-3" aria-hidden="true" />
           Replay
         </button>
+        <button
+          onClick={() => setPreviewMode(true)}
+          title="Preview this page without builder chrome (Esc to exit)"
+          className="inline-flex items-center gap-1.5 rounded-full border border-current/20 px-3 py-1.5 text-xs hover:border-current/40"
+        >
+          <Eye className="h-3 w-3" aria-hidden="true" />
+          Preview
+        </button>
+        <a
+          href={`/p/${projectId}/preview`}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Open a full preview in a new tab — navigate between pages"
+          className="inline-flex items-center gap-1.5 rounded-full border border-current/20 px-3 py-1.5 text-xs hover:border-current/40"
+        >
+          <ExternalLink className="h-3 w-3" aria-hidden="true" />
+          Open
+        </a>
         <button
           onClick={onLoadJson}
           className="rounded-full border border-current/20 px-3 py-1.5 text-xs hover:border-current/40"

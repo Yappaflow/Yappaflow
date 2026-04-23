@@ -5,6 +5,11 @@ import { createElement, Fragment, type ReactNode } from "react";
 import JSZip from "jszip";
 import { SECTIONS } from "@yappaflow/sections";
 import type { Page, Section, SiteProject } from "@yappaflow/types";
+import {
+  EXPORT_RUNTIME_CSS,
+  EXPORT_RUNTIME_JS,
+  EXPORT_RUNTIME_FILENAMES,
+} from "./export-runtime";
 
 /**
  * Client-side HTML export.
@@ -53,6 +58,14 @@ export async function exportSiteAsZip(
     zip.file(filename, html);
     files.push(filename);
   }
+
+  // Animation runtime — shipped alongside every HTML page. Tiny
+  // IntersectionObserver-based script that plays GSAP tweens for
+  // [data-yf-anim] elements on scroll-into-view.
+  zip.file(EXPORT_RUNTIME_FILENAMES.js, EXPORT_RUNTIME_JS);
+  zip.file(EXPORT_RUNTIME_FILENAMES.css, EXPORT_RUNTIME_CSS);
+  files.push(EXPORT_RUNTIME_FILENAMES.js);
+  files.push(EXPORT_RUNTIME_FILENAMES.css);
 
   zip.file("site-project.json", JSON.stringify(project, null, 2));
   files.push("site-project.json");
@@ -108,6 +121,7 @@ function renderPageHtml(
   ${description ? `<meta name="description" content="${description}">` : ""}
   ${ogImage ? `<meta property="og:image" content="${escapeHtml(ogImage)}">` : ""}
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="./${EXPORT_RUNTIME_FILENAMES.css}">
   <style>
     /* Minimal resets — Tailwind Preflight covers the rest. */
     html, body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
@@ -116,6 +130,8 @@ function renderPageHtml(
 </head>
 <body class="bg-white text-neutral-900 antialiased">
 ${rewritten}
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
+<script src="./${EXPORT_RUNTIME_FILENAMES.js}"></script>
 </body>
 </html>
 `;
@@ -207,6 +223,8 @@ Generated ${new Date().toISOString()}
 ## Files
 
 ${pageLines}
+  - yf-animations.js    (GSAP reveal runtime — plays animations on scroll)
+  - yf-animations.css   (initial-state rules for animated sections)
   - site-project.json   (canonical SiteProject data — useful for re-importing)
   - README.txt          (this file)
 
@@ -225,8 +243,10 @@ your domain at it.
 
 - Tailwind loads from a CDN. For production, swap to a compiled
   stylesheet (\`npx tailwindcss -i input.css -o out.css --minify\`).
-- GSAP scroll/reveal animations don't play — this is a static bundle.
-  Phase 11's animation runtime will ship with future exports.
+- GSAP animations play on scroll-into-view via the bundled
+  yf-animations.js runtime. Fade/slide/scale/stagger presets work
+  out-of-the-box; ScrollTrigger-based presets (parallax, pin, scrub)
+  ship in a future update.
 - Image URLs in the site reference whatever the SiteProject has
   recorded (local paths like /images/hero.jpg won't resolve unless you
   provide those files yourself).

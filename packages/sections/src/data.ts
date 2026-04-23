@@ -133,6 +133,13 @@ import { ContactContentSchema } from "./contact/schema.js";
 import { DEFAULT_CONTACT_CONTENT } from "./contact/default.js";
 import { CONTACT_VARIANTS, DEFAULT_CONTACT_VARIANT } from "./contact/variants.js";
 
+import { ProductDetailContentSchema } from "./product-detail/schema.js";
+import { DEFAULT_PRODUCT_DETAIL_CONTENT } from "./product-detail/default.js";
+import {
+  PRODUCT_DETAIL_VARIANTS,
+  DEFAULT_PRODUCT_DETAIL_VARIANT,
+} from "./product-detail/variants.js";
+
 export interface SectionData<
   TType extends SectionType = SectionType,
   TContent = unknown,
@@ -271,6 +278,13 @@ export const SECTION_DATA = {
     variants: CONTACT_VARIANTS,
     defaultVariant: DEFAULT_CONTACT_VARIANT,
     defaultContent: DEFAULT_CONTACT_CONTENT,
+  },
+  "product-detail": {
+    type: "product-detail",
+    contentSchema: ProductDetailContentSchema,
+    variants: PRODUCT_DETAIL_VARIANTS,
+    defaultVariant: DEFAULT_PRODUCT_DETAIL_VARIANT,
+    defaultContent: DEFAULT_PRODUCT_DETAIL_CONTENT,
   },
 } as const satisfies Record<SectionType, SectionData>;
 

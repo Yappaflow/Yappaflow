@@ -146,6 +146,8 @@ export function EditorShell({ projectId }: { projectId: string }) {
     return <ProjectNotFound projectId={projectId} onLoad={replaceProject} />;
   }
 
+  const previewMode = useProjectStore((s) => s.previewMode);
+
   return (
     <DndContext
       sensors={sensors}
@@ -155,17 +157,28 @@ export function EditorShell({ projectId }: { projectId: string }) {
       onDragCancel={() => setActiveDrag(null)}
     >
       <div className="flex h-dvh flex-col overflow-hidden">
-        <TopBar onLoadJson={() => setLoadOpen(true)} />
+        <TopBar
+          onLoadJson={() => setLoadOpen(true)}
+          projectId={projectId}
+        />
         <div className="flex min-h-0 flex-1">
-          <div className="flex w-[260px] shrink-0 flex-col overflow-hidden">
-            <LeftRail />
-          </div>
-          <main className="flex min-w-0 flex-1 flex-col overflow-auto bg-neutral-100/60 dark:bg-neutral-950">
+          {previewMode ? null : (
+            <div className="flex w-[260px] shrink-0 flex-col overflow-hidden">
+              <LeftRail />
+            </div>
+          )}
+          <main
+            className={`flex min-w-0 flex-1 flex-col overflow-auto ${
+              previewMode ? "bg-white" : "bg-neutral-100/60 dark:bg-neutral-950"
+            }`}
+          >
             <Canvas />
           </main>
-          <div className="flex w-[320px] shrink-0 flex-col overflow-hidden">
-            <RightRail />
-          </div>
+          {previewMode ? null : (
+            <div className="flex w-[320px] shrink-0 flex-col overflow-hidden">
+              <RightRail />
+            </div>
+          )}
         </div>
         {loadOpen ? (
           <LoadFromJsonModal

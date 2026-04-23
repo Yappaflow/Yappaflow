@@ -38,6 +38,7 @@ import { logoCloudDefinition } from "./logo-cloud/index.js";
 import { teamDefinition } from "./team/index.js";
 import { newsletterDefinition } from "./newsletter/index.js";
 import { contactDefinition } from "./contact/index.js";
+import { productDetailDefinition } from "./product-detail/index.js";
 
 export const SECTIONS = {
   header: headerDefinition,
@@ -58,6 +59,7 @@ export const SECTIONS = {
   team: teamDefinition,
   newsletter: newsletterDefinition,
   contact: contactDefinition,
+  "product-detail": productDetailDefinition,
 } as const satisfies Record<SectionType, SectionDefinition>;
 
 export type SectionsRegistry = typeof SECTIONS;
@@ -94,3 +96,4 @@ export { logoCloudDefinition } from "./logo-cloud/index.js";
 export { teamDefinition } from "./team/index.js";
 export { newsletterDefinition } from "./newsletter/index.js";
 export { contactDefinition } from "./contact/index.js";
+export { productDetailDefinition } from "./product-detail/index.js";

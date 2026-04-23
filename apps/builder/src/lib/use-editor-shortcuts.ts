@@ -39,6 +39,12 @@ export function useEditorShortcuts(): void {
       const isMeta = e.metaKey || e.ctrlKey;
 
       if (e.key === "Escape") {
+        // Prefer exiting preview over clearing selection — preview is a
+        // "where am I?" mode and Escape is the conventional exit.
+        if (state.previewMode) {
+          state.setPreviewMode(false);
+          return;
+        }
         state.selectSection(null, null);
         return;
       }

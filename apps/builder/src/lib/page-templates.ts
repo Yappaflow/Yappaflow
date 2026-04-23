@@ -6,6 +6,7 @@ import {
   Info,
   LayoutGrid,
   type LucideIcon,
+  Package,
   Scale,
   ShoppingBag,
   Sparkles,
@@ -132,6 +133,41 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
         contentOverrides: { columns: 4 },
       },
       { type: "cta-band", variant: "centered" },
+    ],
+  },
+  {
+    id: "product-detail",
+    label: "Product detail",
+    description: "Single-product page: gallery, pricing, variants, related.",
+    icon: Package,
+    defaultTitle: "Product",
+    defaultSlug: "/products/new-product",
+    buildSections: () => [
+      { type: "product-detail", variant: "gallery-left" },
+      {
+        type: "testimonial",
+        variant: "single",
+        contentOverrides: {
+          eyebrow: "What people say",
+          heading: "",
+        },
+      },
+      {
+        type: "faq",
+        contentOverrides: {
+          eyebrow: "Product FAQ",
+          heading: "Sizing, shipping, and returns.",
+        },
+      },
+      {
+        type: "product-grid",
+        variant: "card",
+        contentOverrides: {
+          eyebrow: "Related",
+          heading: "You might also like",
+          columns: 3,
+        },
+      },
     ],
   },
   {

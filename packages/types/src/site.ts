@@ -51,6 +51,8 @@ export const SECTION_TYPES = [
   "team",
   "newsletter",
   "contact",
+  // Phase 8d — dedicated single-product detail page section.
+  "product-detail",
 ] as const;
 export type SectionType = (typeof SECTION_TYPES)[number];
 export const SectionTypeSchema = z.enum(SECTION_TYPES);

@@ -26,6 +26,7 @@ describe("SECTIONS registry", () => {
       "team",
       "newsletter",
       "contact",
+      "product-detail",
     ];
     expect(Object.keys(SECTIONS).sort()).toEqual([...expectedTypes].sort());
     expect(listSections()).toHaveLength(expectedTypes.length);

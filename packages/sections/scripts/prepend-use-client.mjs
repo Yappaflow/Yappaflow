@@ -41,6 +41,7 @@ const SECTION_ENTRIES = [
   "team",
   "newsletter",
   "contact",
+  "product-detail",
 ];
 
 async function prependUseClient(path) {

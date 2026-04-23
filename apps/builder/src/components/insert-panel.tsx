@@ -27,6 +27,11 @@ const SECTIONS_GROUP: PaletteItem[] = [
   { type: "feature-grid", label: "Feature grid", description: "3–4 value props." },
   { type: "feature-row", label: "Feature row", description: "Alternating image/text." },
   { type: "product-grid", label: "Product grid", description: "E-commerce cards." },
+  {
+    type: "product-detail",
+    label: "Product detail",
+    description: "Single-product page: gallery + info.",
+  },
   { type: "testimonial", label: "Testimonial", description: "Social proof block." },
   { type: "cta-band", label: "CTA band", description: "Prominent single-CTA." },
   { type: "rich-text", label: "Rich text", description: "Prose, headings, lists." },
