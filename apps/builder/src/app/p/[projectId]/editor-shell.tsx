@@ -2,6 +2,22 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import {
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  sortableKeyboardCoordinates,
+} from "@dnd-kit/sortable";
+import type { SectionType } from "@yappaflow/types";
 import { useProjectStore, startAutosave } from "@/lib/store";
 import { buildSampleSiteProject } from "@/fixtures/sample-project";
 import { LoadFromJsonModal } from "@/components/load-from-json";
@@ -11,22 +27,41 @@ import { LeftRail } from "@/components/left-rail";
 import { Canvas } from "@/components/canvas";
 import { RightRail } from "@/components/right-rail";
 import { useEditorShortcuts } from "@/lib/use-editor-shortcuts";
+import type { ActiveDragData, OverDropData } from "@/lib/dnd";
 
 /**
- * Three-column editor shell.
+ * Editor shell.
  *
- * Layout uses flex rather than grid because flex with `flex-1 min-w-0`
- * behaves predictably for scroll containers — grid rows default to `auto`
- * and silently grow with content, which is what killed the canvas scroll
- * in the first attempt. Each column wraps its child in a flex container so
- * `h-full` inside the column resolves correctly.
+ * Hosts the single DndContext the whole app drags inside. Two kinds of
+ * drag operations flow through:
+ *
+ *   1. Sortable section reorder (from the Layers panel). `active.data` has
+ *      `{ kind: "sortable-section" }`; the over target is another sortable
+ *      item. Handled by computing the new order with arrayMove and calling
+ *      the store's reorderSections.
+ *
+ *   2. Palette insert (dragging a card from the Insert panel onto a canvas
+ *      drop zone). `active.data` has `{ kind: "palette-card", type }`; the
+ *      over target has `{ kind: "canvas-drop-zone", atIndex }`. Handled by
+ *      calling insertSection at the zone's index.
+ *
+ * The DragOverlay renders a floating preview card while a palette drag is
+ * in flight so the user sees what they're placing.
  */
 export function EditorShell({ projectId }: { projectId: string }) {
   const hydrate = useProjectStore((s) => s.hydrate);
   const project = useProjectStore((s) => s.project);
   const replaceProject = useProjectStore((s) => s.replaceProject);
+  const reorderSections = useProjectStore((s) => s.reorderSections);
+  const insertSection = useProjectStore((s) => s.insertSection);
 
   const [loadOpen, setLoadOpen] = useState(false);
+  const [activeDrag, setActiveDrag] = useState<ActiveDragData | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   useEffect(() => {
     const fallback = projectId === "sample" ? buildSampleSiteProject() : null;
@@ -39,33 +74,100 @@ export function EditorShell({ projectId }: { projectId: string }) {
 
   useEditorShortcuts();
 
+  function handleDragStart(event: DragStartEvent) {
+    const data = event.active.data.current as ActiveDragData | undefined;
+    if (data) setActiveDrag(data);
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    setActiveDrag(null);
+    if (!project) return;
+    const page = project.pages[0];
+    if (!page) return;
+
+    const activeData = event.active.data.current as ActiveDragData | undefined;
+    const overData = event.over?.data.current as OverDropData | undefined;
+    if (!activeData || !overData) return;
+
+    // Palette → canvas drop zone.
+    if (activeData.kind === "palette-card" && overData.kind === "canvas-drop-zone") {
+      insertSection(page.id, activeData.type, overData.atIndex);
+      return;
+    }
+
+    // Sortable reorder inside the Layers panel.
+    if (
+      activeData.kind === "sortable-section" &&
+      overData.kind === "sortable-section" &&
+      activeData.sectionId !== overData.sectionId
+    ) {
+      const oldIndex = page.sections.findIndex(
+        (s) => s.id === activeData.sectionId,
+      );
+      const newIndex = page.sections.findIndex(
+        (s) => s.id === overData.sectionId,
+      );
+      if (oldIndex < 0 || newIndex < 0) return;
+      const reordered = arrayMove(page.sections, oldIndex, newIndex);
+      reorderSections(
+        page.id,
+        reordered.map((s) => s.id),
+      );
+    }
+  }
+
   if (!project) {
     return <ProjectNotFound projectId={projectId} onLoad={replaceProject} />;
   }
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden">
-      <TopBar onLoadJson={() => setLoadOpen(true)} />
-      <div className="flex min-h-0 flex-1">
-        <div className="flex w-[260px] shrink-0 flex-col overflow-hidden">
-          <LeftRail />
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragCancel={() => setActiveDrag(null)}
+    >
+      <div className="flex h-dvh flex-col overflow-hidden">
+        <TopBar onLoadJson={() => setLoadOpen(true)} />
+        <div className="flex min-h-0 flex-1">
+          <div className="flex w-[260px] shrink-0 flex-col overflow-hidden">
+            <LeftRail />
+          </div>
+          <main className="flex min-w-0 flex-1 flex-col overflow-auto bg-neutral-100/60 dark:bg-neutral-950">
+            <Canvas />
+          </main>
+          <div className="flex w-[320px] shrink-0 flex-col overflow-hidden">
+            <RightRail />
+          </div>
         </div>
-        <main className="flex min-w-0 flex-1 flex-col overflow-auto bg-neutral-100/60 dark:bg-neutral-950">
-          <Canvas />
-        </main>
-        <div className="flex w-[320px] shrink-0 flex-col overflow-hidden">
-          <RightRail />
-        </div>
+        {loadOpen ? (
+          <LoadFromJsonModal
+            onClose={() => setLoadOpen(false)}
+            onLoad={(p) => {
+              replaceProject(p);
+              setLoadOpen(false);
+            }}
+          />
+        ) : null}
       </div>
-      {loadOpen ? (
-        <LoadFromJsonModal
-          onClose={() => setLoadOpen(false)}
-          onLoad={(p) => {
-            replaceProject(p);
-            setLoadOpen(false);
-          }}
-        />
-      ) : null}
+
+      <DragOverlay dropAnimation={null}>
+        {activeDrag?.kind === "palette-card" ? (
+          <PaletteDragPreview type={activeDrag.type} />
+        ) : null}
+      </DragOverlay>
+    </DndContext>
+  );
+}
+
+function PaletteDragPreview({ type }: { type: SectionType }) {
+  return (
+    <div className="rounded border border-blue-500 bg-white px-3 py-2 text-sm font-medium text-neutral-900 shadow-lg">
+      <span className="text-[10px] uppercase tracking-wider text-neutral-500">
+        Adding
+      </span>
+      <div className="mt-0.5">{type}</div>
     </div>
   );
 }
