@@ -5,6 +5,7 @@ import { RotateCw } from "lucide-react";
 import { useProjectStore } from "@/lib/store";
 import { ViewportSwitcher } from "./viewport-switcher";
 import { ThemeToggle } from "./theme-toggle";
+import { ExportButton } from "./export-button";
 
 export function TopBar({ onLoadJson }: { onLoadJson: () => void }) {
   const project = useProjectStore((s) => s.project);
@@ -46,6 +47,7 @@ export function TopBar({ onLoadJson }: { onLoadJson: () => void }) {
         >
           Load JSON
         </button>
+        <ExportButton />
         <ThemeToggle />
       </div>
     </header>
