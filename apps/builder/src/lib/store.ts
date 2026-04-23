@@ -97,6 +97,17 @@ interface ProjectState {
     product: Record<string, unknown>,
   ): void;
 
+  /**
+   * Broadcast a library product change into every product-grid section
+   * in the current project — any product whose `id` matches gets its
+   * embedded copy replaced with `product`. SiteProject stays self-
+   * contained; canvas reflects library edits instantly.
+   */
+  syncLibraryProduct(
+    productId: string,
+    product: Record<string, unknown>,
+  ): void;
+
   // Manual save (autosave also fires on every mutation — see subscribe below).
   save(): void;
 }
@@ -399,6 +410,41 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
             },
           },
         },
+        dirty: true,
+      };
+    });
+  },
+
+  syncLibraryProduct(productId, product) {
+    set((state) => {
+      if (!state.project) return {};
+      let changed = false;
+      const nextPages = state.project.pages.map((page) => {
+        let pageChanged = false;
+        const nextSections = page.sections.map((section) => {
+          if (section.type !== "product-grid") return section;
+          const current = ((section.content as Record<string, unknown>)
+            .products ?? []) as Array<Record<string, unknown>>;
+          // Early bail: no matching product in this section.
+          if (!current.some((p) => p.id === productId)) return section;
+          const nextProducts = current.map((p) =>
+            p.id === productId ? { ...product } : p,
+          );
+          pageChanged = true;
+          return {
+            ...section,
+            content: { ...section.content, products: nextProducts },
+          };
+        });
+        if (pageChanged) {
+          changed = true;
+          return { ...page, sections: nextSections };
+        }
+        return page;
+      });
+      if (!changed) return {};
+      return {
+        project: { ...state.project, pages: nextPages },
         dirty: true,
       };
     });

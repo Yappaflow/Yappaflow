@@ -9,6 +9,8 @@ import {
   type LibraryProduct,
 } from "@/lib/products-store";
 import { libraryProductDraggableId, type LibraryProductData } from "@/lib/dnd";
+import { useProjectStore } from "@/lib/store";
+import { libraryToProductCard } from "@/lib/product-transform";
 
 /**
  * Products library panel — the third tab in the left rail alongside Layers
@@ -26,6 +28,7 @@ export function ProductsPanel() {
   const addProduct = useProductsStore((s) => s.addProduct);
   const removeProduct = useProductsStore((s) => s.removeProduct);
   const updateProduct = useProductsStore((s) => s.updateProduct);
+  const syncLibraryProduct = useProjectStore((s) => s.syncLibraryProduct);
 
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -105,6 +108,12 @@ export function ProductsPanel() {
           onClose={() => setEditingId(null)}
           onSave={(patch) => {
             updateProduct(editing.id, patch);
+            // Broadcast the library change into every product-grid section
+            // so the canvas reflects the edit immediately. SiteProject
+            // remains self-contained — library data is embedded into each
+            // matching product, not referenced by id.
+            const nextProduct: LibraryProduct = { ...editing, ...patch };
+            syncLibraryProduct(editing.id, libraryToProductCard(nextProduct));
             setEditingId(null);
           }}
         />

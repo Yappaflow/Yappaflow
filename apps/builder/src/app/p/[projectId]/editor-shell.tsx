@@ -20,6 +20,7 @@ import {
 import type { SectionType } from "@yappaflow/types";
 import { useProjectStore, startAutosave } from "@/lib/store";
 import { useProductsStore } from "@/lib/products-store";
+import { libraryToProductCard } from "@/lib/product-transform";
 import { buildSampleSiteProject } from "@/fixtures/sample-project";
 import { LoadFromJsonModal } from "@/components/load-from-json";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -106,20 +107,11 @@ export function EditorShell({ projectId }: { projectId: string }) {
         .getState()
         .products.find((p) => p.id === activeData.productId);
       if (!product) return;
-      appendProductToGrid(overData.pageId, overData.sectionId, {
-        id: product.id,
-        handle: product.handle,
-        title: product.title,
-        price: product.price,
-        currency: product.currency ?? "USD",
-        compareAtPrice: product.compareAtPrice,
-        image: {
-          kind: "image",
-          url: product.image.url,
-          alt: product.image.alt,
-        },
-        href: product.href,
-      });
+      appendProductToGrid(
+        overData.pageId,
+        overData.sectionId,
+        libraryToProductCard(product),
+      );
       return;
     }
 
