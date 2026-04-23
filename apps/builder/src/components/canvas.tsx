@@ -67,6 +67,18 @@ export function Canvas() {
        }`
     : "";
 
+  // Webflow-style hover affordance — a faint dashed outline shows the user
+  // a section is clickable. Suppressed on the selected one (solid blue takes
+  // priority). Scoped to this canvas so it doesn't leak to any other sections
+  // elsewhere in the builder.
+  const hoverRules = `
+    [data-yf-section]:hover {
+      outline: 1px dashed rgba(37, 99, 235, 0.45);
+      outline-offset: -1px;
+      cursor: pointer;
+    }
+  `;
+
   return (
     <div className="flex h-full w-full flex-col items-center overflow-auto bg-neutral-100/60 p-6 dark:bg-neutral-950">
       <div className="mb-3 text-[11px] uppercase tracking-[0.2em] text-neutral-400">
@@ -77,9 +89,7 @@ export function Canvas() {
         className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm transition-[max-width] duration-200 ease-out"
         onClickCapture={onCanvasClick}
       >
-        {selectedRing ? (
-          <style dangerouslySetInnerHTML={{ __html: selectedRing }} />
-        ) : null}
+        <style dangerouslySetInnerHTML={{ __html: `${hoverRules}${selectedRing}` }} />
         {announcementBar ? <RenderSection section={announcementBar} /> : null}
         {header ? <RenderSection section={header} /> : null}
         {homePage?.sections.map((s) => (

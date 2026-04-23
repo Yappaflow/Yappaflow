@@ -10,6 +10,7 @@ import { TopBar } from "@/components/top-bar";
 import { LeftRail } from "@/components/left-rail";
 import { Canvas } from "@/components/canvas";
 import { RightRail } from "@/components/right-rail";
+import { useEditorShortcuts } from "@/lib/use-editor-shortcuts";
 
 /**
  * Three-column editor shell.
@@ -44,19 +45,33 @@ export function EditorShell({ projectId }: { projectId: string }) {
     return startAutosave();
   }, []);
 
+  useEditorShortcuts();
+
   if (!project) {
     return <ProjectNotFound projectId={projectId} onLoad={replaceProject} />;
   }
 
   return (
-    <div className="flex h-dvh flex-col">
+    <div className="flex h-dvh flex-col overflow-hidden">
       <TopBar onLoadJson={() => setLoadOpen(true)} />
-      <div className="grid min-h-0 flex-1 grid-cols-[260px_1fr_320px]">
-        <LeftRail />
-        <main className="min-h-0">
+      {/*
+        Grid children default to `min-height: auto`, which makes them grow to
+        fit their content — killing any `overflow-auto` set inside them. The
+        combo `min-h-0` + `overflow-hidden` on BOTH the grid and each column
+        wrapper gives each column a bounded height, so the inner scrollers
+        (canvas, left rail sections list, right rail properties panel) can
+        clip and scroll independently.
+      */}
+      <div className="grid min-h-0 flex-1 grid-cols-[260px_minmax(0,1fr)_320px] overflow-hidden">
+        <div className="min-h-0 overflow-hidden">
+          <LeftRail />
+        </div>
+        <main className="min-h-0 min-w-0 overflow-hidden">
           <Canvas />
         </main>
-        <RightRail />
+        <div className="min-h-0 overflow-hidden">
+          <RightRail />
+        </div>
       </div>
       {loadOpen ? (
         <LoadFromJsonModal

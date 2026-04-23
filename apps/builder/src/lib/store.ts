@@ -73,8 +73,10 @@ interface ProjectState {
     preset: AnimationPreset | null,
   ): void;
   moveSection(pageId: string, sectionId: string, direction: "up" | "down"): void;
+  reorderSections(pageId: string, orderedIds: string[]): void;
   insertSection(pageId: string, type: SectionType, atIndex: number): string;
   removeSection(pageId: string, sectionId: string): void;
+  duplicateSection(pageId: string, sectionId: string): string | null;
 
   // Globals
   updateGlobalContent(
@@ -256,6 +258,33 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
     );
   },
 
+  reorderSections(pageId, orderedIds) {
+    set((state) =>
+      mutateProject(state, (project) =>
+        mapPage(project, pageId, (page) => {
+          const byId = new Map(page.sections.map((s) => [s.id, s]));
+          const next: Section[] = [];
+          // Apply the requested order; any ids missing from the current page
+          // are ignored (stale input). Any sections not mentioned retain
+          // their original position at the end — defensive, so a race never
+          // silently drops sections.
+          const seen = new Set<string>();
+          for (const id of orderedIds) {
+            const s = byId.get(id);
+            if (s) {
+              next.push(s);
+              seen.add(id);
+            }
+          }
+          for (const s of page.sections) {
+            if (!seen.has(s.id)) next.push(s);
+          }
+          return { ...page, sections: next };
+        }),
+      ),
+    );
+  },
+
   insertSection(pageId, type, atIndex) {
     const data = SECTION_DATA[type];
     const newSection: Section = {
@@ -278,6 +307,36 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
     // Select the just-inserted section so the right rail opens on it.
     set({ selection: { pageId, sectionId: newSection.id } });
     return newSection.id;
+  },
+
+  duplicateSection(pageId, sectionId) {
+    const state = get();
+    if (!state.project) return null;
+    const page = state.project.pages.find((p) => p.id === pageId);
+    const source = page?.sections.find((s) => s.id === sectionId);
+    if (!page || !source) return null;
+    const copy: Section = {
+      ...source,
+      id: nextSectionId(),
+      // Structured-ish clone for content: `{...source.content}` is shallow,
+      // but nested arrays/objects will share references with the original.
+      // For now this is fine — the builder only edits through immutable-set
+      // actions, so the shared references never get mutated in place.
+      content: { ...(source.content as Record<string, unknown>) },
+      style: { ...source.style },
+    };
+    const index = page.sections.findIndex((s) => s.id === sectionId);
+    set((stateInner) =>
+      mutateProject(stateInner, (project) =>
+        mapPage(project, pageId, (p) => {
+          const next = [...p.sections];
+          next.splice(index + 1, 0, copy);
+          return { ...p, sections: next };
+        }),
+      ),
+    );
+    set({ selection: { pageId, sectionId: copy.id } });
+    return copy.id;
   },
 
   removeSection(pageId, sectionId) {

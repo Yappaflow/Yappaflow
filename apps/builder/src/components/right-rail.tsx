@@ -9,15 +9,14 @@ import {
 } from "@yappaflow/types";
 import { SECTION_DATA } from "@yappaflow/sections/data";
 import { useProjectStore } from "@/lib/store";
+import { ArrayField, type ArrayFieldColumn } from "./array-field";
 
 /**
- * Phase 8 right rail. Minimal per-section editor: variant dropdown, a handful
- * of top-level string fields (heading, subhead, eyebrow, tagline, etc.), and
- * the animation preset picker.
- *
- * The full schema-driven form (nested objects, arrays, image pickers, color
- * swatches bound to DNA palette) lands in the next pass. This version covers
- * 80% of what an agency actually edits on an MVP site.
+ * Right-rail property editor. Schema-adjacent rather than fully schema-driven:
+ * we detect a fixed list of well-known fields (top-level strings, a few
+ * common nested CTAs, known array properties) and render type-appropriate
+ * controls. This covers the content the agency will most often want to edit
+ * without shipping a full Zod-to-form reflector yet.
  */
 
 const COMMON_STRING_FIELDS = [
@@ -30,6 +29,78 @@ const COMMON_STRING_FIELDS = [
   "legal",
 ];
 
+/**
+ * Per-section-type array-field configurations. Tells the ArrayField what
+ * columns to render for each item and how to spawn a blank one.
+ */
+const ARRAY_CONFIGS: Record<
+  string,
+  {
+    field: string;
+    label: string;
+    columns: ArrayFieldColumn[];
+    makeBlank: () => Record<string, unknown>;
+    itemLabel?: (item: Record<string, unknown>, index: number) => string;
+  }
+> = {
+  "feature-grid": {
+    field: "features",
+    label: "Features",
+    columns: [
+      { key: "title", label: "Title" },
+      { key: "body", label: "Body", kind: "textarea" },
+      { key: "icon", label: "Icon name (optional)" },
+      { key: "image", nestedKey: "url", label: "Image URL (optional)", kind: "url" },
+    ],
+    makeBlank: () => ({ title: "New feature", body: "Describe this feature." }),
+  },
+  "product-grid": {
+    field: "products",
+    label: "Products",
+    columns: [
+      { key: "title", label: "Title" },
+      { key: "handle", label: "Handle" },
+      { key: "price", label: "Price (display)" },
+      { key: "compareAtPrice", label: "Compare-at (optional)" },
+      { key: "href", label: "Product URL", kind: "url" },
+      { key: "image", nestedKey: "url", label: "Image URL", kind: "url" },
+      { key: "image", nestedKey: "alt", label: "Image alt" },
+    ],
+    makeBlank: () => ({
+      id: `p_${Math.random().toString(36).slice(2, 8)}`,
+      handle: "new-product",
+      title: "New product",
+      price: "$0",
+      currency: "USD",
+      image: { kind: "image", url: "", alt: "" },
+      href: "/products/new-product",
+    }),
+    itemLabel: (item) =>
+      (item.title as string) || (item.handle as string) || "Untitled product",
+  },
+  testimonial: {
+    field: "items",
+    label: "Testimonials",
+    columns: [
+      { key: "quote", label: "Quote", kind: "textarea" },
+      { key: "author", label: "Author" },
+      { key: "role", label: "Role (optional)" },
+    ],
+    makeBlank: () => ({
+      quote: "A short testimonial quote.",
+      author: "Author name",
+    }),
+    itemLabel: (item) => (item.author as string) || "New testimonial",
+  },
+  footer: {
+    field: "columns",
+    label: "Columns",
+    columns: [{ key: "heading", label: "Heading" }],
+    makeBlank: () => ({ heading: "New column", links: [] }),
+    itemLabel: (item) => (item.heading as string) || "Untitled column",
+  },
+};
+
 export function RightRail() {
   const project = useProjectStore((s) => s.project);
   const selection = useProjectStore((s) => s.selection);
@@ -37,8 +108,13 @@ export function RightRail() {
   const updateSectionContent = useProjectStore((s) => s.updateSectionContent);
   const updateSectionAnimation = useProjectStore((s) => s.updateSectionAnimation);
   const updateGlobalContent = useProjectStore((s) => s.updateGlobalContent);
+  const removeSection = useProjectStore((s) => s.removeSection);
+  const duplicateSection = useProjectStore((s) => s.duplicateSection);
 
-  const selected = useMemo(() => resolveSelection(project, selection), [project, selection]);
+  const selected = useMemo(
+    () => resolveSelection(project, selection),
+    [project, selection],
+  );
 
   if (!project) return null;
 
@@ -49,8 +125,7 @@ export function RightRail() {
           Properties
         </h2>
         <p className="mt-3">
-          Click a section in the canvas or the left rail to edit its content,
-          variant, and animation.
+          Click a section in the canvas or the left rail to edit it.
         </p>
       </aside>
     );
@@ -58,9 +133,8 @@ export function RightRail() {
 
   const { section, globalSlot, pageId } = selected;
   const def = SECTION_DATA[section.type];
+  const arrayConfig = ARRAY_CONFIGS[section.type];
 
-  // For globals, mutations go through updateGlobalContent (mutates
-  // project.globals.<slot>.content). For page sections, updateSectionContent.
   function patchContent(patch: Record<string, unknown>) {
     if (globalSlot) {
       updateGlobalContent(globalSlot, patch);
@@ -70,10 +144,6 @@ export function RightRail() {
   }
   function setVariant(variant: string) {
     if (pageId) updateSectionVariant(pageId, section.id, variant);
-    // Globals also go through updateSectionVariant with their synthetic pageId
-    // so the store's map-by-page path finds them — but our globals live in
-    // project.globals, not pages. For Phase 8 we only expose variant swap on
-    // page sections; variant change on globals is a next-pass addition.
   }
   function setAnimation(preset: AnimationPreset | null) {
     if (pageId) updateSectionAnimation(pageId, section.id, preset);
@@ -93,6 +163,23 @@ export function RightRail() {
           <h2 className="text-lg font-semibold">{section.type}</h2>
           <code className="font-mono text-[10px] opacity-40">{section.id}</code>
         </div>
+        {!globalSlot && pageId ? (
+          <div className="mt-3 flex items-center gap-1">
+            <ToolbarButton
+              label="Duplicate"
+              onClick={() => duplicateSection(pageId, section.id)}
+            >
+              ⎘ Duplicate
+            </ToolbarButton>
+            <ToolbarButton
+              label="Delete"
+              onClick={() => removeSection(pageId, section.id)}
+              danger
+            >
+              × Delete
+            </ToolbarButton>
+          </div>
+        ) : null}
       </div>
 
       <div className="flex-1 overflow-auto p-5">
@@ -179,6 +266,21 @@ export function RightRail() {
           }
         />
 
+        {arrayConfig ? (
+          <ArrayField
+            label={arrayConfig.label}
+            value={
+              ((section.content as Record<string, unknown>)[arrayConfig.field] as
+                | Array<Record<string, unknown>>
+                | undefined) ?? []
+            }
+            columns={arrayConfig.columns}
+            makeBlankItem={arrayConfig.makeBlank}
+            itemLabel={arrayConfig.itemLabel}
+            onChange={(next) => patchContent({ [arrayConfig.field]: next })}
+          />
+        ) : null}
+
         {!globalSlot ? (
           <Field label="Animation">
             <select
@@ -202,9 +304,7 @@ export function RightRail() {
         ) : null}
 
         <details className="mt-6 rounded border border-current/10 p-3 text-xs opacity-70">
-          <summary className="cursor-pointer select-none">
-            Raw section JSON
-          </summary>
+          <summary className="cursor-pointer select-none">Raw section JSON</summary>
           <pre className="mt-3 max-h-64 overflow-auto rounded bg-current/5 p-2 font-mono text-[10px] leading-relaxed">
             {JSON.stringify(section, null, 2)}
           </pre>
@@ -242,12 +342,10 @@ function NestedStringFields({
   label: string;
   onPatch: (patch: Record<string, string>) => void;
 }) {
-  // Only handle one level of nesting for now — enough for CTAs + logos.
   const parent = (section.content as Record<string, unknown>)[path[0]!] as
     | Record<string, unknown>
     | undefined;
   if (!parent || typeof parent !== "object") return null;
-
   const stringKeys = Object.entries(parent)
     .filter(([, v]) => typeof v === "string")
     .map(([k]) => k);
@@ -274,6 +372,32 @@ function NestedStringFields({
         ))}
       </div>
     </fieldset>
+  );
+}
+
+function ToolbarButton({
+  children,
+  onClick,
+  label,
+  danger,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  label: string;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label={label}
+      className={`flex items-center gap-1 rounded px-2 py-1 text-[11px] transition ${
+        danger
+          ? "border border-current/15 hover:border-red-500/60 hover:bg-red-500/10 hover:text-red-500"
+          : "border border-current/15 hover:border-current/40 hover:bg-current/5"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 
