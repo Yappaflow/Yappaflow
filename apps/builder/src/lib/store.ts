@@ -146,6 +146,27 @@ interface ProjectState {
     product: Record<string, unknown>,
   ): void;
 
+  /**
+   * Shopify-style sync — every library product owns one page at
+   * `/products/<handle>`. This action creates the page if absent, or
+   * updates its product-detail section if present. Optionally migrates
+   * the page's slug when the handle changed.
+   */
+  upsertProductPage(params: {
+    handle: string;
+    previousHandle?: string;
+    title: string;
+    pageSections: Array<{
+      type: import("@yappaflow/types").SectionType;
+      variant?: string;
+      contentOverrides?: Record<string, unknown>;
+    }>;
+    productDetailContent: Record<string, unknown>;
+  }): void;
+
+  /** Remove the auto-generated product page for a given handle, if any. */
+  removeProductPageByHandle(handle: string): void;
+
   // Manual save (autosave also fires on every mutation — see subscribe below).
   save(): void;
 }
@@ -576,6 +597,105 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
             },
           },
         },
+        dirty: true,
+      };
+    });
+  },
+
+  upsertProductPage({ handle, previousHandle, title, pageSections, productDetailContent }) {
+    set((state) => {
+      if (!state.project) return {};
+      const newSlug = `/products/${handle}`;
+      const previousSlug = previousHandle
+        ? `/products/${previousHandle}`
+        : newSlug;
+
+      // Find the page — prefer previous-slug match (handle just changed),
+      // fall back to new-slug match (page already exists at the new slug).
+      const existingIndex = state.project.pages.findIndex(
+        (p) => p.slug === previousSlug || p.slug === newSlug,
+      );
+
+      if (existingIndex >= 0) {
+        // Update in place: move the product-detail section's content to
+        // reflect the latest library data, and migrate slug/title if the
+        // handle changed. Preserve any user edits to OTHER sections on
+        // the page (related-products grid, testimonials they added, etc.).
+        const nextPages = state.project.pages.map((page, i) => {
+          if (i !== existingIndex) return page;
+          const nextSections = page.sections.map((section) => {
+            if (section.type !== "product-detail") return section;
+            return {
+              ...section,
+              content: {
+                ...(section.content as Record<string, unknown>),
+                ...productDetailContent,
+              },
+            };
+          });
+          return {
+            ...page,
+            slug: newSlug,
+            title,
+            sections: nextSections,
+          };
+        });
+        return { project: { ...state.project, pages: nextPages }, dirty: true };
+      }
+
+      // No existing page — create a fresh one with product-detail + related.
+      const newPageId = nextPageId();
+      const seededSections: Section[] = pageSections.map((spec) => {
+        const data = SECTION_DATA[spec.type];
+        return {
+          id: nextSectionId(),
+          type: spec.type,
+          variant: spec.variant ?? data.defaultVariant,
+          content: {
+            ...(data.defaultContent as Record<string, unknown>),
+            ...(spec.contentOverrides ?? {}),
+          },
+          style: {},
+        };
+      });
+      return {
+        project: {
+          ...state.project,
+          pages: [
+            ...state.project.pages,
+            {
+              id: newPageId,
+              slug: newSlug,
+              title,
+              seo: { description: `${title} — shop on our store.` },
+              sections: seededSections,
+            },
+          ],
+        },
+        dirty: true,
+      };
+    });
+  },
+
+  removeProductPageByHandle(handle) {
+    set((state) => {
+      if (!state.project) return {};
+      const slug = `/products/${handle}`;
+      const nextPages = state.project.pages.filter((p) => p.slug !== slug);
+      if (nextPages.length === state.project.pages.length) return {};
+      if (nextPages.length === 0) return {}; // Never leave project empty.
+      const nextActive = state.project.pages.find((p) => p.id === state.activePageId)?.slug === slug
+        ? nextPages[0]?.id ?? null
+        : state.activePageId;
+      return {
+        project: { ...state.project, pages: nextPages },
+        activePageId: nextActive,
+        selection:
+          state.selection &&
+          state.project.pages.find((p) => p.id === state.selection!.pageId)
+            ?.slug === slug
+            ? null
+            : state.selection,
         dirty: true,
       };
     });

@@ -29,6 +29,11 @@ interface ProductsState {
   products: LibraryProduct[];
   hydrated: boolean;
   hydrate(): void;
+  /**
+   * Append a product. Returns the newly-minted product (so the caller can
+   * round-trip it into the project store to create a matching
+   * `/products/<handle>` page).
+   */
   addProduct(product: Omit<LibraryProduct, "id">): LibraryProduct;
   updateProduct(id: string, patch: Partial<LibraryProduct>): void;
   removeProduct(id: string): void;

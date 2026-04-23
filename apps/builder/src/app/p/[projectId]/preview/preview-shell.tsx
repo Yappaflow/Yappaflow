@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Lenis from "lenis";
 import { SECTIONS } from "@yappaflow/sections";
 import type { Page, SiteProject } from "@yappaflow/types";
 import { loadProjectFromStorage } from "@/lib/persistence";
@@ -65,6 +66,28 @@ export function PreviewShell({ projectId }: { projectId: string }) {
     });
     return () => cancelAnimationFrame(frame);
   }, [activeSlug, project]);
+
+  // Lenis smooth scroll — the "drop feel" agencies expect. Single
+  // instance for the whole preview document; torn down on unmount so
+  // exiting the preview tab doesn't leave a stray RAF loop.
+  useEffect(() => {
+    const lenis = new Lenis({
+      duration: 1.1,
+      // easeOut cubic — snappy enough to not feel laggy on trackpads.
+      easing: (t) => 1 - Math.pow(1 - t, 3),
+      smoothWheel: true,
+    });
+    let frame = 0;
+    function raf(time: number) {
+      lenis.raf(time);
+      frame = requestAnimationFrame(raf);
+    }
+    frame = requestAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(frame);
+      lenis.destroy();
+    };
+  }, []);
 
   if (!project) {
     return (

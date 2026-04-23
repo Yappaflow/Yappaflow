@@ -11,6 +11,10 @@ import {
 import { libraryProductDraggableId, type LibraryProductData } from "@/lib/dnd";
 import { useProjectStore } from "@/lib/store";
 import { libraryToProductCard } from "@/lib/product-transform";
+import {
+  buildProductDetailContent,
+  buildProductPageSections,
+} from "@/lib/product-page";
 
 /**
  * Products library panel — the third tab in the left rail alongside Layers
@@ -29,6 +33,10 @@ export function ProductsPanel() {
   const removeProduct = useProductsStore((s) => s.removeProduct);
   const updateProduct = useProductsStore((s) => s.updateProduct);
   const syncLibraryProduct = useProjectStore((s) => s.syncLibraryProduct);
+  const upsertProductPage = useProjectStore((s) => s.upsertProductPage);
+  const removeProductPageByHandle = useProjectStore(
+    (s) => s.removeProductPageByHandle,
+  );
 
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -61,16 +69,24 @@ export function ProductsPanel() {
             </p>
           </div>
           <button
-            onClick={() =>
-              addProduct({
+            onClick={() => {
+              const fresh = addProduct({
                 title: "New product",
                 handle: "new-product",
                 price: "$0",
                 currency: "USD",
                 image: { url: "", alt: "" },
                 href: "/products/new-product",
-              })
-            }
+              });
+              // Auto-create its /products/<handle> page so the library
+              // and the site structure stay in sync.
+              upsertProductPage({
+                handle: fresh.handle,
+                title: fresh.title,
+                pageSections: buildProductPageSections(fresh),
+                productDetailContent: buildProductDetailContent(fresh),
+              });
+            }}
             className="rounded-full border border-current/20 px-3 py-1 text-xs hover:border-current/40"
           >
             + New
@@ -90,7 +106,10 @@ export function ProductsPanel() {
                 <ProductCard
                   product={p}
                   onEdit={() => setEditingId(p.id)}
-                  onRemove={() => removeProduct(p.id)}
+                  onRemove={() => {
+                    removeProduct(p.id);
+                    removeProductPageByHandle(p.handle);
+                  }}
                 />
               </li>
             ))}
@@ -114,6 +133,15 @@ export function ProductsPanel() {
             // matching product, not referenced by id.
             const nextProduct: LibraryProduct = { ...editing, ...patch };
             syncLibraryProduct(editing.id, libraryToProductCard(nextProduct));
+            // Also sync the Shopify-style `/products/<handle>` page.
+            // Handle change migrates the slug too.
+            upsertProductPage({
+              handle: nextProduct.handle,
+              previousHandle: editing.handle,
+              title: nextProduct.title,
+              pageSections: buildProductPageSections(nextProduct),
+              productDetailContent: buildProductDetailContent(nextProduct),
+            });
             setEditingId(null);
           }}
         />

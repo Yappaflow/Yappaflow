@@ -131,6 +131,7 @@ function renderPageHtml(
 <body class="bg-white text-neutral-900 antialiased">
 ${rewritten}
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.3.21/dist/lenis.min.js"></script>
 <script src="./${EXPORT_RUNTIME_FILENAMES.js}"></script>
 </body>
 </html>

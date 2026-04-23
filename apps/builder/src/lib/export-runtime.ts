@@ -13,9 +13,25 @@
  * runtime string verbatim — same vocabulary, same behaviour.
  */
 
-export const EXPORT_RUNTIME_JS = `// Yappaflow animation runtime.
-// Plays GSAP reveal tweens for sections with [data-yf-anim]. Works on
-// any static host — just include GSAP from a CDN before this script.
+export const EXPORT_RUNTIME_JS = `// Yappaflow runtime — GSAP reveals + Lenis smooth scroll.
+// Both rely on their CDN scripts being loaded BEFORE this file.
+(function () {
+  // Lenis smooth scroll — the "drop feel" agencies expect. No-op if
+  // Lenis didn't load; a page without the CDN script just scrolls
+  // natively, no error thrown.
+  if (typeof window !== "undefined" && typeof window.Lenis === "function") {
+    var lenis = new window.Lenis({
+      duration: 1.1,
+      easing: function (t) { return 1 - Math.pow(1 - t, 3); },
+      smoothWheel: true,
+    });
+    var lenisLoop = function (time) {
+      lenis.raf(time);
+      requestAnimationFrame(lenisLoop);
+    };
+    requestAnimationFrame(lenisLoop);
+  }
+})();
 (function () {
   var gsap = window.gsap;
   if (!gsap) {
