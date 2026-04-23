@@ -1,16 +1,21 @@
 import type { Config } from "tailwindcss";
 
 /**
- * Builder Tailwind config — minimal palette for the Phase 7 placeholder.
- * Phase 8 expands this with DNA-bound tokens, motion utilities, and the
- * full builder chrome design system.
+ * Builder Tailwind config.
+ *
+ * The `content` glob includes packages/sections/src/** so class names used
+ * inside the section render components (e.g. `bg-white`, `md:grid-cols-3`)
+ * are picked up by Tailwind's JIT when the builder renders the canvas. Next
+ * builds the builder from apps/builder as root, but Tailwind's content
+ * scanner walks relative paths regardless — pointing at the sibling package
+ * is the standard monorepo pattern.
  */
 const config: Config = {
-  // Class-based toggle lets us honour the Yappaflow doctrine: light by
-  // default, every surface ships with a dark-mode toggle under user control.
-  // `html.dark` flips theme; see src/components/theme-toggle.tsx.
   darkMode: "class",
-  content: ["./src/**/*.{ts,tsx}"],
+  content: [
+    "./src/**/*.{ts,tsx}",
+    "../../packages/sections/src/**/*.{ts,tsx}",
+  ],
   theme: {
     extend: {
       colors: {
