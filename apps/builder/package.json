@@ -1,0 +1,29 @@
+{
+  "name": "@yappaflow/builder",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Yappaflow's in-house site builder — the agency-facing surface where AI-assembled SiteProjects get tweaked before CMS export. Phase 7 ships a placeholder so the Vercel project, subdomain, and cookie-scope plumbing can be verified in advance. Phase 8 replaces this with the real editor (iframe canvas, section library, Tiptap, Zustand, GSAP).",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --port 3040",
+    "build": "next build",
+    "start": "next start --port 3040",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf .next"
+  },
+  "dependencies": {
+    "next": "^15.3.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.15",
+    "typescript": "~5.9.2"
+  }
+}

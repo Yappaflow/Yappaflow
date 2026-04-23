@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Baseline theme tokens. The class-based .dark override flips the two slots
+ * in lockstep. Phase 8 wires these to the DNA token resolver so the builder
+ * canvas mirrors the target site's palette. */
+:root {
+  color-scheme: light;
+  --surface: 246 245 242;
+  --ink: 11 11 11;
+}
+
+.dark {
+  color-scheme: dark;
+  --surface: 11 11 11;
+  --ink: 246 245 242;
+}
+
+html,
+body {
+  background: rgb(var(--surface));
+  color: rgb(var(--ink));
+  font-feature-settings: "ss01", "cv11";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Prevent the small flash of default theme when the client-side toggle boots. */
+html {
+  transition: background-color 120ms ease;
+}
