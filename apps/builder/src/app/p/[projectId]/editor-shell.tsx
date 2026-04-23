@@ -53,6 +53,7 @@ import type { ActiveDragData, OverDropData } from "@/lib/dnd";
 export function EditorShell({ projectId }: { projectId: string }) {
   const hydrate = useProjectStore((s) => s.hydrate);
   const project = useProjectStore((s) => s.project);
+  const activePageId = useProjectStore((s) => s.activePageId);
   const replaceProject = useProjectStore((s) => s.replaceProject);
   const reorderSections = useProjectStore((s) => s.reorderSections);
   const insertSection = useProjectStore((s) => s.insertSection);
@@ -85,7 +86,12 @@ export function EditorShell({ projectId }: { projectId: string }) {
   function handleDragEnd(event: DragEndEvent) {
     setActiveDrag(null);
     if (!project) return;
-    const page = project.pages[0];
+    // Always operate on the page the user is currently viewing. Before the
+    // multi-page landed, this hardcoded `pages[0]` — which meant dragging
+    // a section while on About silently targeted Home. Fallback to the
+    // first page only if the active id is somehow stale.
+    const page =
+      project.pages.find((p) => p.id === activePageId) ?? project.pages[0];
     if (!page) return;
 
     const activeData = event.active.data.current as ActiveDragData | undefined;

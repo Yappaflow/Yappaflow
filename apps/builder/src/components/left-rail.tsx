@@ -318,7 +318,7 @@ function SortableSectionRow({
           {...attributes}
           {...listeners}
           aria-label="Drag to reorder"
-          className="flex h-6 w-4 cursor-grab items-center justify-center opacity-30 transition hover:opacity-80 active:cursor-grabbing"
+          className="flex h-7 w-5 cursor-grab items-center justify-center rounded opacity-60 transition hover:bg-current/10 hover:opacity-100 active:cursor-grabbing"
         >
           <DragHandleGlyph />
         </button>
@@ -369,14 +369,18 @@ function IconButton({
 }
 
 function DragHandleGlyph() {
+  // Slightly larger than before — 8×12 with 1.25px dots reads clearly at
+  // opacity 60 on both light and dark chrome. Kept as a dotted grip
+  // because that's the pattern users recognise as "draggable" across
+  // Webflow, Notion, Figma plugins, Linear's list view, etc.
   return (
-    <svg width="6" height="10" viewBox="0 0 6 10" fill="currentColor" aria-hidden="true">
-      <circle cx="1" cy="1" r="1" />
-      <circle cx="5" cy="1" r="1" />
-      <circle cx="1" cy="5" r="1" />
-      <circle cx="5" cy="5" r="1" />
-      <circle cx="1" cy="9" r="1" />
-      <circle cx="5" cy="9" r="1" />
+    <svg width="8" height="12" viewBox="0 0 8 12" fill="currentColor" aria-hidden="true">
+      <circle cx="2" cy="2" r="1.25" />
+      <circle cx="6" cy="2" r="1.25" />
+      <circle cx="2" cy="6" r="1.25" />
+      <circle cx="6" cy="6" r="1.25" />
+      <circle cx="2" cy="10" r="1.25" />
+      <circle cx="6" cy="10" r="1.25" />
     </svg>
   );
 }
