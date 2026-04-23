@@ -9,44 +9,40 @@ import { playAllInContainer } from "@/lib/gsap-reveal";
 import { buildSampleSiteProject } from "@/fixtures/sample-project";
 
 /**
- * Full-bleed preview — no builder chrome, no outlines, no drop zones.
+ * Full-bleed preview shell.
  *
- * URL-synced. The route accepts a catch-all slug
- * (`/p/[id]/preview/[[...slug]]`) that sets the initial page. When the
- * user clicks an in-app nav link, we call `history.pushState` so the URL
- * bar reflects the current page and browser back/forward works. Deep
- * links like `/p/sample/preview/products/classic-tee` are shareable.
+ * URL deep-linking uses the hash segment:
  *
- * GSAP animations + Lenis smooth scroll active here just like they will
- * be on an exported site.
+ *   /p/sample/preview#/                               → home
+ *   /p/sample/preview#/about                          → About page
+ *   /p/sample/preview#/products/classic-tee           → product page
+ *
+ * Hash (not path segments) because a catch-all route conflicted with
+ * the parent `preview/page.tsx` in Next's App Router. Hash is fully
+ * client-side, survives refresh, and browser back/forward work because
+ * we listen for `hashchange`.
+ *
+ * GSAP animations replay on page change, Lenis drives smooth scroll.
  */
-export function PreviewShell({
-  projectId,
-  initialSlug = "/",
-}: {
-  projectId: string;
-  initialSlug?: string;
-}) {
+export function PreviewShell({ projectId }: { projectId: string }) {
   const [project, setProject] = useState<SiteProject | null>(null);
-  const [activeSlug, setActiveSlug] = useState<string>(initialSlug);
+  const [activeSlug, setActiveSlug] = useState<string>("/");
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const fromStorage = loadProjectFromStorage(projectId);
     const fallback = projectId === "sample" ? buildSampleSiteProject() : null;
     const loaded = fromStorage ?? fallback;
-    if (loaded) {
-      setProject(loaded);
-      // If the URL-provided slug doesn't correspond to any page in the
-      // project, fall back to the first page so the agency always sees
-      // SOMETHING rather than a blank preview.
-      const urlMatches = loaded.pages.some((p) => p.slug === initialSlug);
-      setActiveSlug(urlMatches ? initialSlug : loaded.pages[0]?.slug ?? "/");
-    }
-  }, [projectId, initialSlug]);
+    if (!loaded) return;
+    setProject(loaded);
+    const hash = hashToSlug(window.location.hash);
+    const urlMatches = loaded.pages.some((p) => p.slug === hash);
+    setActiveSlug(urlMatches ? hash : loaded.pages[0]?.slug ?? "/");
+  }, [projectId]);
 
-  // Nav link interception — update `activeSlug` + push to browser history
-  // so the URL bar stays in sync with the page being viewed.
+  // Intercept in-app nav link clicks. Update the hash so the URL bar
+  // reflects the current page; browser back/forward work because the
+  // `hashchange` listener below owns the response to URL changes.
   useEffect(() => {
     function onClick(event: MouseEvent) {
       if (!project) return;
@@ -61,33 +57,27 @@ export function PreviewShell({
       const match = project.pages.find((p) => p.slug === href);
       if (!match) return;
       event.preventDefault();
-      setActiveSlug(match.slug);
-      const prefix = `/p/${encodeURIComponent(projectId)}/preview`;
-      const url =
-        match.slug === "/" ? prefix : `${prefix}${match.slug}`;
-      window.history.pushState({ slug: match.slug }, "", url);
+      window.location.hash = slugToHash(match.slug);
       window.scrollTo({ top: 0, behavior: "instant" });
     }
     document.addEventListener("click", onClick, true);
     return () => document.removeEventListener("click", onClick, true);
-  }, [project, projectId]);
+  }, [project]);
 
-  // Browser back/forward — listen for popstate so navigating via the
-  // history buttons re-renders the correct page.
+  // Hash-driven navigation — fires on hash change from any source
+  // (link click, back/forward button, paste of a deep-link URL).
   useEffect(() => {
-    function onPopState() {
-      const prefix = `/p/${encodeURIComponent(projectId)}/preview`;
-      const path = window.location.pathname;
-      const rawSlug = path.startsWith(prefix) ? path.slice(prefix.length) : "";
-      const normalized = rawSlug || "/";
-      setActiveSlug(normalized);
+    function onHashChange() {
+      if (!project) return;
+      const next = hashToSlug(window.location.hash);
+      const match = project.pages.find((p) => p.slug === next);
+      setActiveSlug(match ? next : project.pages[0]?.slug ?? "/");
     }
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
-  }, [projectId]);
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, [project]);
 
-  // Replay GSAP on every page change so the new page's animations play
-  // fresh — same vibe as navigating between pages on a real site.
+  // Replay GSAP on every page change.
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -97,9 +87,7 @@ export function PreviewShell({
     return () => cancelAnimationFrame(frame);
   }, [activeSlug, project]);
 
-  // Lenis smooth scroll — the "drop feel" agencies expect. Single
-  // instance for the whole preview document; torn down on unmount so
-  // exiting the preview tab doesn't leave a stray RAF loop.
+  // Lenis smooth scroll for the whole preview document.
   useEffect(() => {
     const lenis = new Lenis({
       duration: 1.1,
@@ -159,4 +147,16 @@ function SectionRenderer({ section }: { section: Page["sections"][number] }) {
   if (!def) return null;
   const Component = def.Component;
   return <Component section={section} />;
+}
+
+/** `#/products/classic-tee` → `/products/classic-tee`. Bare `#` → `/`. */
+function hashToSlug(hash: string): string {
+  if (!hash || hash === "#" || hash === "#/") return "/";
+  const stripped = hash.replace(/^#/, "");
+  return stripped.startsWith("/") ? stripped : `/${stripped}`;
+}
+
+/** `/products/classic-tee` → `#/products/classic-tee`. Home → `#/`. */
+function slugToHash(slug: string): string {
+  return slug === "/" ? "#/" : `#${slug}`;
 }

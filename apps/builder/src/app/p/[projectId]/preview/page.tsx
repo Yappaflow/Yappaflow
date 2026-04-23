@@ -1,11 +1,25 @@
-// Superseded by `./[[...slug]]/page.tsx` — the optional catch-all route
-// handles both the bare `/preview` URL and deep links like
-// `/preview/about` or `/preview/products/classic-tee`. Next.js App Router
-// requires route files to export a default component; redirecting here
-// would conflict with the catch-all. This file is kept empty of route
-// exports so the catch-all is the sole owner of the /preview subtree.
-//
-// Safe to delete this file — it's a sandbox-imposed breadcrumb (the
-// environment wouldn't let us remove it at the time of the refactor).
+import { PreviewShell } from "./preview-shell";
 
-export {};
+/**
+ * `/p/[projectId]/preview` — full-bleed preview.
+ *
+ * Single route that handles all preview URLs. Deep-linking for specific
+ * pages uses the URL hash:
+ *
+ *   /p/sample/preview                                  → home (slug "/")
+ *   /p/sample/preview#/about                           → About page
+ *   /p/sample/preview#/products/classic-tee            → product page
+ *
+ * Hash-based because path segments (catch-all routes) collide with the
+ * bare-/preview route in Next's App Router. Hash is fully client-side,
+ * keeps URLs shareable, and back/forward browser buttons still fire
+ * `hashchange` naturally.
+ */
+export default async function PreviewPage({
+  params,
+}: {
+  params: Promise<{ projectId: string }>;
+}) {
+  const { projectId } = await params;
+  return <PreviewShell projectId={projectId} />;
+}
