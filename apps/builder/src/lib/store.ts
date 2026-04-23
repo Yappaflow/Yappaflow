@@ -26,8 +26,8 @@ import { SECTION_DATA } from "@yappaflow/sections/data";
 import {
   loadProjectFromStorage,
   saveProjectToStorage,
-} from "./persistence.js";
-import { nextSectionId } from "./id.js";
+} from "./persistence";
+import { nextSectionId } from "./id";
 
 export type Viewport = "mobile" | "tablet" | "desktop";
 
