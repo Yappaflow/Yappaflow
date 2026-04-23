@@ -1,14 +1,11 @@
+import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 /**
- * Placeholder landing page for the builder subdomain.
- *
- * Phase 7's deliverable here is the app *shell* — enough that Vercel can
- * import the project, DNS for builder.yappaflow.com can be wired, and the
- * cookie scope handoff from yappaflow.com can be verified. Phase 8 replaces
- * this page with the builder UI (project list, "new project" flow) and
- * introduces the /p/:projectId route that loads a SiteProject into the
- * canvas editor.
+ * Builder landing page. Phase 8 is still agency-facing, single-project for
+ * now — this page just routes to the sample project at /p/sample for
+ * development. Phase 10.5 replaces it with a project list fed by the
+ * server-side /projects cache.
  */
 export default function Home() {
   return (
@@ -33,13 +30,27 @@ export default function Home() {
             Drop a brief on{" "}
             <a
               href="https://yappaflow.com"
-              className="underline underline-offset-4 decoration-current/30 hover:decoration-current"
+              className="underline underline-offset-4 hover:decoration-current"
             >
               yappaflow.com
             </a>
             , pick references, shape the result here, export to your CMS. The
             agency surface lives on this subdomain from Phase 10 onward.
           </p>
+
+          <div className="mt-10 flex flex-wrap items-center gap-3">
+            <Link
+              href="/p/sample"
+              className="inline-flex items-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-paper hover:opacity-90 dark:bg-paper dark:text-ink"
+            >
+              Open sample project
+              <span aria-hidden="true">→</span>
+            </Link>
+            <span className="text-xs opacity-50">
+              Dev entry point — real projects arrive via the studio flow from
+              Phase 10.5.
+            </span>
+          </div>
 
           <dl className="mt-12 grid gap-6 sm:grid-cols-3">
             <Step
