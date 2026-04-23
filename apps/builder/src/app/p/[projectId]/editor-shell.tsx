@@ -54,6 +54,7 @@ export function EditorShell({ projectId }: { projectId: string }) {
   const hydrate = useProjectStore((s) => s.hydrate);
   const project = useProjectStore((s) => s.project);
   const activePageId = useProjectStore((s) => s.activePageId);
+  const previewMode = useProjectStore((s) => s.previewMode);
   const replaceProject = useProjectStore((s) => s.replaceProject);
   const reorderSections = useProjectStore((s) => s.reorderSections);
   const insertSection = useProjectStore((s) => s.insertSection);
@@ -145,8 +146,6 @@ export function EditorShell({ projectId }: { projectId: string }) {
   if (!project) {
     return <ProjectNotFound projectId={projectId} onLoad={replaceProject} />;
   }
-
-  const previewMode = useProjectStore((s) => s.previewMode);
 
   return (
     <DndContext
