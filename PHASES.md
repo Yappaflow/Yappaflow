@@ -92,10 +92,65 @@ MCP app (`apps/yappaflow-mcp/src/config.ts`):
 - `OPENROUTER_API_KEY`, `AI_ANALYSIS_MODEL`, `AI_PLANNING_MODEL`, `AI_GENERATION_MODEL`
 - `EXA_API_KEY`, `VOYAGE_API_KEY`
 
-## Next up (Phase 7+)
-- Replace adapter skeletons with real platform wiring (CMS collections for Webflow,
-  metaobjects for Shopify, pattern library for WordPress, GraphQL for IKAS).
-- Deploy the MCP app to Railway behind `yappaflow-mcp.up.railway.app`.
-- Residential proxy for Playwright to get past Cloudflare bot checks on Linear etc.
+## Phase 7 — canonical format + section library (✅ shipped 2026-04-23)
+
+Builder-first pivot foundation. No builder yet (Phase 8) and no adapters-v2
+yet (Phase 10); this phase lays the types and the section library they both
+consume. See `BUILDER-PIVOT.md` for the architecture brief.
+
+- **`packages/types/`** — new workspace. Canonical home for `DesignDna`,
+  `MergedDna`, `Brief`, and the new `SiteProject` / `Page` / `Section` /
+  `SectionType` schemas (Zod + `z.infer<>`). `apps/yappaflow-mcp/src/types.ts`,
+  `tools/brief.ts`, and `tools/merge-dna.ts` are now thin re-exports — every
+  MCP call site keeps its old import path. DNA `schemaVersion` stays at 1
+  (shape unchanged; only the declaration moved).
+- **`packages/sections/`** — new workspace. 10 MVP section types (header,
+  footer, announcement-bar, hero, feature-grid, feature-row, product-grid,
+  cta-band, testimonial, rich-text). Each section ships `schema.ts`,
+  `default.ts`, `variants.ts`, `render.tsx` (placeholder stub), `index.ts`.
+  Top-level `SECTIONS` registry keyed by `SectionType` — exhaustiveness
+  enforced via `satisfies Record<SectionType, SectionDefinition>`. A parallel
+  React-free `./data` entry exposes `SECTION_DATA` (schema + default +
+  variants only) for Node-only consumers like the MCP.
+- **`apps/yappaflow-mcp/src/tools/build-site.ts`** — now exports
+  `assembleSiteProject(params)` returning `{ siteProject, summary, nextSteps }`.
+  Legacy `buildSite()` dispatcher is UNCHANGED; the live Shopify REST path
+  (`/rpc/build_site platform:"shopify"`) keeps working against production
+  until adapters-v2 ships in Phase 10. New MCP tool `build_site_project`
+  registered alongside the legacy `build_site`.
+- **Builds.** Both new packages use plain `tsc -p tsconfig.build.json` (not
+  tsup — tsup's `bundle-require` cleanup unlinks fail on sandboxed mounts).
+  `packages/sections` has a post-build `scripts/prepend-use-client.mjs` that
+  re-attaches `"use client"` to every section's emitted JS (same reason as
+  `packages/yappaflow-ui`: Next.js RSC compiler reads the directive from the
+  first line of the imported module). The barrel and `./data` entry stay
+  directive-free so Node consumers aren't tagged as client.
+- **Tests.** `@yappaflow/types`: 7 passing (`SectionSchema`, `PageSchema`,
+  `SiteProjectSchema` happy-path + two rejection cases). `@yappaflow/sections`:
+  52 passing (each of 10 sections × 5 assertions: default validates,
+  default-variant is listed, renders default content, renders broken content
+  gracefully, serialises animation preset). Smoke tests under
+  `apps/yappaflow-mcp/scripts/`: `smoke-assemble.ts` round-trips the assembler
+  output through `SiteProjectSchema`; `smoke-legacy.ts` confirms the html
+  adapter still returns the `BuildOutput` contract the REST route expects.
+
+## Next up (Phase 8+)
+- **Phase 8** — `apps/builder` scaffold. Next.js 15 + Zustand + iframe canvas.
+  Loads a SiteProject, renders it via `SECTIONS[type].Component`, lets the
+  agency tweak content, variants, style deltas, and animation presets.
+- **Phase 9** — hero inspiration picker; replace the assembler's default
+  content seeding with an LLM pass that drafts real hero / feature / CTA
+  copy per brief (one prompt per section — smaller context, easier retry).
+- **Phase 10** — `apps/yappaflow-mcp/src/adapters-v2/shopify/` — per-section
+  mappers, each a pure function `(Section, MergedDna) → liquid string`.
+  Replaces the LLM-in-adapter path for Shopify. Legacy `adapters/` stays
+  until v2 is verified against production.
+- **Phase 11** — GSAP animation runtime. Ship ~12 named presets; adapters
+  serialise the preset as `data-yf-anim` on the section root; a shared
+  runtime package reads the attribute at load time.
+- **Phase 12** — Webflow / WordPress / IKAS adapter-v2, same mapper pattern.
+- Keep deploying the MCP app to Railway behind `yappaflow-mcp.up.railway.app`.
+- Residential proxy for Playwright to get past Cloudflare bot checks on
+  Linear etc.
 - Token budgeting: the doctrine prefix is stable — flip on prompt caching.
 - Evaluations: a held-out set of (brief, picked refs, "is this good?") triples.

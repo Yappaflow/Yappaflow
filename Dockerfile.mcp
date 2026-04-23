@@ -1,0 +1,36 @@
+# Monorepo-root Dockerfile for the Yappaflow MCP server.
+# Used when Railway cannot scope a service to apps/yappaflow-mcp via a
+# Root Directory / Source Path setting — we build from repo root and copy
+# only the MCP app into the image.
+#
+# Pick this as the Dockerfile path in Railway:
+#   Settings → Build → Dockerfile Path: Dockerfile.mcp
+#
+# Keep the Playwright image tag in sync with the resolved `playwright`
+# version in package-lock.json (grep -A1 '"node_modules/playwright"').
+FROM mcr.microsoft.com/playwright:v1.59.1-jammy
+
+WORKDIR /app
+
+# Copy just the MCP app's package.json so deps install from its manifest
+# without pulling every workspace's node_modules into the image.
+COPY apps/yappaflow-mcp/package.json ./package.json
+
+RUN npm install --no-audit --no-fund
+
+# Version-drift safety net: install the exact Chromium + OS libs the
+# resolved Playwright version expects. `--with-deps` runs apt as root
+# inside the build layer, which is allowed.
+RUN npx playwright install --with-deps chromium
+
+# Now copy the app source.
+COPY apps/yappaflow-mcp/ ./
+
+RUN npm run build
+
+ENV NODE_ENV=production \
+    HOST=0.0.0.0
+
+EXPOSE 3000
+
+CMD ["npm", "start"]

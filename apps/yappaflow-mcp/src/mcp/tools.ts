@@ -15,7 +15,12 @@ import { searchReferences } from "../tools/search-references.js";
 import { classifyBrief } from "../tools/classify-brief.js";
 import { rankReferences } from "../tools/rank.js";
 import { mergeDna } from "../tools/merge-dna.js";
-import { buildSite, PLATFORMS } from "../tools/build-site.js";
+import {
+  buildSite,
+  PLATFORMS,
+  assembleSiteProject,
+  AssembleSiteProjectArgsSchema,
+} from "../tools/build-site.js";
 
 export type Tool = {
   name: string;
@@ -191,7 +196,7 @@ export function buildToolRegistry(config: Config, cache: DnaCache) {
   tools.set("build_site", {
     name: "build_site",
     description:
-      "Generate a site for the chosen platform (html / shopify / wordpress / ikas / webflow) given a brief, a MergedDNA, and optional content blocks.",
+      "Generate a site for the chosen platform (html / shopify / wordpress / ikas / webflow) given a brief, a MergedDNA, and optional content blocks. LEGACY — per the Phase 7 builder-first pivot, new flows should prefer build_site_project and let the in-house builder + adapters-v2 handle CMS conversion. This tool stays live because the current Shopify REST path depends on it.",
     inputSchema: {
       type: "object",
       required: ["brief", "mergedDna", "platform"],
@@ -211,6 +216,41 @@ export function buildToolRegistry(config: Config, cache: DnaCache) {
         platform: parsed.platform,
         config,
         llm,
+      });
+    },
+  });
+
+  // Phase 7 (builder-first pivot) — canonical SiteProject assembly. Output is
+  // JSON data, not platform files. The in-house builder (Phase 8) loads it;
+  // adapters-v2 (Phase 10+) convert it to CMS files deterministically. Until
+  // adapters-v2 ships we keep build_site live for the Shopify REST path.
+  tools.set("build_site_project", {
+    name: "build_site_project",
+    description:
+      "Assemble a canonical SiteProject (JSON tree of typed sections) from a brief + MergedDNA. Returns { siteProject, summary, nextSteps } — no CMS files. This is the Phase 7 entry point for the builder-first pipeline.",
+    inputSchema: {
+      type: "object",
+      required: ["brief", "mergedDna"],
+      properties: {
+        brief: { type: "object" },
+        mergedDna: { type: "object" },
+        overrides: {
+          type: "object",
+          properties: {
+            siteTitle: { type: "string" },
+            logoText: { type: "string" },
+          },
+        },
+      },
+    },
+    handler: async (args) => {
+      const parsed = AssembleSiteProjectArgsSchema.parse(args);
+      return assembleSiteProject({
+        brief: parsed.brief as Parameters<typeof assembleSiteProject>[0]["brief"],
+        mergedDna: parsed.mergedDna as Parameters<
+          typeof assembleSiteProject
+        >[0]["mergedDna"],
+        overrides: parsed.overrides,
       });
     },
   });

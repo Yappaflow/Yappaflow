@@ -1,0 +1,92 @@
+{
+  "name": "@yappaflow/sections",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The Yappaflow section library — 10 canonical MVP section types (hero, header, footer, announcement-bar, feature-grid, feature-row, product-grid, cta-band, testimonial, rich-text). Each section ships a Zod content schema, default content, named variants, and a React render component. Consumed by the in-house builder (apps/builder), the CMS adapters-v2 (apps/yappaflow-mcp/src/adapters-v2/*), and the MCP SiteProject assembler.",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./data": {
+      "types": "./dist/data.d.ts",
+      "default": "./dist/data.js"
+    },
+    "./header": {
+      "types": "./dist/header/index.d.ts",
+      "default": "./dist/header/index.js"
+    },
+    "./footer": {
+      "types": "./dist/footer/index.d.ts",
+      "default": "./dist/footer/index.js"
+    },
+    "./announcement-bar": {
+      "types": "./dist/announcement-bar/index.d.ts",
+      "default": "./dist/announcement-bar/index.js"
+    },
+    "./hero": {
+      "types": "./dist/hero/index.d.ts",
+      "default": "./dist/hero/index.js"
+    },
+    "./feature-grid": {
+      "types": "./dist/feature-grid/index.d.ts",
+      "default": "./dist/feature-grid/index.js"
+    },
+    "./feature-row": {
+      "types": "./dist/feature-row/index.d.ts",
+      "default": "./dist/feature-row/index.js"
+    },
+    "./product-grid": {
+      "types": "./dist/product-grid/index.d.ts",
+      "default": "./dist/product-grid/index.js"
+    },
+    "./cta-band": {
+      "types": "./dist/cta-band/index.d.ts",
+      "default": "./dist/cta-band/index.js"
+    },
+    "./testimonial": {
+      "types": "./dist/testimonial/index.d.ts",
+      "default": "./dist/testimonial/index.js"
+    },
+    "./rich-text": {
+      "types": "./dist/rich-text/index.d.ts",
+      "default": "./dist/rich-text/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && node scripts/prepend-use-client.mjs",
+    "dev": "tsc -p tsconfig.build.json --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "rm -rf dist"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "react-dom": ">=18.0.0"
+  },
+  "dependencies": {
+    "@yappaflow/types": "*",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.1.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "happy-dom": "^15.11.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "typescript": "~5.9.2",
+    "vitest": "^4.1.4"
+  }
+}

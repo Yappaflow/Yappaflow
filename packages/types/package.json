@@ -1,0 +1,53 @@
+{
+  "name": "@yappaflow/types",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Canonical data types for the Yappaflow pipeline — DesignDna, MergedDna, Brief, and the builder-first SiteProject / Page / Section schemas.",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./dna": {
+      "types": "./dist/dna.d.ts",
+      "default": "./dist/dna.js"
+    },
+    "./brief": {
+      "types": "./dist/brief.d.ts",
+      "default": "./dist/brief.js"
+    },
+    "./site": {
+      "types": "./dist/site.d.ts",
+      "default": "./dist/site.js"
+    },
+    "./tokens": {
+      "types": "./dist/tokens.d.ts",
+      "default": "./dist/tokens.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "typescript": "~5.9.2",
+    "vitest": "^4.1.4"
+  }
+}

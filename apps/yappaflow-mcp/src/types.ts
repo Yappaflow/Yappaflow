@@ -1,106 +1,23 @@
 /**
- * Design DNA schema. This is the one artifact every downstream phase depends on.
- * Keep it stable; breaking changes cascade into search, ranking, merge, and build.
+ * MCP-local type surface.
+ *
+ * As of Phase 7 (2026-04-23 builder-first pivot), the canonical DesignDna and
+ * its nested types live in `@yappaflow/types` so the builder app, the section
+ * library, and the CMS adapters-v2 can share them without depending on this
+ * MCP app. This file re-exports the shared types unchanged, and keeps only the
+ * MCP-specific extractor tuning knobs (ExtractorOptions, DEFAULT_OPTIONS) local
+ * — those describe the Playwright extractor, not the data it produces.
+ *
+ * Import paths from the rest of the MCP (`../types.js`, `../../types.js`) are
+ * unchanged by design; the declaration moved, the import surface did not.
  */
 
-export type DesignDna = {
-  schemaVersion: 1;
-  meta: {
-    url: string;
-    finalUrl: string;
-    title: string | null;
-    description: string | null;
-    capturedAt: string; // ISO
-    viewport: { width: number; height: number };
-    timings: {
-      navigateMs: number;
-      scrollMs: number;
-      analyzeMs: number;
-      totalMs: number;
-    };
-    warnings: string[];
-  };
-  typography: {
-    /** Sorted by usage count desc. The real type system sits in the first 4–6 entries. */
-    styles: TypographyStyle[];
-    /** Raw declared font-family strings, deduped, with counts. */
-    families: Array<{ family: string; count: number }>;
-    /** Computed scale: distinct px sizes ascending. */
-    scalePx: number[];
-  };
-  colors: {
-    /** Every color usage across all elements, counted. */
-    palette: Array<{ value: string; count: number; roles: ColorRole[] }>;
-    /** CSS custom properties defined on :root (or html/body when :root is empty). */
-    customProperties: Array<{ name: string; value: string }>;
-    /** Summary: top N most-used colors named by role heuristic. */
-    summary: { backgrounds: string[]; foregrounds: string[]; accents: string[] };
-  };
-  motion: {
-    /** @keyframes parsed from stylesheets. Includes cross-origin when accessible. */
-    keyframes: Array<{ name: string; source: "stylesheet" | "inline"; percentageStops: string[] }>;
-    /** Unique transition shorthands (property, duration, timing, delay) with counts. */
-    transitions: Array<{
-      property: string;
-      duration: string;
-      timing: string;
-      delay: string;
-      count: number;
-    }>;
-    /** Snapshot of document.getAnimations() after scrolling through the page. */
-    runtimeAnimations: Array<{
-      effectTarget: string | null;
-      keyframeName: string | null;
-      duration: number | null;
-      easing: string | null;
-      iterations: number | null;
-    }>;
-    /** Scroll-linked / intersection-observer activity evidence (best-effort). */
-    scrollHints: string[];
-  };
-  grid: {
-    /** Grid/flex declarations from major layout containers (filtered by area). */
-    containers: Array<{
-      selector: string;
-      display: string;
-      gridTemplateColumns: string | null;
-      gridTemplateRows: string | null;
-      gap: string | null;
-      maxWidth: string | null;
-      padding: string | null;
-      approxArea: number;
-    }>;
-    /** Page-level rhythm: common max-width, base padding, base gap (most frequent). */
-    rhythm: { maxWidth: string | null; padding: string | null; gap: string | null };
-  };
-  stack: {
-    /** Runtime-detected libraries (globals / DOM markers). */
-    libraries: string[];
-    /** Framework / meta hints from tags or scripts. */
-    frameworks: string[];
-  };
-  assets: {
-    fonts: Array<{ url: string; family: string | null; format: string | null }>;
-    images: Array<{ url: string; intrinsicSize?: { w: number; h: number } }>;
-    videos: string[];
-    scripts: string[];
-    stylesheets: string[];
-    totalTransferKb: number;
-  };
-};
-
-export type TypographyStyle = {
-  family: string;
-  weight: string;
-  size: string;     // e.g. "48px"
-  lineHeight: string;
-  letterSpacing: string;
-  textTransform: string;
-  count: number;
-  sampleText: string;
-};
-
-export type ColorRole = "background" | "foreground" | "border" | "fill" | "stroke" | "shadow";
+export type {
+  DesignDna,
+  TypographyStyle,
+  ColorRole,
+  MergedDna,
+} from "@yappaflow/types";
 
 export type ExtractorOptions = {
   viewport?: { width: number; height: number };

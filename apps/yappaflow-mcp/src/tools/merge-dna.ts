@@ -11,7 +11,12 @@
  * *which* entries within a section get kept when a section spans multiple styles.
  */
 
-import type { DesignDna } from "../types.js";
+import type { DesignDna, MergedDna } from "../types.js";
+
+// MergedDna declaration lives in @yappaflow/types as of Phase 7; re-export
+// from this module unchanged so every consumer that does
+// `import type { MergedDna } from "./merge-dna.js"` keeps working.
+export type { MergedDna };
 
 export type MergeInput = {
   structure_from: DesignDna;
@@ -25,16 +30,6 @@ export type MergeWeights = {
   typography?: number;
   motion?: number;
   palette?: number;
-};
-
-export type MergedDna = DesignDna & {
-  mergeMeta: {
-    structureSource: { url: string; finalUrl: string; title: string | null };
-    typographySource: { url: string; finalUrl: string; title: string | null };
-    motionSource: { url: string; finalUrl: string; title: string | null };
-    paletteSource: { url: string; finalUrl: string; title: string | null };
-    reasoning: string[];
-  };
 };
 
 export function mergeDna(input: MergeInput, weights: MergeWeights = {}): MergedDna {
