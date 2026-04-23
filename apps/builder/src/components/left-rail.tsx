@@ -231,14 +231,14 @@ export function LeftRail() {
         <NewPageModal
           existingSlugs={project.pages.map((p) => p.slug)}
           onClose={() => setNewPageOpen(false)}
-          onCreate={({ title, slug }: { title: string; slug: string }) => {
+          onCreate={({ title, slug, sections }) => {
             if (project.pages.length >= 15) {
               const proceed = window.confirm(
                 "You already have 15 pages. Most sites ship with ≤ 10. Add anyway?",
               );
               if (!proceed) return;
             }
-            addPage({ title, slug });
+            addPage({ title, slug, sections });
             setNewPageOpen(false);
           }}
         />

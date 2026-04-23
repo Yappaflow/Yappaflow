@@ -66,7 +66,20 @@ interface ProjectState {
 
   // Page-level lifecycle
   setActivePageId(pageId: string): void;
-  addPage(params: { title: string; slug: string }): string;
+  addPage(params: {
+    title: string;
+    slug: string;
+    /**
+     * Optional seed sections — a template's buildSections() output. Each
+     * spec becomes a real Section with the library's defaults plus any
+     * contentOverrides shallow-merged on top.
+     */
+    sections?: Array<{
+      type: SectionType;
+      variant?: string;
+      contentOverrides?: Record<string, unknown>;
+    }>;
+  }): string;
   removePage(pageId: string): void;
   renamePage(pageId: string, title: string): void;
   setPageSlug(pageId: string, slug: string): void;
@@ -238,8 +251,26 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
     set({ activePageId: pageId, selection: null });
   },
 
-  addPage({ title, slug }) {
+  addPage({ title, slug, sections: sectionSpecs }) {
     const id = nextPageId();
+    // Materialise the template's section specs into real Section instances.
+    // Default variant + default content come from the sections library, and
+    // contentOverrides (per-template tweaks) shallow-merge on top — so the
+    // About template's hero lands with "About us" instead of the generic
+    // "Design that earns its keep" default.
+    const seededSections: Section[] = (sectionSpecs ?? []).map((spec) => {
+      const data = SECTION_DATA[spec.type];
+      return {
+        id: nextSectionId(),
+        type: spec.type,
+        variant: spec.variant ?? data.defaultVariant,
+        content: {
+          ...(data.defaultContent as Record<string, unknown>),
+          ...(spec.contentOverrides ?? {}),
+        },
+        style: {},
+      };
+    });
     set((state) => {
       if (!state.project) return {};
       const newPage = {
@@ -247,7 +278,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
         slug: slug || "/",
         title: title || "Untitled",
         seo: { description: "" },
-        sections: [],
+        sections: seededSections,
       };
       // Auto-link into the header's nav so new pages immediately surface in
       // the site's navigation. Existing entries are preserved; the user can
