@@ -19,6 +19,7 @@ import {
 } from "@dnd-kit/sortable";
 import type { SectionType } from "@yappaflow/types";
 import { useProjectStore, startAutosave } from "@/lib/store";
+import { useProductsStore } from "@/lib/products-store";
 import { buildSampleSiteProject } from "@/fixtures/sample-project";
 import { LoadFromJsonModal } from "@/components/load-from-json";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -54,6 +55,7 @@ export function EditorShell({ projectId }: { projectId: string }) {
   const replaceProject = useProjectStore((s) => s.replaceProject);
   const reorderSections = useProjectStore((s) => s.reorderSections);
   const insertSection = useProjectStore((s) => s.insertSection);
+  const appendProductToGrid = useProjectStore((s) => s.appendProductToGrid);
 
   const [loadOpen, setLoadOpen] = useState(false);
   const [activeDrag, setActiveDrag] = useState<ActiveDragData | null>(null);
@@ -92,6 +94,32 @@ export function EditorShell({ projectId }: { projectId: string }) {
     // Palette → canvas drop zone.
     if (activeData.kind === "palette-card" && overData.kind === "canvas-drop-zone") {
       insertSection(page.id, activeData.type, overData.atIndex);
+      return;
+    }
+
+    // Library product → product-grid section.
+    if (
+      activeData.kind === "library-product" &&
+      overData.kind === "product-grid-drop"
+    ) {
+      const product = useProductsStore
+        .getState()
+        .products.find((p) => p.id === activeData.productId);
+      if (!product) return;
+      appendProductToGrid(overData.pageId, overData.sectionId, {
+        id: product.id,
+        handle: product.handle,
+        title: product.title,
+        price: product.price,
+        currency: product.currency ?? "USD",
+        compareAtPrice: product.compareAtPrice,
+        image: {
+          kind: "image",
+          url: product.image.url,
+          alt: product.image.alt,
+        },
+        href: product.href,
+      });
       return;
     }
 

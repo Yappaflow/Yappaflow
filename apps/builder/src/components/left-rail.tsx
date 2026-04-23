@@ -7,11 +7,14 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import type { SectionType } from "@yappaflow/types";
 import { useProjectStore } from "@/lib/store";
 import type { SortableSectionData } from "@/lib/dnd";
 import { InsertPanel } from "./insert-panel";
+import { ProductsPanel } from "./products-panel";
+import { iconForSection } from "@/lib/section-icons";
 
-type Panel = "layers" | "insert";
+type Panel = "layers" | "insert" | "products";
 
 /**
  * Left rail — two panels switched via a pill-tab bar:
@@ -59,6 +62,9 @@ export function LeftRail() {
         <PanelTab active={panel === "insert"} onClick={() => setPanel("insert")}>
           Insert
         </PanelTab>
+        <PanelTab active={panel === "products"} onClick={() => setPanel("products")}>
+          Products
+        </PanelTab>
       </div>
 
       {panel === "layers" ? (
@@ -73,19 +79,21 @@ export function LeftRail() {
                 const selected =
                   selection?.pageId === `__globals__:${slot}` &&
                   selection.sectionId === section.id;
+                const Icon = iconForSection(section.type);
                 return (
                   <li key={slot}>
                     <button
                       onClick={() =>
                         selectSection(`__globals__:${slot}`, section.id)
                       }
-                      className={`flex w-full items-center justify-between rounded px-2 py-1.5 text-sm transition ${
+                      className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm transition ${
                         selected
                           ? "bg-current/10 text-current"
                           : "opacity-70 hover:bg-current/5 hover:opacity-100"
                       }`}
                     >
-                      <span className="truncate">{label}</span>
+                      <Icon className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden="true" />
+                      <span className="flex-1 truncate text-left">{label}</span>
                       <span className="text-[10px] uppercase tracking-wider opacity-60">
                         {section.variant}
                       </span>
@@ -120,7 +128,7 @@ export function LeftRail() {
                       key={section.id}
                       id={section.id}
                       index={i}
-                      type={section.type}
+                      type={section.type as SectionType}
                       variant={section.variant ?? ""}
                       selected={selected}
                       onSelect={() => selectSection(page.id, section.id)}
@@ -142,8 +150,10 @@ export function LeftRail() {
             ) : null}
           </div>
         </div>
-      ) : (
+      ) : panel === "insert" ? (
         <InsertPanel />
+      ) : (
+        <ProductsPanel />
       )}
     </aside>
   );
@@ -185,7 +195,7 @@ function SortableSectionRow({
 }: {
   id: string;
   index: number;
-  type: string;
+  type: SectionType;
   variant: string;
   selected: boolean;
   onSelect: () => void;
@@ -201,6 +211,7 @@ function SortableSectionRow({
     transition,
     isDragging,
   } = useSortable({ id, data });
+  const Icon = iconForSection(type);
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -230,6 +241,7 @@ function SortableSectionRow({
           <span className="w-5 font-mono text-[10px] opacity-40">
             {(index + 1).toString().padStart(2, "0")}
           </span>
+          <Icon className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden="true" />
           <span className="flex-1 truncate">{type}</span>
           <span className="text-[10px] uppercase tracking-wider opacity-50">
             {variant}

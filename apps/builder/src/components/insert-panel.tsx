@@ -6,6 +6,7 @@ import type { SectionType } from "@yappaflow/types";
 import { SECTION_DATA } from "@yappaflow/sections/data";
 import { useProjectStore } from "@/lib/store";
 import { paletteDraggableId, type PaletteCardData } from "@/lib/dnd";
+import { iconForSection } from "@/lib/section-icons";
 
 /**
  * Insert panel — the sidebar palette of draggable section/component cards.
@@ -104,6 +105,7 @@ function PaletteCard({ item }: { item: PaletteItem }) {
   const project = useProjectStore((s) => s.project);
   const insertSection = useProjectStore((s) => s.insertSection);
   const variants = SECTION_DATA[item.type].variants.length;
+  const Icon = iconForSection(item.type);
 
   const style: React.CSSProperties = {
     transform: CSS.Translate.toString(transform),
@@ -124,15 +126,22 @@ function PaletteCard({ item }: { item: PaletteItem }) {
       {...attributes}
       {...listeners}
       onClick={handleClick}
-      className="group cursor-grab rounded border border-current/15 px-3 py-2 text-left transition hover:border-current/40 hover:bg-current/5 active:cursor-grabbing"
+      className="group flex cursor-grab items-start gap-3 rounded border border-current/15 px-3 py-2 text-left transition hover:border-current/40 hover:bg-current/5 active:cursor-grabbing"
     >
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium">{item.label}</span>
-        <span className="text-[10px] uppercase tracking-wider opacity-40">
-          {variants}v
+      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded bg-current/5 text-current transition group-hover:bg-current/10">
+        <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium">{item.label}</span>
+          <span className="text-[10px] uppercase tracking-wider opacity-40">
+            {variants}v
+          </span>
+        </div>
+        <span className="block truncate text-[11px] opacity-60">
+          {item.description}
         </span>
       </div>
-      <span className="block text-[11px] opacity-60">{item.description}</span>
     </div>
   );
 }

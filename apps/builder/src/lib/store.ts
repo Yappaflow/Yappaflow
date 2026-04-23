@@ -84,6 +84,13 @@ interface ProjectState {
     patch: Record<string, unknown>,
   ): void;
 
+  /** Append an already-shaped product card to a product-grid section. */
+  appendProductToGrid(
+    pageId: string,
+    sectionId: string,
+    product: Record<string, unknown>,
+  ): void;
+
   // Manual save (autosave also fires on every mutation — see subscribe below).
   save(): void;
 }
@@ -384,6 +391,25 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
         dirty: true,
       };
     });
+  },
+
+  appendProductToGrid(pageId, sectionId, product) {
+    set((state) =>
+      mutateProject(state, (project) =>
+        mapSectionInPage(project, pageId, sectionId, (section) => {
+          if (section.type !== "product-grid") return section;
+          const current = ((section.content as Record<string, unknown>)
+            .products ?? []) as Array<Record<string, unknown>>;
+          // De-dupe by id — dropping the same library product twice
+          // shouldn't create duplicate entries in the grid.
+          if (current.some((p) => p.id === product.id)) return section;
+          return {
+            ...section,
+            content: { ...section.content, products: [...current, product] },
+          };
+        }),
+      ),
+    );
   },
 
   save() {

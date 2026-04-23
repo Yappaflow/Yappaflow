@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { SiteProjectSchema, type SiteProject } from "@yappaflow/types";
 
 /**
@@ -55,16 +56,25 @@ export function LoadFromJsonModal({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
-      role="dialog"
-      aria-modal="true"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-2xl rounded-lg border border-white/10 bg-paper p-6 shadow-xl dark:bg-ink"
-        onClick={(e) => e.stopPropagation()}
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.15 }}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+        role="dialog"
+        aria-modal="true"
+        onClick={onClose}
       >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.96, y: 8 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.96, y: 8 }}
+          transition={{ type: "spring", stiffness: 500, damping: 32 }}
+          className="w-full max-w-2xl rounded-lg border border-white/10 bg-paper p-6 shadow-xl dark:bg-ink"
+          onClick={(e) => e.stopPropagation()}
+        >
         <header className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold">Load a SiteProject</h2>
           <button
@@ -107,7 +117,8 @@ export function LoadFromJsonModal({
             Load
           </button>
         </div>
-      </div>
-    </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
   );
 }

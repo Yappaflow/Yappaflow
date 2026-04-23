@@ -2,10 +2,16 @@
 
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 import { useDroppable, useDndMonitor } from "@dnd-kit/core";
+import { AnimatePresence, motion } from "framer-motion";
 import { SECTIONS } from "@yappaflow/sections";
 import type { Section, SiteProject } from "@yappaflow/types";
 import { useProjectStore, type Viewport } from "@/lib/store";
-import { dropZoneId, type DropZoneData } from "@/lib/dnd";
+import {
+  dropZoneId,
+  productGridDropId,
+  type DropZoneData,
+  type ProductGridDropData,
+} from "@/lib/dnd";
 import { playAllInContainer } from "@/lib/gsap-reveal";
 
 /**
@@ -137,7 +143,13 @@ export function Canvas() {
 
         {pageSections.map((s, i) => (
           <div key={s.id}>
-            <RenderSection section={s} />
+            {s.type === "product-grid" && homePage ? (
+              <ProductGridDropTarget pageId={homePage.id} sectionId={s.id}>
+                <RenderSection section={s} />
+              </ProductGridDropTarget>
+            ) : (
+              <RenderSection section={s} />
+            )}
             <CanvasDropZone atIndex={i + 1} visible={paletteActive} />
           </div>
         ))}
@@ -149,9 +161,10 @@ export function Canvas() {
 }
 
 /**
- * A canvas drop zone. Renders with zero visible height when not actively
- * being dragged into (so section hover/click stays clean), expands to a
- * visible band during a palette drag, and brightens while `isOver`.
+ * A canvas drop zone. Zero visible height when no palette drag is in flight
+ * (so section hover/click stays clean). Framer Motion AnimatePresence
+ * animates the zone opening to 40px when a drag starts, and brightens its
+ * border + label when the pointer is over it.
  */
 function CanvasDropZone({
   atIndex,
@@ -167,27 +180,77 @@ function CanvasDropZone({
   });
 
   return (
+    <div ref={setNodeRef} aria-hidden="true" className="relative">
+      <AnimatePresence initial={false}>
+        {visible ? (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 40, opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 520, damping: 38 }}
+            className="overflow-hidden"
+          >
+            <motion.div
+              initial={{ scale: 0.98 }}
+              animate={{ scale: isOver ? 1.02 : 1 }}
+              transition={{ type: "spring", stiffness: 420, damping: 26 }}
+              className={`absolute inset-x-4 top-1/2 -translate-y-1/2 rounded-full border border-dashed transition-colors ${
+                isOver
+                  ? "border-blue-500 bg-blue-500/10"
+                  : "border-neutral-300 bg-transparent"
+              }`}
+              style={{ height: "32px" }}
+            >
+              <div className="flex h-full items-center justify-center text-[11px] uppercase tracking-[0.2em] text-neutral-500">
+                {isOver ? "Release to insert here" : "Drop a section"}
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+/**
+ * Wraps a product-grid section so it becomes a drop target for library
+ * products. Highlights on isOver with a ring — the user sees their drop
+ * would land on this specific grid. Drop logic is in editor-shell's
+ * handleDragEnd.
+ */
+function ProductGridDropTarget({
+  pageId,
+  sectionId,
+  children,
+}: {
+  pageId: string;
+  sectionId: string;
+  children: React.ReactNode;
+}) {
+  const data: ProductGridDropData = {
+    kind: "product-grid-drop",
+    pageId,
+    sectionId,
+  };
+  const { isOver, setNodeRef } = useDroppable({
+    id: productGridDropId(sectionId),
+    data,
+  });
+  return (
     <div
       ref={setNodeRef}
-      aria-hidden="true"
-      className={`relative transition-all duration-150 ${
-        visible ? "h-10" : "h-0"
-      }`}
+      className={
+        isOver
+          ? "relative outline-dashed outline-2 outline-offset-[-4px] outline-emerald-500"
+          : "relative"
+      }
     >
-      {visible ? (
-        <div
-          className={`absolute inset-x-4 top-1/2 -translate-y-1/2 rounded-full border border-dashed transition-colors ${
-            isOver
-              ? "border-blue-500 bg-blue-500/10"
-              : "border-neutral-300 bg-transparent"
-          }`}
-          style={{ height: "32px" }}
-        >
-          <div className="flex h-full items-center justify-center text-[11px] uppercase tracking-[0.2em] text-neutral-500">
-            {isOver ? "Release to insert here" : "Drop a section"}
-          </div>
+      {isOver ? (
+        <div className="pointer-events-none absolute left-4 top-4 z-10 rounded-full bg-emerald-500 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.2em] text-white shadow-md">
+          Add product
         </div>
       ) : null}
+      {children}
     </div>
   );
 }
