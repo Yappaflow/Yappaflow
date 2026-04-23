@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { RotateCw } from "lucide-react";
 import { useProjectStore } from "@/lib/store";
 import { ViewportSwitcher } from "./viewport-switcher";
 import { ThemeToggle } from "./theme-toggle";
@@ -9,6 +10,7 @@ export function TopBar({ onLoadJson }: { onLoadJson: () => void }) {
   const project = useProjectStore((s) => s.project);
   const dirty = useProjectStore((s) => s.dirty);
   const lastSavedAt = useProjectStore((s) => s.lastSavedAt);
+  const replayAnimations = useProjectStore((s) => s.replayAnimations);
 
   const pageTitle = project?.pages[0]?.title ?? "untitled";
 
@@ -30,6 +32,14 @@ export function TopBar({ onLoadJson }: { onLoadJson: () => void }) {
 
       <div className="flex items-center gap-3">
         <ViewportSwitcher />
+        <button
+          onClick={replayAnimations}
+          title="Replay all GSAP animations"
+          className="inline-flex items-center gap-1.5 rounded-full border border-current/20 px-3 py-1.5 text-xs hover:border-current/40"
+        >
+          <RotateCw className="h-3 w-3" aria-hidden="true" />
+          Replay
+        </button>
         <button
           onClick={onLoadJson}
           className="rounded-full border border-current/20 px-3 py-1.5 text-xs hover:border-current/40"

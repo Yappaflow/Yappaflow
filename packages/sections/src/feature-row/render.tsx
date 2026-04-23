@@ -1,5 +1,6 @@
 import type { Section } from "@yappaflow/types";
 import { PlaceholderSection } from "../internal/placeholder.js";
+import { EditableText } from "../internal/editable-text.js";
 import { FeatureRowContentSchema } from "./schema.js";
 import { DEFAULT_FEATURE_ROW_VARIANT } from "./variants.js";
 
@@ -33,14 +34,26 @@ export function FeatureRowSection({ section }: { section: Section }) {
   const copy = (
     <div className="max-w-lg">
       {content.eyebrow ? (
-        <p className="mb-4 text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">
-          {content.eyebrow}
-        </p>
+        <EditableText
+          as="p"
+          field="eyebrow"
+          value={content.eyebrow}
+          className="mb-4 text-xs font-medium uppercase tracking-[0.2em] text-neutral-500"
+        />
       ) : null}
-      <h2 className="text-3xl font-semibold tracking-tight text-neutral-950 md:text-5xl">
-        {content.heading}
-      </h2>
-      <p className="mt-5 text-lg leading-relaxed text-neutral-600">{content.body}</p>
+      <EditableText
+        as="h2"
+        field="heading"
+        value={content.heading}
+        className="text-3xl font-semibold tracking-tight text-neutral-950 md:text-5xl"
+      />
+      <EditableText
+        as="p"
+        field="body"
+        multiline
+        value={content.body}
+        className="mt-5 text-lg leading-relaxed text-neutral-600"
+      />
       {content.bullets.length > 0 ? (
         <ul className="mt-6 space-y-2 text-neutral-700">
           {content.bullets.map((b, i) => (
@@ -59,7 +72,8 @@ export function FeatureRowSection({ section }: { section: Section }) {
           href={content.cta.href}
           className="mt-8 inline-flex items-center rounded-full border border-neutral-300 px-5 py-2.5 text-sm font-medium text-neutral-800 transition hover:border-neutral-500"
         >
-          {content.cta.label} →
+          <EditableText field="cta.label" value={content.cta.label} />
+          {" "}→
         </a>
       ) : null}
     </div>

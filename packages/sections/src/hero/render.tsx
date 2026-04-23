@@ -1,5 +1,6 @@
 import type { Section } from "@yappaflow/types";
 import { PlaceholderSection } from "../internal/placeholder.js";
+import { EditableText } from "../internal/editable-text.js";
 import { HeroContentSchema } from "./schema.js";
 import { DEFAULT_HERO_VARIANT } from "./variants.js";
 
@@ -31,31 +32,48 @@ export function HeroSection({ section }: { section: Section }) {
   const copy = (
     <div className="max-w-xl">
       {content.eyebrow ? (
-        <p className="mb-4 text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">
-          {content.eyebrow}
-        </p>
+        <EditableText
+          as="p"
+          field="eyebrow"
+          value={content.eyebrow}
+          className="mb-4 text-xs font-medium uppercase tracking-[0.2em] text-neutral-500"
+        />
       ) : null}
-      <h1 className="text-4xl font-semibold leading-[1.05] tracking-tight text-neutral-950 md:text-6xl">
-        {content.heading}
-      </h1>
+      <EditableText
+        as="h1"
+        field="heading"
+        value={content.heading}
+        className="text-4xl font-semibold leading-[1.05] tracking-tight text-neutral-950 md:text-6xl"
+      />
       {content.subhead ? (
-        <p className="mt-5 text-lg leading-relaxed text-neutral-600 md:text-xl">
-          {content.subhead}
-        </p>
+        <EditableText
+          as="p"
+          field="subhead"
+          multiline
+          value={content.subhead}
+          className="mt-5 text-lg leading-relaxed text-neutral-600 md:text-xl"
+        />
       ) : null}
       <div className="mt-8 flex flex-wrap items-center gap-3">
         <a
           href={content.primaryCta.href}
           className="inline-flex items-center rounded-full bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-neutral-800"
         >
-          {content.primaryCta.label}
+          <EditableText
+            field="primaryCta.label"
+            value={content.primaryCta.label}
+          />
         </a>
         {content.secondaryCta ? (
           <a
             href={content.secondaryCta.href}
             className="inline-flex items-center rounded-full border border-neutral-300 px-5 py-2.5 text-sm font-medium text-neutral-800 transition hover:border-neutral-500"
           >
-            {content.secondaryCta.label} →
+            <EditableText
+              field="secondaryCta.label"
+              value={content.secondaryCta.label}
+            />
+            {" "}→
           </a>
         ) : null}
       </div>
@@ -76,31 +94,42 @@ export function HeroSection({ section }: { section: Section }) {
         </div>
         <div className="mx-auto flex min-h-[70vh] max-w-4xl flex-col items-center justify-center px-6 py-24 text-center md:px-10">
           {content.eyebrow ? (
-            <p className="mb-4 text-xs font-medium uppercase tracking-[0.24em] text-white/70">
-              {content.eyebrow}
-            </p>
+            <EditableText
+              as="p"
+              field="eyebrow"
+              value={content.eyebrow}
+              className="mb-4 text-xs font-medium uppercase tracking-[0.24em] text-white/70"
+            />
           ) : null}
-          <h1 className="text-4xl font-semibold leading-[1.05] tracking-tight md:text-7xl">
-            {content.heading}
-          </h1>
+          <EditableText
+            as="h1"
+            field="heading"
+            value={content.heading}
+            className="text-4xl font-semibold leading-[1.05] tracking-tight md:text-7xl"
+          />
           {content.subhead ? (
-            <p className="mt-5 max-w-2xl text-lg text-white/80 md:text-xl">
-              {content.subhead}
-            </p>
+            <EditableText
+              as="p"
+              field="subhead"
+              multiline
+              value={content.subhead}
+              className="mt-5 max-w-2xl text-lg text-white/80 md:text-xl"
+            />
           ) : null}
           <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
             <a
               href={content.primaryCta.href}
               className="inline-flex items-center rounded-full bg-white px-6 py-3 text-sm font-medium text-neutral-900 transition hover:bg-neutral-100"
             >
-              {content.primaryCta.label}
+              <EditableText field="primaryCta.label" value={content.primaryCta.label} />
             </a>
             {content.secondaryCta ? (
               <a
                 href={content.secondaryCta.href}
                 className="inline-flex items-center rounded-full border border-white/40 px-6 py-3 text-sm font-medium text-white transition hover:bg-white/10"
               >
-                {content.secondaryCta.label} →
+                <EditableText field="secondaryCta.label" value={content.secondaryCta.label} />
+                {" "}→
               </a>
             ) : null}
           </div>
@@ -114,31 +143,42 @@ export function HeroSection({ section }: { section: Section }) {
       <PlaceholderSection section={section} variant={variant} className="bg-white">
         <div className="mx-auto flex max-w-4xl flex-col items-center px-6 py-24 text-center md:px-10 md:py-32">
           {content.eyebrow ? (
-            <p className="mb-4 text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">
-              {content.eyebrow}
-            </p>
+            <EditableText
+              as="p"
+              field="eyebrow"
+              value={content.eyebrow}
+              className="mb-4 text-xs font-medium uppercase tracking-[0.2em] text-neutral-500"
+            />
           ) : null}
-          <h1 className="text-4xl font-semibold leading-[1.05] tracking-tight text-neutral-950 md:text-7xl">
-            {content.heading}
-          </h1>
+          <EditableText
+            as="h1"
+            field="heading"
+            value={content.heading}
+            className="text-4xl font-semibold leading-[1.05] tracking-tight text-neutral-950 md:text-7xl"
+          />
           {content.subhead ? (
-            <p className="mt-5 max-w-2xl text-lg text-neutral-600 md:text-xl">
-              {content.subhead}
-            </p>
+            <EditableText
+              as="p"
+              field="subhead"
+              multiline
+              value={content.subhead}
+              className="mt-5 max-w-2xl text-lg text-neutral-600 md:text-xl"
+            />
           ) : null}
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <a
               href={content.primaryCta.href}
               className="inline-flex items-center rounded-full bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-neutral-800"
             >
-              {content.primaryCta.label}
+              <EditableText field="primaryCta.label" value={content.primaryCta.label} />
             </a>
             {content.secondaryCta ? (
               <a
                 href={content.secondaryCta.href}
                 className="inline-flex items-center rounded-full border border-neutral-300 px-5 py-2.5 text-sm font-medium text-neutral-800 transition hover:border-neutral-500"
               >
-                {content.secondaryCta.label} →
+                <EditableText field="secondaryCta.label" value={content.secondaryCta.label} />
+                {" "}→
               </a>
             ) : null}
           </div>

@@ -69,6 +69,11 @@ export function listSections(): Array<SectionDefinition> {
 export type { SectionDefinition } from "./internal/define-section.js";
 export { defineSection } from "./internal/define-section.js";
 export { PlaceholderSection } from "./internal/placeholder.js";
+export { EditableText } from "./internal/editable-text.js";
+export {
+  SectionEditContext,
+  type SectionEditContextValue,
+} from "./internal/edit-context.js";
 
 // Per-section re-exports.
 export { headerDefinition } from "./header/index.js";

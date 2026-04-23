@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 import { useDroppable, useDndMonitor } from "@dnd-kit/core";
 import { AnimatePresence, motion } from "framer-motion";
-import { SECTIONS } from "@yappaflow/sections";
+import { SECTIONS, SectionEditContext } from "@yappaflow/sections";
 import type { Section, SiteProject } from "@yappaflow/types";
 import { useProjectStore, type Viewport } from "@/lib/store";
 import {
@@ -35,6 +35,8 @@ export function Canvas() {
   const viewport = useProjectStore((s) => s.viewport);
   const selection = useProjectStore((s) => s.selection);
   const selectSection = useProjectStore((s) => s.selectSection);
+  const updateSectionContent = useProjectStore((s) => s.updateSectionContent);
+  const updateGlobalContent = useProjectStore((s) => s.updateGlobalContent);
 
   // Whether a palette drag is in-flight. When true, drop zones become
   // visible (otherwise they stay at zero height — invisible but still
@@ -48,6 +50,7 @@ export function Canvas() {
   // and thus trigger this effect.
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const animationKey = buildAnimationKey(project);
+  const animationEpoch = useProjectStore((s) => s.animationEpoch);
   useEffect(() => {
     const el = canvasRef.current;
     if (!el) return;
@@ -66,7 +69,8 @@ export function Canvas() {
     // Re-run on project changes so newly-inserted sections get their
     // animations. We key on a string of section-id × animation-preset
     // pairs to avoid re-running on every unrelated content change.
-  }, [animationKey]);
+    // `animationEpoch` lets the top bar's Replay button force a re-run.
+  }, [animationKey, animationEpoch]);
 
   useDndMonitor({
     onDragStart(event) {
@@ -135,26 +139,49 @@ export function Canvas() {
         onClickCapture={onCanvasClick}
       >
         <style dangerouslySetInnerHTML={{ __html: `${hoverRules}${selectedRing}` }} />
-        {announcementBar ? <RenderSection section={announcementBar} /> : null}
-        {header ? <RenderSection section={header} /> : null}
+        {announcementBar ? (
+          <EditableSection
+            section={announcementBar}
+            onPatch={(patch) =>
+              updateGlobalContent("announcementBar", patch)
+            }
+          />
+        ) : null}
+        {header ? (
+          <EditableSection
+            section={header}
+            onPatch={(patch) => updateGlobalContent("header", patch)}
+          />
+        ) : null}
 
         {/* Drop zone at the top of the page (index 0). */}
         <CanvasDropZone atIndex={0} visible={paletteActive} />
 
-        {pageSections.map((s, i) => (
-          <div key={s.id}>
-            {s.type === "product-grid" && homePage ? (
-              <ProductGridDropTarget pageId={homePage.id} sectionId={s.id}>
-                <RenderSection section={s} />
-              </ProductGridDropTarget>
-            ) : (
-              <RenderSection section={s} />
-            )}
-            <CanvasDropZone atIndex={i + 1} visible={paletteActive} />
-          </div>
-        ))}
+        {pageSections.map((s, i) => {
+          const onPatch = (patch: Record<string, unknown>) => {
+            if (!homePage) return;
+            updateSectionContent(homePage.id, s.id, patch);
+          };
+          return (
+            <div key={s.id}>
+              {s.type === "product-grid" && homePage ? (
+                <ProductGridDropTarget pageId={homePage.id} sectionId={s.id}>
+                  <EditableSection section={s} onPatch={onPatch} />
+                </ProductGridDropTarget>
+              ) : (
+                <EditableSection section={s} onPatch={onPatch} />
+              )}
+              <CanvasDropZone atIndex={i + 1} visible={paletteActive} />
+            </div>
+          );
+        })}
 
-        {footer ? <RenderSection section={footer} /> : null}
+        {footer ? (
+          <EditableSection
+            section={footer}
+            onPatch={(patch) => updateGlobalContent("footer", patch)}
+          />
+        ) : null}
       </div>
     </div>
   );
@@ -266,6 +293,49 @@ function RenderSection({ section }: { section: Section }) {
   }
   const Component = def.Component;
   return <Component section={section} />;
+}
+
+/**
+ * Renders a section inside a SectionEditContext provider so any EditableText
+ * inside can flush field-path edits back to the store. Dot-path fields walk
+ * one level deep into nested objects (e.g. `primaryCta.label` →
+ * `{primaryCta: {...existing, label: value}}`). Deeper nesting can be added
+ * when a section actually needs it.
+ */
+function EditableSection({
+  section,
+  onPatch,
+}: {
+  section: Section;
+  onPatch: (patch: Record<string, unknown>) => void;
+}) {
+  const contextValue = {
+    onEdit(field: string, value: string) {
+      const parts = field.split(".");
+      if (parts.length === 1) {
+        onPatch({ [field]: value });
+        return;
+      }
+      const [root, ...rest] = parts;
+      if (!root) return;
+      const existing =
+        ((section.content as Record<string, unknown>)[root] as
+          | Record<string, unknown>
+          | undefined) ?? {};
+      const next: Record<string, unknown> = { ...existing };
+      // Single-level nested support covers every current case
+      // (primaryCta.label, secondaryCta.label, cta.label, logo.text, etc.).
+      const leaf = rest[rest.length - 1];
+      if (!leaf) return;
+      next[leaf] = value;
+      onPatch({ [root]: next });
+    },
+  };
+  return (
+    <SectionEditContext.Provider value={contextValue}>
+      <RenderSection section={section} />
+    </SectionEditContext.Provider>
+  );
 }
 
 function findSectionOwner(

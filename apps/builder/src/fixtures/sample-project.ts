@@ -94,14 +94,19 @@ const SAMPLE_DNA: MergedDna = {
   },
 };
 
-function defaultSection<T extends SectionType>(id: string, type: T): Section {
+function defaultSection<T extends SectionType>(
+  id: string,
+  type: T,
+  extra?: { animation?: Section["animation"]; variant?: string },
+): Section {
   const data = SECTION_DATA[type];
   return {
     id,
     type,
-    variant: data.defaultVariant,
+    variant: extra?.variant ?? data.defaultVariant,
     content: { ...(data.defaultContent as Record<string, unknown>) },
     style: {},
+    ...(extra?.animation ? { animation: extra.animation } : {}),
   };
 }
 
@@ -119,11 +124,17 @@ export function buildSampleSiteProject(): SiteProject {
           description: "Sample site assembled for the builder.",
         },
         sections: [
-          defaultSection("sec_hero", "hero"),
-          defaultSection("sec_fgrid", "feature-grid"),
-          defaultSection("sec_frow", "feature-row"),
-          defaultSection("sec_test", "testimonial"),
-          defaultSection("sec_cta", "cta-band"),
+          // Seed each section with a sensible GSAP preset so the builder
+          // shows motion on first paint — the whole point of having the
+          // runtime in place. Agencies can change presets per-section in
+          // the right rail.
+          defaultSection("sec_hero", "hero", { animation: "slide-up" }),
+          defaultSection("sec_fgrid", "feature-grid", {
+            animation: "stagger-children",
+          }),
+          defaultSection("sec_frow", "feature-row", { animation: "slide-left" }),
+          defaultSection("sec_test", "testimonial", { animation: "fade-in" }),
+          defaultSection("sec_cta", "cta-band", { animation: "scale-in" }),
         ],
       },
     ],

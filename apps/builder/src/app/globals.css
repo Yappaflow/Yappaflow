@@ -36,3 +36,24 @@ body {
 html {
   transition: background-color 120ms ease;
 }
+
+/* EditableText affordance — faint outline on hover so the user knows they
+ * can double-click to edit; solid outline while editing. Only inside
+ * the canvas's [data-yf-section] ancestor so builder chrome labels never
+ * get these styles. */
+[data-yf-section] .yf-editable {
+  border-radius: 2px;
+  outline: 0 dashed transparent;
+  outline-offset: 2px;
+  transition: outline-color 120ms ease, outline-width 120ms ease;
+  cursor: text;
+}
+[data-yf-section] .yf-editable:hover {
+  outline-width: 1px;
+  outline-color: rgba(37, 99, 235, 0.35);
+}
+[data-yf-section] .yf-editable.yf-editable-active {
+  outline-width: 2px;
+  outline-color: rgb(37, 99, 235);
+  outline-style: solid;
+}

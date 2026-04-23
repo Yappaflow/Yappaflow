@@ -44,6 +44,9 @@ interface ProjectState {
   dirty: boolean;
   lastSavedAt: number | null;
 
+  /** Monotonic counter — incrementing forces canvas to replay animations. */
+  animationEpoch: number;
+
   // Lifecycle
   hydrate(projectId: string, fallback: SiteProject | null): void;
   replaceProject(project: SiteProject): void;
@@ -54,6 +57,9 @@ interface ProjectState {
   // Viewport / preview
   setViewport(v: Viewport): void;
   setPreviewMode(on: boolean): void;
+
+  /** Trigger an animation replay in the canvas. */
+  replayAnimations(): void;
 
   // Section-level mutations
   updateSectionContent(
@@ -152,6 +158,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
   previewMode: false,
   dirty: false,
   lastSavedAt: null,
+  animationEpoch: 0,
 
   hydrate(projectId, fallback) {
     const fromStorage = loadProjectFromStorage(projectId);
@@ -197,6 +204,10 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
 
   setPreviewMode(on) {
     set({ previewMode: on });
+  },
+
+  replayAnimations() {
+    set((state) => ({ animationEpoch: state.animationEpoch + 1 }));
   },
 
   updateSectionContent(pageId, sectionId, patch) {

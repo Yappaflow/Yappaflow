@@ -1,5 +1,6 @@
 import type { Section } from "@yappaflow/types";
 import { PlaceholderSection } from "../internal/placeholder.js";
+import { EditableText } from "../internal/editable-text.js";
 import { FeatureGridContentSchema } from "./schema.js";
 import { DEFAULT_FEATURE_GRID_VARIANT } from "./variants.js";
 
@@ -27,15 +28,27 @@ export function FeatureGridSection({ section }: { section: Section }) {
       <div className="mx-auto max-w-6xl px-6 py-20 md:px-10 md:py-28">
         <header className="max-w-2xl">
           {content.eyebrow ? (
-            <p className="mb-4 text-xs font-medium uppercase tracking-[0.2em] text-neutral-500">
-              {content.eyebrow}
-            </p>
+            <EditableText
+              as="p"
+              field="eyebrow"
+              value={content.eyebrow}
+              className="mb-4 text-xs font-medium uppercase tracking-[0.2em] text-neutral-500"
+            />
           ) : null}
-          <h2 className="text-3xl font-semibold tracking-tight text-neutral-950 md:text-5xl">
-            {content.heading}
-          </h2>
+          <EditableText
+            as="h2"
+            field="heading"
+            value={content.heading}
+            className="text-3xl font-semibold tracking-tight text-neutral-950 md:text-5xl"
+          />
           {content.subhead ? (
-            <p className="mt-4 text-lg text-neutral-600">{content.subhead}</p>
+            <EditableText
+              as="p"
+              field="subhead"
+              multiline
+              value={content.subhead}
+              className="mt-4 text-lg text-neutral-600"
+            />
           ) : null}
         </header>
         <div
