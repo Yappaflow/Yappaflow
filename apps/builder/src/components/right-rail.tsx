@@ -10,6 +10,7 @@ import {
 import { SECTION_DATA } from "@yappaflow/sections/data";
 import { useProjectStore } from "@/lib/store";
 import { ArrayField, type ArrayFieldColumn } from "./array-field";
+import { StringArrayField } from "./string-array-field";
 
 /**
  * Right-rail property editor. Schema-adjacent rather than fully schema-driven:
@@ -98,6 +99,88 @@ const ARRAY_CONFIGS: Record<
     columns: [{ key: "heading", label: "Heading" }],
     makeBlank: () => ({ heading: "New column", links: [] }),
     itemLabel: (item) => (item.heading as string) || "Untitled column",
+  },
+  // Exhibit-backed sections — added in the Phase 8c sidebar pivot.
+  faq: {
+    field: "blocks",
+    label: "FAQ blocks",
+    columns: [
+      { key: "question", label: "Question" },
+      { key: "answer", label: "Answer", kind: "textarea" },
+    ],
+    makeBlank: () => ({
+      question: "New question?",
+      answer: "Answer text goes here.",
+    }),
+    itemLabel: (item) => (item.question as string) || "Untitled question",
+  },
+  pricing: {
+    field: "tiers",
+    label: "Pricing tiers",
+    columns: [
+      { key: "name", label: "Name" },
+      { key: "price", label: "Price" },
+      { key: "period", label: "Period (optional)" },
+      { key: "description", label: "Description", kind: "textarea" },
+      { key: "cta", nestedKey: "label", label: "CTA label" },
+      { key: "cta", nestedKey: "href", label: "CTA URL", kind: "url" },
+    ],
+    makeBlank: () => ({
+      name: "New tier",
+      price: "$0",
+      features: [],
+      cta: { label: "Get started", href: "/signup" },
+    }),
+    itemLabel: (item) => (item.name as string) || "Untitled tier",
+  },
+  "stats-band": {
+    field: "blocks",
+    label: "Stat blocks",
+    columns: [
+      { key: "value", label: "Value" },
+      { key: "label", label: "Label" },
+      { key: "context", label: "Context (optional)" },
+    ],
+    makeBlank: () => ({ value: "0", label: "New stat" }),
+    itemLabel: (item) => `${item.value ?? ""} · ${item.label ?? ""}`,
+  },
+  timeline: {
+    field: "entries",
+    label: "Timeline entries",
+    columns: [
+      { key: "marker", label: "Marker (year / step)" },
+      { key: "title", label: "Title" },
+      { key: "body", label: "Body", kind: "textarea" },
+    ],
+    makeBlank: () => ({
+      marker: "00",
+      title: "New entry",
+      body: "Describe this step.",
+    }),
+    itemLabel: (item) => `${item.marker ?? ""} · ${item.title ?? ""}`,
+  },
+  team: {
+    field: "members",
+    label: "Team members",
+    columns: [
+      { key: "name", label: "Name" },
+      { key: "role", label: "Role" },
+      { key: "bio", label: "Bio (optional)", kind: "textarea" },
+    ],
+    makeBlank: () => ({ name: "New member", role: "Role" }),
+    itemLabel: (item) => (item.name as string) || "New member",
+  },
+  contact: {
+    field: "rows",
+    label: "Detail rows",
+    columns: [
+      { key: "label", label: "Label" },
+      { key: "value", label: "Value" },
+      { key: "href", label: "Link URL (optional)", kind: "url" },
+    ],
+    makeBlank: () => ({ label: "New", value: "value" }),
+    itemLabel: (item) =>
+      `${item.label ?? ""}${item.value ? `: ${item.value}` : ""}`,
   },
 };
 
@@ -280,6 +363,34 @@ export function RightRail() {
             onChange={(next) => patchContent({ [arrayConfig.field]: next })}
           />
         ) : null}
+
+        {section.type === "logo-cloud" ? (
+          <StringArrayField
+            label="Labels"
+            value={
+              ((section.content as { labels?: string[] }).labels as
+                | string[]
+                | undefined) ?? []
+            }
+            placeholder="Brand or partner name"
+            onChange={(next) => patchContent({ labels: next })}
+          />
+        ) : null}
+
+        {section.type === "feature-row" ? (
+          <StringArrayField
+            label="Bullets"
+            value={
+              ((section.content as { bullets?: string[] }).bullets as
+                | string[]
+                | undefined) ?? []
+            }
+            placeholder="Bullet point text"
+            onChange={(next) => patchContent({ bullets: next })}
+          />
+        ) : null}
+
+        {/* Pricing tier features (string[]) editing arrives in the next pass — nested array-of-array editing needs dedicated UI. */}
 
         {!globalSlot ? (
           <Field label="Animation">

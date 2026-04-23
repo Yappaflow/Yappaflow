@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 import { useDroppable, useDndMonitor } from "@dnd-kit/core";
 import { SECTIONS } from "@yappaflow/sections";
 import type { Section, SiteProject } from "@yappaflow/types";
 import { useProjectStore, type Viewport } from "@/lib/store";
 import { dropZoneId, type DropZoneData } from "@/lib/dnd";
+import { playAllInContainer } from "@/lib/gsap-reveal";
 
 /**
  * Canvas renders the SiteProject and exposes:
@@ -33,6 +34,33 @@ export function Canvas() {
   // visible (otherwise they stay at zero height — invisible but still
   // occupying the DOM so section hover/selection keeps working).
   const [paletteActive, setPaletteActive] = useState(false);
+
+  // Canvas inner ref — the GSAP reveal runtime queries this subtree for
+  // [data-yf-anim] elements whenever the project changes and plays each
+  // preset once. That covers mount (fresh load), section insert, variant
+  // change, animation preset change — all of which re-render the canvas
+  // and thus trigger this effect.
+  const canvasRef = useRef<HTMLDivElement | null>(null);
+  const animationKey = buildAnimationKey(project);
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el) return;
+    // Defer one frame so the just-inserted DOM elements exist when GSAP
+    // reads their bounding box. React 18+ flushes synchronously on most
+    // renders but edge cases with concurrent mode benefit from rAF.
+    let frame = 0;
+    const cleanups: Array<() => void> = [];
+    frame = requestAnimationFrame(() => {
+      cleanups.push(...playAllInContainer(el));
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      cleanups.forEach((c) => c());
+    };
+    // Re-run on project changes so newly-inserted sections get their
+    // animations. We key on a string of section-id × animation-preset
+    // pairs to avoid re-running on every unrelated content change.
+  }, [animationKey]);
 
   useDndMonitor({
     onDragStart(event) {
@@ -95,6 +123,7 @@ export function Canvas() {
         {label} · {maxWidth === "100%" ? "fluid" : maxWidth}
       </div>
       <div
+        ref={canvasRef}
         style={{ maxWidth, width: "100%" }}
         className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm transition-[max-width] duration-200 ease-out"
         onClickCapture={onCanvasClick}
@@ -201,4 +230,25 @@ function findSectionOwner(
 
 function escapeForAttrSelector(value: string): string {
   return value.replace(/"/g, '\\"').replace(/\\/g, "\\\\");
+}
+
+/**
+ * Cache key for the GSAP reveal effect. We want the reveal to run when the
+ * set of sections changes (insert/remove/reorder) or any animation preset
+ * changes — but NOT on every content keystroke. Hashing just the relevant
+ * fields achieves that.
+ */
+function buildAnimationKey(project: SiteProject | null): string {
+  if (!project) return "";
+  const parts: string[] = [];
+  for (const slot of ["announcementBar", "header", "footer"] as const) {
+    const s = project.globals[slot];
+    if (s) parts.push(`${slot}:${s.id}:${s.animation ?? ""}`);
+  }
+  for (const page of project.pages) {
+    for (const section of page.sections) {
+      parts.push(`${section.id}:${section.animation ?? ""}`);
+    }
+  }
+  return parts.join("|");
 }
