@@ -17,6 +17,15 @@ describe("SECTIONS registry", () => {
       "cta-band",
       "testimonial",
       "rich-text",
+      // Phase 8b — Exhibit-backed
+      "faq",
+      "pricing",
+      "stats-band",
+      "timeline",
+      "logo-cloud",
+      "team",
+      "newsletter",
+      "contact",
     ];
     expect(Object.keys(SECTIONS).sort()).toEqual([...expectedTypes].sort());
     expect(listSections()).toHaveLength(expectedTypes.length);

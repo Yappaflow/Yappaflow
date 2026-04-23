@@ -26,6 +26,7 @@ import type { z } from "zod";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySchema<TOutput> = z.ZodType<TOutput, z.ZodTypeDef, any>;
 
+// Existing 10 MVP section types.
 import { HeaderContentSchema } from "./header/schema.js";
 import { DEFAULT_HEADER_CONTENT } from "./header/default.js";
 import { HEADER_VARIANTS, DEFAULT_HEADER_VARIANT } from "./header/variants.js";
@@ -87,6 +88,51 @@ import {
   DEFAULT_RICH_TEXT_VARIANT,
 } from "./rich-text/variants.js";
 
+// Phase 8b — Exhibit-backed section types.
+import { FAQContentSchema } from "./faq/schema.js";
+import { DEFAULT_FAQ_CONTENT } from "./faq/default.js";
+import { FAQ_VARIANTS, DEFAULT_FAQ_VARIANT } from "./faq/variants.js";
+
+import { PricingContentSchema } from "./pricing/schema.js";
+import { DEFAULT_PRICING_CONTENT } from "./pricing/default.js";
+import { PRICING_VARIANTS, DEFAULT_PRICING_VARIANT } from "./pricing/variants.js";
+
+import { StatsBandContentSchema } from "./stats-band/schema.js";
+import { DEFAULT_STATS_BAND_CONTENT } from "./stats-band/default.js";
+import {
+  STATS_BAND_VARIANTS,
+  DEFAULT_STATS_BAND_VARIANT,
+} from "./stats-band/variants.js";
+
+import { TimelineContentSchema } from "./timeline/schema.js";
+import { DEFAULT_TIMELINE_CONTENT } from "./timeline/default.js";
+import {
+  TIMELINE_VARIANTS,
+  DEFAULT_TIMELINE_VARIANT,
+} from "./timeline/variants.js";
+
+import { LogoCloudContentSchema } from "./logo-cloud/schema.js";
+import { DEFAULT_LOGO_CLOUD_CONTENT } from "./logo-cloud/default.js";
+import {
+  LOGO_CLOUD_VARIANTS,
+  DEFAULT_LOGO_CLOUD_VARIANT,
+} from "./logo-cloud/variants.js";
+
+import { TeamContentSchema } from "./team/schema.js";
+import { DEFAULT_TEAM_CONTENT } from "./team/default.js";
+import { TEAM_VARIANTS, DEFAULT_TEAM_VARIANT } from "./team/variants.js";
+
+import { NewsletterContentSchema } from "./newsletter/schema.js";
+import { DEFAULT_NEWSLETTER_CONTENT } from "./newsletter/default.js";
+import {
+  NEWSLETTER_VARIANTS,
+  DEFAULT_NEWSLETTER_VARIANT,
+} from "./newsletter/variants.js";
+
+import { ContactContentSchema } from "./contact/schema.js";
+import { DEFAULT_CONTACT_CONTENT } from "./contact/default.js";
+import { CONTACT_VARIANTS, DEFAULT_CONTACT_VARIANT } from "./contact/variants.js";
+
 export interface SectionData<
   TType extends SectionType = SectionType,
   TContent = unknown,
@@ -99,7 +145,6 @@ export interface SectionData<
   defaultContent: TContent;
 }
 
-/** Data-only mirror of the SECTIONS registry. Same keys, no Component. */
 export const SECTION_DATA = {
   header: {
     type: "header",
@@ -170,6 +215,62 @@ export const SECTION_DATA = {
     variants: RICH_TEXT_VARIANTS,
     defaultVariant: DEFAULT_RICH_TEXT_VARIANT,
     defaultContent: DEFAULT_RICH_TEXT_CONTENT,
+  },
+  faq: {
+    type: "faq",
+    contentSchema: FAQContentSchema,
+    variants: FAQ_VARIANTS,
+    defaultVariant: DEFAULT_FAQ_VARIANT,
+    defaultContent: DEFAULT_FAQ_CONTENT,
+  },
+  pricing: {
+    type: "pricing",
+    contentSchema: PricingContentSchema,
+    variants: PRICING_VARIANTS,
+    defaultVariant: DEFAULT_PRICING_VARIANT,
+    defaultContent: DEFAULT_PRICING_CONTENT,
+  },
+  "stats-band": {
+    type: "stats-band",
+    contentSchema: StatsBandContentSchema,
+    variants: STATS_BAND_VARIANTS,
+    defaultVariant: DEFAULT_STATS_BAND_VARIANT,
+    defaultContent: DEFAULT_STATS_BAND_CONTENT,
+  },
+  timeline: {
+    type: "timeline",
+    contentSchema: TimelineContentSchema,
+    variants: TIMELINE_VARIANTS,
+    defaultVariant: DEFAULT_TIMELINE_VARIANT,
+    defaultContent: DEFAULT_TIMELINE_CONTENT,
+  },
+  "logo-cloud": {
+    type: "logo-cloud",
+    contentSchema: LogoCloudContentSchema,
+    variants: LOGO_CLOUD_VARIANTS,
+    defaultVariant: DEFAULT_LOGO_CLOUD_VARIANT,
+    defaultContent: DEFAULT_LOGO_CLOUD_CONTENT,
+  },
+  team: {
+    type: "team",
+    contentSchema: TeamContentSchema,
+    variants: TEAM_VARIANTS,
+    defaultVariant: DEFAULT_TEAM_VARIANT,
+    defaultContent: DEFAULT_TEAM_CONTENT,
+  },
+  newsletter: {
+    type: "newsletter",
+    contentSchema: NewsletterContentSchema,
+    variants: NEWSLETTER_VARIANTS,
+    defaultVariant: DEFAULT_NEWSLETTER_VARIANT,
+    defaultContent: DEFAULT_NEWSLETTER_CONTENT,
+  },
+  contact: {
+    type: "contact",
+    contentSchema: ContactContentSchema,
+    variants: CONTACT_VARIANTS,
+    defaultVariant: DEFAULT_CONTACT_VARIANT,
+    defaultContent: DEFAULT_CONTACT_CONTENT,
   },
 } as const satisfies Record<SectionType, SectionData>;
 

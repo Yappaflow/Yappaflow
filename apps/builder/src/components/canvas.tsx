@@ -80,7 +80,7 @@ export function Canvas() {
   `;
 
   return (
-    <div className="flex h-full w-full flex-col items-center overflow-auto bg-neutral-100/60 p-6 dark:bg-neutral-950">
+    <div className="flex w-full flex-col items-center p-6">
       <div className="mb-3 text-[11px] uppercase tracking-[0.2em] text-neutral-400">
         {label} · {maxWidth === "100%" ? "fluid" : maxWidth}
       </div>

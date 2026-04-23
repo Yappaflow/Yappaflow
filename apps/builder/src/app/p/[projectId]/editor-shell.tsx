@@ -15,19 +15,11 @@ import { useEditorShortcuts } from "@/lib/use-editor-shortcuts";
 /**
  * Three-column editor shell.
  *
- *   ┌────────────────────────────────────────────────────────────┐
- *   │  TopBar (title · save status · viewport · load · theme)    │
- *   ├────────┬──────────────────────────────────┬────────────────┤
- *   │        │                                  │                │
- *   │ Left   │         Canvas (iframe-less)     │   Right rail   │
- *   │ rail   │      renders SiteProject via     │   properties   │
- *   │        │      @yappaflow/sections         │                │
- *   └────────┴──────────────────────────────────┴────────────────┘
- *
- * The store is the single source of truth. Selection flows both ways — click
- * a section in the left rail OR click in the canvas; both dispatch
- * `selectSection`. The right rail edits content in place and autosaves
- * through the module-level subscription started on mount.
+ * Layout uses flex rather than grid because flex with `flex-1 min-w-0`
+ * behaves predictably for scroll containers — grid rows default to `auto`
+ * and silently grow with content, which is what killed the canvas scroll
+ * in the first attempt. Each column wraps its child in a flex container so
+ * `h-full` inside the column resolves correctly.
  */
 export function EditorShell({ projectId }: { projectId: string }) {
   const hydrate = useProjectStore((s) => s.hydrate);
@@ -54,22 +46,14 @@ export function EditorShell({ projectId }: { projectId: string }) {
   return (
     <div className="flex h-dvh flex-col overflow-hidden">
       <TopBar onLoadJson={() => setLoadOpen(true)} />
-      {/*
-        Grid children default to `min-height: auto`, which makes them grow to
-        fit their content — killing any `overflow-auto` set inside them. The
-        combo `min-h-0` + `overflow-hidden` on BOTH the grid and each column
-        wrapper gives each column a bounded height, so the inner scrollers
-        (canvas, left rail sections list, right rail properties panel) can
-        clip and scroll independently.
-      */}
-      <div className="grid min-h-0 flex-1 grid-cols-[260px_minmax(0,1fr)_320px] overflow-hidden">
-        <div className="min-h-0 overflow-hidden">
+      <div className="flex min-h-0 flex-1">
+        <div className="flex w-[260px] shrink-0 flex-col overflow-hidden">
           <LeftRail />
         </div>
-        <main className="min-h-0 min-w-0 overflow-hidden">
+        <main className="flex min-w-0 flex-1 flex-col overflow-auto bg-neutral-100/60 dark:bg-neutral-950">
           <Canvas />
         </main>
-        <div className="min-h-0 overflow-hidden">
+        <div className="flex w-[320px] shrink-0 flex-col overflow-hidden">
           <RightRail />
         </div>
       </div>

@@ -1,3 +1,9 @@
+/* yappaflow-ui design tokens + base + reset. Imported before Tailwind so the
+ * --ff-* CSS variables the Exhibit components rely on are available in the
+ * canvas. Scoped via `:root` inside the stylesheets, so they live at the
+ * document level regardless of where sections are rendered. */
+@import "yappaflow-ui/styles.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

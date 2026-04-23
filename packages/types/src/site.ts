@@ -41,6 +41,16 @@ export const SECTION_TYPES = [
   "cta-band",
   "testimonial",
   "rich-text",
+  // Phase 8b — yappaflow-ui Exhibit-backed section types. Each wraps one
+  // component from packages/yappaflow-ui's exhibits layer.
+  "faq",
+  "pricing",
+  "stats-band",
+  "timeline",
+  "logo-cloud",
+  "team",
+  "newsletter",
+  "contact",
 ] as const;
 export type SectionType = (typeof SECTION_TYPES)[number];
 export const SectionTypeSchema = z.enum(SECTION_TYPES);

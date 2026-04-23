@@ -56,6 +56,38 @@
     "./rich-text": {
       "types": "./dist/rich-text/index.d.ts",
       "default": "./dist/rich-text/index.js"
+    },
+    "./faq": {
+      "types": "./dist/faq/index.d.ts",
+      "default": "./dist/faq/index.js"
+    },
+    "./pricing": {
+      "types": "./dist/pricing/index.d.ts",
+      "default": "./dist/pricing/index.js"
+    },
+    "./stats-band": {
+      "types": "./dist/stats-band/index.d.ts",
+      "default": "./dist/stats-band/index.js"
+    },
+    "./timeline": {
+      "types": "./dist/timeline/index.d.ts",
+      "default": "./dist/timeline/index.js"
+    },
+    "./logo-cloud": {
+      "types": "./dist/logo-cloud/index.d.ts",
+      "default": "./dist/logo-cloud/index.js"
+    },
+    "./team": {
+      "types": "./dist/team/index.d.ts",
+      "default": "./dist/team/index.js"
+    },
+    "./newsletter": {
+      "types": "./dist/newsletter/index.d.ts",
+      "default": "./dist/newsletter/index.js"
+    },
+    "./contact": {
+      "types": "./dist/contact/index.d.ts",
+      "default": "./dist/contact/index.js"
     }
   },
   "files": [
@@ -77,6 +109,7 @@
   },
   "dependencies": {
     "@yappaflow/types": "*",
+    "yappaflow-ui": "*",
     "zod": "^3.23.8"
   },
   "devDependencies": {

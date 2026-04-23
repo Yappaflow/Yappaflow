@@ -32,6 +32,15 @@ const SECTION_ENTRIES = [
   "cta-band",
   "testimonial",
   "rich-text",
+  // Phase 8b — Exhibit-backed sections
+  "faq",
+  "pricing",
+  "stats-band",
+  "timeline",
+  "logo-cloud",
+  "team",
+  "newsletter",
+  "contact",
 ];
 
 async function prependUseClient(path) {
