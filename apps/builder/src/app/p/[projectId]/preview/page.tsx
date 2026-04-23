@@ -1,18 +1,11 @@
-import { PreviewShell } from "./preview-shell";
+// Superseded by `./[[...slug]]/page.tsx` — the optional catch-all route
+// handles both the bare `/preview` URL and deep links like
+// `/preview/about` or `/preview/products/classic-tee`. Next.js App Router
+// requires route files to export a default component; redirecting here
+// would conflict with the catch-all. This file is kept empty of route
+// exports so the catch-all is the sole owner of the /preview subtree.
+//
+// Safe to delete this file — it's a sandbox-imposed breadcrumb (the
+// environment wouldn't let us remove it at the time of the refactor).
 
-/**
- * `/p/[projectId]/preview` — full-bleed preview.
- *
- * Server component is thin: reads the param, delegates to the client-side
- * PreviewShell. Project data lives in localStorage, so all rendering is
- * client-driven. GSAP animations fire on mount and on scroll like they
- * will on a real exported site.
- */
-export default async function PreviewPage({
-  params,
-}: {
-  params: Promise<{ projectId: string }>;
-}) {
-  const { projectId } = await params;
-  return <PreviewShell projectId={projectId} />;
-}
+export {};

@@ -10,31 +10,43 @@ import { buildSampleSiteProject } from "@/fixtures/sample-project";
 
 /**
  * Full-bleed preview — no builder chrome, no outlines, no drop zones.
- * Renders the SiteProject at the `/p/[id]/preview` route, navigates
- * between pages client-side when the user clicks nav links.
  *
- * GSAP reveal runtime fires on mount of each page so animations feel
- * exactly like the exported site will.
+ * URL-synced. The route accepts a catch-all slug
+ * (`/p/[id]/preview/[[...slug]]`) that sets the initial page. When the
+ * user clicks an in-app nav link, we call `history.pushState` so the URL
+ * bar reflects the current page and browser back/forward works. Deep
+ * links like `/p/sample/preview/products/classic-tee` are shareable.
+ *
+ * GSAP animations + Lenis smooth scroll active here just like they will
+ * be on an exported site.
  */
-export function PreviewShell({ projectId }: { projectId: string }) {
+export function PreviewShell({
+  projectId,
+  initialSlug = "/",
+}: {
+  projectId: string;
+  initialSlug?: string;
+}) {
   const [project, setProject] = useState<SiteProject | null>(null);
-  const [activeSlug, setActiveSlug] = useState<string>("/");
+  const [activeSlug, setActiveSlug] = useState<string>(initialSlug);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    // Hydrate from localStorage; fall back to the bundled sample if we're
-    // previewing the sample project id.
     const fromStorage = loadProjectFromStorage(projectId);
     const fallback = projectId === "sample" ? buildSampleSiteProject() : null;
     const loaded = fromStorage ?? fallback;
     if (loaded) {
       setProject(loaded);
-      const firstSlug = loaded.pages[0]?.slug ?? "/";
-      setActiveSlug(firstSlug);
+      // If the URL-provided slug doesn't correspond to any page in the
+      // project, fall back to the first page so the agency always sees
+      // SOMETHING rather than a blank preview.
+      const urlMatches = loaded.pages.some((p) => p.slug === initialSlug);
+      setActiveSlug(urlMatches ? initialSlug : loaded.pages[0]?.slug ?? "/");
     }
-  }, [projectId]);
+  }, [projectId, initialSlug]);
 
-  // Intercept internal-link clicks so nav works without reloading.
+  // Nav link interception — update `activeSlug` + push to browser history
+  // so the URL bar stays in sync with the page being viewed.
   useEffect(() => {
     function onClick(event: MouseEvent) {
       if (!project) return;
@@ -50,11 +62,29 @@ export function PreviewShell({ projectId }: { projectId: string }) {
       if (!match) return;
       event.preventDefault();
       setActiveSlug(match.slug);
+      const prefix = `/p/${encodeURIComponent(projectId)}/preview`;
+      const url =
+        match.slug === "/" ? prefix : `${prefix}${match.slug}`;
+      window.history.pushState({ slug: match.slug }, "", url);
       window.scrollTo({ top: 0, behavior: "instant" });
     }
     document.addEventListener("click", onClick, true);
     return () => document.removeEventListener("click", onClick, true);
-  }, [project]);
+  }, [project, projectId]);
+
+  // Browser back/forward — listen for popstate so navigating via the
+  // history buttons re-renders the correct page.
+  useEffect(() => {
+    function onPopState() {
+      const prefix = `/p/${encodeURIComponent(projectId)}/preview`;
+      const path = window.location.pathname;
+      const rawSlug = path.startsWith(prefix) ? path.slice(prefix.length) : "";
+      const normalized = rawSlug || "/";
+      setActiveSlug(normalized);
+    }
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [projectId]);
 
   // Replay GSAP on every page change so the new page's animations play
   // fresh — same vibe as navigating between pages on a real site.
@@ -73,7 +103,6 @@ export function PreviewShell({ projectId }: { projectId: string }) {
   useEffect(() => {
     const lenis = new Lenis({
       duration: 1.1,
-      // easeOut cubic — snappy enough to not feel laggy on trackpads.
       easing: (t) => 1 - Math.pow(1 - t, 3),
       smoothWheel: true,
     });
