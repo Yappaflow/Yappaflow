@@ -32,6 +32,7 @@ const VIEWPORT_STYLE: Record<Viewport, { maxWidth: string; label: string }> = {
 
 export function Canvas() {
   const project = useProjectStore((s) => s.project);
+  const activePageId = useProjectStore((s) => s.activePageId);
   const viewport = useProjectStore((s) => s.viewport);
   const selection = useProjectStore((s) => s.selection);
   const selectSection = useProjectStore((s) => s.selectSection);
@@ -108,7 +109,11 @@ export function Canvas() {
 
   if (!project) return null;
 
-  const homePage = project.pages[0];
+  // Read the active page from the store rather than always project.pages[0].
+  // Falls back to the first page if the active id somehow points at a page
+  // that no longer exists (e.g. race with deletePage).
+  const homePage =
+    project.pages.find((p) => p.id === activePageId) ?? project.pages[0];
   const { header, footer, announcementBar } = project.globals;
   const { maxWidth, label } = VIEWPORT_STYLE[viewport];
   const pageSections = homePage?.sections ?? [];

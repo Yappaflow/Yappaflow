@@ -27,7 +27,7 @@ import {
   loadProjectFromStorage,
   saveProjectToStorage,
 } from "./persistence";
-import { nextSectionId } from "./id";
+import { nextPageId, nextSectionId } from "./id";
 
 export type Viewport = "mobile" | "tablet" | "desktop";
 
@@ -36,6 +36,9 @@ export type Selection = { pageId: string; sectionId: string } | null;
 interface ProjectState {
   project: SiteProject | null;
   projectId: string | null;
+
+  /** Currently-displayed page in the canvas/left rail. Null when project is empty. */
+  activePageId: string | null;
 
   selection: Selection;
   viewport: Viewport;
@@ -60,6 +63,28 @@ interface ProjectState {
 
   /** Trigger an animation replay in the canvas. */
   replayAnimations(): void;
+
+  // Page-level lifecycle
+  setActivePageId(pageId: string): void;
+  addPage(params: { title: string; slug: string }): string;
+  removePage(pageId: string): void;
+  renamePage(pageId: string, title: string): void;
+  setPageSlug(pageId: string, slug: string): void;
+  setPageSeo(
+    pageId: string,
+    seo: {
+      description?: string;
+      ogImage?:
+        | {
+            kind: "image" | "video" | "svg";
+            url: string;
+            alt?: string;
+            width?: number;
+            height?: number;
+          }
+        | undefined;
+    },
+  ): void;
 
   // Section-level mutations
   updateSectionContent(
@@ -164,6 +189,7 @@ function mapPage(
 export const useProjectStore = create<ProjectState>()((set, get) => ({
   project: null,
   projectId: null,
+  activePageId: null,
   selection: null,
   viewport: "desktop",
   previewMode: false,
@@ -175,13 +201,14 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
     const fromStorage = loadProjectFromStorage(projectId);
     const project = fromStorage ?? fallback;
     if (!project) {
-      set({ projectId, project: null, selection: null });
+      set({ projectId, project: null, selection: null, activePageId: null });
       return;
     }
     const firstPage = project.pages[0];
     set({
       projectId,
       project,
+      activePageId: firstPage?.id ?? null,
       selection: firstPage?.sections[0]
         ? { pageId: firstPage.id, sectionId: firstPage.sections[0].id }
         : null,
@@ -194,11 +221,119 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
     const firstPage = project.pages[0];
     set({
       project,
+      activePageId: firstPage?.id ?? null,
       selection: firstPage?.sections[0]
         ? { pageId: firstPage.id, sectionId: firstPage.sections[0].id }
         : null,
       dirty: true,
     });
+  },
+
+  setActivePageId(pageId) {
+    const state = get();
+    if (!state.project) return;
+    if (!state.project.pages.some((p) => p.id === pageId)) return;
+    // Clear selection when switching pages so the right rail doesn't keep
+    // showing a section from the previous page.
+    set({ activePageId: pageId, selection: null });
+  },
+
+  addPage({ title, slug }) {
+    const id = nextPageId();
+    set((state) => {
+      if (!state.project) return {};
+      const newPage = {
+        id,
+        slug: slug || "/",
+        title: title || "Untitled",
+        seo: { description: "" },
+        sections: [],
+      };
+      // Auto-link into the header's nav so new pages immediately surface in
+      // the site's navigation. Existing entries are preserved; the user can
+      // reorder / remove in the right rail as usual.
+      const header = state.project.globals.header;
+      const currentNav = (
+        (header?.content as { nav?: Array<{ label: string; href: string }> })
+          ?.nav ?? []
+      ) as Array<{ label: string; href: string }>;
+      const alreadyLinked = currentNav.some(
+        (entry) => entry.href === (slug || "/"),
+      );
+      const nextHeader =
+        header && !alreadyLinked
+          ? {
+              ...header,
+              content: {
+                ...header.content,
+                nav: [...currentNav, { label: title || "Untitled", href: slug || "/" }],
+              },
+            }
+          : header;
+
+      return {
+        project: {
+          ...state.project,
+          pages: [...state.project.pages, newPage],
+          globals: nextHeader
+            ? { ...state.project.globals, header: nextHeader }
+            : state.project.globals,
+        },
+        activePageId: id,
+        selection: null,
+        dirty: true,
+      };
+    });
+    return id;
+  },
+
+  removePage(pageId) {
+    set((state) => {
+      if (!state.project) return {};
+      if (state.project.pages.length <= 1) return {}; // Never delete last page.
+      const nextPages = state.project.pages.filter((p) => p.id !== pageId);
+      const nextActive =
+        state.activePageId === pageId
+          ? nextPages[0]?.id ?? null
+          : state.activePageId;
+      const nextSelection =
+        state.selection && state.selection.pageId === pageId
+          ? null
+          : state.selection;
+      return {
+        project: { ...state.project, pages: nextPages },
+        activePageId: nextActive,
+        selection: nextSelection,
+        dirty: true,
+      };
+    });
+  },
+
+  renamePage(pageId, title) {
+    set((state) =>
+      mutateProject(state, (project) =>
+        mapPage(project, pageId, (p) => ({ ...p, title })),
+      ),
+    );
+  },
+
+  setPageSlug(pageId, slug) {
+    set((state) =>
+      mutateProject(state, (project) =>
+        mapPage(project, pageId, (p) => ({ ...p, slug })),
+      ),
+    );
+  },
+
+  setPageSeo(pageId, seo) {
+    set((state) =>
+      mutateProject(state, (project) =>
+        mapPage(project, pageId, (p) => ({
+          ...p,
+          seo: { ...p.seo, ...seo },
+        })),
+      ),
+    );
   },
 
   selectSection(pageId, sectionId) {

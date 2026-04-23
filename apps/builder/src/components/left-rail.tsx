@@ -12,6 +12,7 @@ import { useProjectStore } from "@/lib/store";
 import type { SortableSectionData } from "@/lib/dnd";
 import { InsertPanel } from "./insert-panel";
 import { ProductsPanel } from "./products-panel";
+import { NewPageModal } from "./new-page-modal";
 import { iconForSection } from "@/lib/section-icons";
 
 type Panel = "layers" | "insert" | "products";
@@ -31,15 +32,21 @@ type Panel = "layers" | "insert" | "products";
  */
 export function LeftRail() {
   const project = useProjectStore((s) => s.project);
+  const activePageId = useProjectStore((s) => s.activePageId);
   const selection = useProjectStore((s) => s.selection);
   const selectSection = useProjectStore((s) => s.selectSection);
   const removeSection = useProjectStore((s) => s.removeSection);
   const duplicateSection = useProjectStore((s) => s.duplicateSection);
+  const setActivePageId = useProjectStore((s) => s.setActivePageId);
+  const removePage = useProjectStore((s) => s.removePage);
+  const addPage = useProjectStore((s) => s.addPage);
 
   const [panel, setPanel] = useState<Panel>("layers");
+  const [newPageOpen, setNewPageOpen] = useState(false);
 
   if (!project) return null;
-  const page = project.pages[0];
+  const page =
+    project.pages.find((p) => p.id === activePageId) ?? project.pages[0];
   if (!page) return null;
 
   const globals = project.globals;
@@ -69,6 +76,70 @@ export function LeftRail() {
 
       {panel === "layers" ? (
         <div className="flex flex-1 flex-col overflow-hidden">
+          <div className="border-b border-current/10 px-4 py-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-[11px] font-semibold uppercase tracking-[0.2em] opacity-60">
+                Pages
+                <span className="ml-1 opacity-50">· {project.pages.length}</span>
+              </h2>
+              <button
+                onClick={() => setNewPageOpen(true)}
+                className="rounded-full border border-current/20 px-2 py-0.5 text-[11px] hover:border-current/40"
+                title="Add page"
+              >
+                + Page
+              </button>
+            </div>
+            <ul className="mt-2 space-y-0.5">
+              {project.pages.map((p) => {
+                const isActive = p.id === page.id;
+                return (
+                  <li key={p.id}>
+                    <div
+                      className={`group flex items-center gap-1 rounded px-2 py-1.5 text-sm transition ${
+                        isActive
+                          ? "bg-current/10"
+                          : "opacity-70 hover:bg-current/5 hover:opacity-100"
+                      }`}
+                    >
+                      <button
+                        onClick={() => setActivePageId(p.id)}
+                        className="flex flex-1 items-center gap-2 text-left"
+                      >
+                        <span
+                          className={`h-1.5 w-1.5 rounded-full ${
+                            isActive ? "bg-blue-500" : "bg-current/30"
+                          }`}
+                          aria-hidden="true"
+                        />
+                        <span className="flex-1 truncate">{p.title}</span>
+                        <span className="font-mono text-[10px] opacity-50">
+                          {p.slug}
+                        </span>
+                      </button>
+                      {project.pages.length > 1 ? (
+                        <button
+                          onClick={() => {
+                            if (
+                              window.confirm(
+                                `Delete page "${p.title}"? Its sections will be lost.`,
+                              )
+                            ) {
+                              removePage(p.id);
+                            }
+                          }}
+                          aria-label="Delete page"
+                          className="flex h-6 w-6 items-center justify-center rounded text-xs opacity-0 transition hover:bg-current/15 hover:opacity-100 group-hover:opacity-60"
+                        >
+                          ×
+                        </button>
+                      ) : null}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
           <div className="border-b border-current/10 px-4 py-3">
             <h2 className="text-[11px] font-semibold uppercase tracking-[0.2em] opacity-60">
               Globals
@@ -155,6 +226,23 @@ export function LeftRail() {
       ) : (
         <ProductsPanel />
       )}
+
+      {newPageOpen ? (
+        <NewPageModal
+          existingSlugs={project.pages.map((p) => p.slug)}
+          onClose={() => setNewPageOpen(false)}
+          onCreate={({ title, slug }: { title: string; slug: string }) => {
+            if (project.pages.length >= 15) {
+              const proceed = window.confirm(
+                "You already have 15 pages. Most sites ship with ≤ 10. Add anyway?",
+              );
+              if (!proceed) return;
+            }
+            addPage({ title, slug });
+            setNewPageOpen(false);
+          }}
+        />
+      ) : null}
     </aside>
   );
 }

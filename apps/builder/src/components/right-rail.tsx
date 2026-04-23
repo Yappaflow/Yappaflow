@@ -202,16 +202,7 @@ export function RightRail() {
   if (!project) return null;
 
   if (!selected) {
-    return (
-      <aside className="flex h-full flex-col border-l border-current/10 p-5 text-sm opacity-60">
-        <h2 className="text-[11px] font-semibold uppercase tracking-[0.2em]">
-          Properties
-        </h2>
-        <p className="mt-3">
-          Click a section in the canvas or the left rail to edit it.
-        </p>
-      </aside>
-    );
+    return <PagePropertiesPanel />;
   }
 
   const { section, globalSlot, pageId } = selected;
@@ -420,6 +411,105 @@ export function RightRail() {
             {JSON.stringify(section, null, 2)}
           </pre>
         </details>
+      </div>
+    </aside>
+  );
+}
+
+/**
+ * Right rail default view — shown when no section is selected. Surfaces
+ * active page properties (title, slug, SEO description) so the right rail
+ * is always doing something useful. Multi-page landed in this session, so
+ * this panel is how users discover + change page-level metadata.
+ */
+function PagePropertiesPanel() {
+  const project = useProjectStore((s) => s.project);
+  const activePageId = useProjectStore((s) => s.activePageId);
+  const renamePage = useProjectStore((s) => s.renamePage);
+  const setPageSlug = useProjectStore((s) => s.setPageSlug);
+  const setPageSeo = useProjectStore((s) => s.setPageSeo);
+
+  const page = project?.pages.find((p) => p.id === activePageId);
+
+  if (!project || !page) {
+    return (
+      <aside className="flex h-full flex-col border-l border-current/10 p-5 text-sm opacity-60">
+        <h2 className="text-[11px] font-semibold uppercase tracking-[0.2em]">
+          Properties
+        </h2>
+        <p className="mt-3">No page to configure.</p>
+      </aside>
+    );
+  }
+
+  return (
+    <aside className="flex h-full flex-col border-l border-current/10">
+      <div className="border-b border-current/10 px-5 py-3">
+        <p className="text-[10px] uppercase tracking-[0.2em] opacity-50">Page</p>
+        <div className="mt-1 flex items-baseline justify-between">
+          <h2 className="text-lg font-semibold">{page.title}</h2>
+          <code className="font-mono text-[10px] opacity-40">{page.id}</code>
+        </div>
+        <p className="mt-2 text-xs opacity-60">
+          {page.sections.length} section{page.sections.length === 1 ? "" : "s"}
+        </p>
+      </div>
+
+      <div className="flex-1 overflow-auto p-5">
+        <Field label="Title">
+          <input
+            value={page.title}
+            onChange={(e) => renamePage(page.id, e.target.value)}
+            className="w-full rounded border border-current/20 bg-transparent px-3 py-2 text-sm focus:border-current/60 focus:outline-none"
+          />
+        </Field>
+
+        <Field label="Slug">
+          <input
+            value={page.slug}
+            onChange={(e) => setPageSlug(page.id, e.target.value)}
+            className="w-full rounded border border-current/20 bg-transparent px-3 py-2 font-mono text-sm focus:border-current/60 focus:outline-none"
+          />
+          <span className="text-[10px] opacity-50">
+            URL path. Use <code>/</code> for the home page.
+          </span>
+        </Field>
+
+        <Field label="SEO description">
+          <textarea
+            value={page.seo.description}
+            onChange={(e) =>
+              setPageSeo(page.id, { description: e.target.value })
+            }
+            rows={3}
+            className="w-full resize-y rounded border border-current/20 bg-transparent px-3 py-2 text-sm leading-relaxed focus:border-current/60 focus:outline-none"
+            placeholder="Used as the meta description when the site exports."
+          />
+        </Field>
+
+        <Field label="Open Graph image URL">
+          <input
+            value={page.seo.ogImage?.url ?? ""}
+            onChange={(e) =>
+              setPageSeo(page.id, {
+                ogImage: e.target.value
+                  ? {
+                      kind: "image",
+                      url: e.target.value,
+                      alt: page.seo.ogImage?.alt,
+                    }
+                  : undefined,
+              })
+            }
+            placeholder="https://…"
+            className="w-full rounded border border-current/20 bg-transparent px-3 py-2 text-sm focus:border-current/60 focus:outline-none"
+          />
+        </Field>
+
+        <p className="mt-6 text-xs opacity-50">
+          Click any section in the canvas or left rail to edit it. Click a
+          different page in the Pages list to switch.
+        </p>
       </div>
     </aside>
   );
