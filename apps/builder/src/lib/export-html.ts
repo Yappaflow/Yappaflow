@@ -39,6 +39,38 @@ export interface ExportResult {
   files: string[];
 }
 
+export interface CmsRenderedPage {
+  slug: string;
+  title: string;
+  /** Page sections only — no global header/footer — ready to paste into CMS body fields. */
+  bodyHtml: string;
+  seoDescription?: string;
+}
+
+/**
+ * Renders each page's sections (no header/footer) into standalone HTML strings
+ * suitable for CMS body fields (Shopify body_html, WordPress content, Webflow rich-text).
+ * Globals are omitted intentionally: CMS themes supply their own navigation.
+ */
+export function exportPagesForCms(project: SiteProject): CmsRenderedPage[] {
+  const slugToFile = new Map<string, string>();
+  for (const page of project.pages) {
+    slugToFile.set(normalizeSlug(page.slug), slugToFilename(page.slug));
+  }
+
+  return project.pages.map((page) => {
+    const children = page.sections.map((s) => renderSection(s, s.id));
+    const markup = renderToStaticMarkup(createElement(Fragment, null, ...children));
+    const bodyHtml = rewriteSlugHrefs(markup, slugToFile);
+    return {
+      slug: normalizeSlug(page.slug),
+      title: page.title,
+      bodyHtml,
+      seoDescription: page.seo.description,
+    };
+  });
+}
+
 export async function exportSiteAsZip(
   project: SiteProject,
 ): Promise<ExportResult> {

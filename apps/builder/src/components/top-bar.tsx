@@ -1,11 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { Eye, ExternalLink, RotateCw } from "lucide-react";
+import { Eye, ExternalLink, RotateCw, Rocket } from "lucide-react";
 import { useProjectStore } from "@/lib/store";
 import { ViewportSwitcher } from "./viewport-switcher";
 import { ThemeToggle } from "./theme-toggle";
 import { ExportButton } from "./export-button";
+import { DeployModal } from "./deploy-modal";
 
 export function TopBar({
   onLoadJson,
@@ -21,6 +23,7 @@ export function TopBar({
   const replayAnimations = useProjectStore((s) => s.replayAnimations);
   const previewMode = useProjectStore((s) => s.previewMode);
   const setPreviewMode = useProjectStore((s) => s.setPreviewMode);
+  const [deployOpen, setDeployOpen] = useState(false);
 
   const activePage =
     project?.pages.find((p) => p.id === activePageId) ?? project?.pages[0];
@@ -96,8 +99,18 @@ export function TopBar({
           Load JSON
         </button>
         <ExportButton />
+        <button
+          onClick={() => setDeployOpen(true)}
+          disabled={!project}
+          title="Deploy your site to Shopify, Webflow, or WordPress"
+          className="inline-flex items-center gap-1.5 rounded-full bg-violet-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-violet-700 disabled:opacity-40"
+        >
+          <Rocket className="h-3 w-3" aria-hidden="true" />
+          Deploy
+        </button>
         <ThemeToggle />
       </div>
+      {deployOpen && <DeployModal onClose={() => setDeployOpen(false)} />}
     </header>
   );
 }
