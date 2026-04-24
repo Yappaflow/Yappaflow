@@ -110,6 +110,85 @@ function defaultSection<T extends SectionType>(
   };
 }
 
+const SAMPLE_PRODUCT_CARDS = [
+  {
+    id: "p-001",
+    handle: "classic-tee",
+    title: "Classic tee",
+    price: "$42",
+    currency: "USD",
+    image: { kind: "image", url: "/images/products/classic-tee.jpg", alt: "Classic tee" },
+    href: "/products/classic-tee",
+  },
+  {
+    id: "p-002",
+    handle: "studio-cap",
+    title: "Studio cap",
+    price: "$28",
+    currency: "USD",
+    image: { kind: "image", url: "/images/products/studio-cap.jpg", alt: "Studio cap" },
+    href: "/products/studio-cap",
+  },
+  {
+    id: "p-003",
+    handle: "canvas-tote",
+    title: "Canvas tote",
+    price: "$34",
+    currency: "USD",
+    image: { kind: "image", url: "/images/products/canvas-tote.jpg", alt: "Canvas tote" },
+    href: "/products/canvas-tote",
+  },
+];
+
+function productDetailContent(card: (typeof SAMPLE_PRODUCT_CARDS)[number]) {
+  return {
+    eyebrow: "Shop",
+    title: card.title,
+    price: card.price,
+    currency: card.currency,
+    description: "",
+    images: [{ kind: "image", url: card.image.url, alt: card.image.alt }],
+    variantGroups: [],
+    specs: [],
+    primaryCta: { label: "Add to cart", href: `/cart/add?id=${card.id}` },
+    secondaryCta: { label: "Ask a question", href: "/contact" },
+  };
+}
+
+function buildProductDetailPage(id: string, card: (typeof SAMPLE_PRODUCT_CARDS)[number]): SiteProject["pages"][number] {
+  return {
+    id,
+    slug: `/products/${card.handle}`,
+    title: card.title,
+    seo: { description: `${card.title} — shop on our store.` },
+    sections: [
+      {
+        id: `${id}_detail`,
+        type: "product-detail",
+        variant: "gallery-left",
+        content: {
+          ...(SECTION_DATA["product-detail"].defaultContent as Record<string, unknown>),
+          ...productDetailContent(card),
+        },
+        style: {},
+      },
+      {
+        id: `${id}_related`,
+        type: "product-grid",
+        variant: "card",
+        content: {
+          ...(SECTION_DATA["product-grid"].defaultContent as Record<string, unknown>),
+          eyebrow: "Related",
+          heading: "You might also like",
+          columns: 3,
+          products: SAMPLE_PRODUCT_CARDS.filter((p) => p.id !== card.id),
+        },
+        style: {},
+      },
+    ],
+  };
+}
+
 export function buildSampleSiteProject(): SiteProject {
   return {
     schemaVersion: SITE_PROJECT_SCHEMA_VERSION,
@@ -124,10 +203,6 @@ export function buildSampleSiteProject(): SiteProject {
           description: "Sample site assembled for the builder.",
         },
         sections: [
-          // Seed each section with a sensible GSAP preset so the builder
-          // shows motion on first paint — the whole point of having the
-          // runtime in place. Agencies can change presets per-section in
-          // the right rail.
           defaultSection("sec_hero", "hero", { animation: "slide-up" }),
           defaultSection("sec_fgrid", "feature-grid", {
             animation: "stagger-children",
@@ -137,6 +212,44 @@ export function buildSampleSiteProject(): SiteProject {
           defaultSection("sec_cta", "cta-band", { animation: "scale-in" }),
         ],
       },
+      // /products catalog page — lists all products with links to detail pages
+      {
+        id: "pg_products",
+        slug: "/products",
+        title: "Products",
+        seo: { description: "Browse our full product catalog." },
+        sections: [
+          {
+            id: "sec_products_hero",
+            type: "hero",
+            variant: "centered",
+            content: {
+              ...(SECTION_DATA["hero"].defaultContent as Record<string, unknown>),
+              eyebrow: "Shop",
+              heading: "All products.",
+              subhead: "Browse the full collection.",
+            },
+            style: {},
+          },
+          {
+            id: "sec_products_grid",
+            type: "product-grid",
+            variant: "card",
+            content: {
+              ...(SECTION_DATA["product-grid"].defaultContent as Record<string, unknown>),
+              eyebrow: "",
+              heading: "",
+              columns: 4,
+              products: SAMPLE_PRODUCT_CARDS,
+            },
+            style: {},
+          },
+        ],
+      },
+      // Individual product detail pages — one per sample product
+      buildProductDetailPage("pg_prod_001", SAMPLE_PRODUCT_CARDS[0]!),
+      buildProductDetailPage("pg_prod_002", SAMPLE_PRODUCT_CARDS[1]!),
+      buildProductDetailPage("pg_prod_003", SAMPLE_PRODUCT_CARDS[2]!),
     ],
     globals: {
       header: defaultSection("sec_header", "header"),

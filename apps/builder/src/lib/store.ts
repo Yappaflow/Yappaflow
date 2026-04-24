@@ -167,6 +167,14 @@ interface ProjectState {
   /** Remove the auto-generated product page for a given handle, if any. */
   removeProductPageByHandle(handle: string): void;
 
+  /**
+   * Create or refresh the `/products` catalog page. Pass the current full
+   * list of product cards (already shaped for product-grid content) so the
+   * grid always mirrors the library. Called by the products panel after every
+   * add / remove operation.
+   */
+  upsertProductsIndexPage(productCards: Array<Record<string, unknown>>): void;
+
   // Manual save (autosave also fires on every mutation — see subscribe below).
   save(): void;
 }
@@ -696,6 +704,79 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
             ?.slug === slug
             ? null
             : state.selection,
+        dirty: true,
+      };
+    });
+  },
+
+  upsertProductsIndexPage(productCards) {
+    set((state) => {
+      if (!state.project) return {};
+      const slug = "/products";
+      const existingIndex = state.project.pages.findIndex((p) => p.slug === slug);
+
+      if (existingIndex >= 0) {
+        // Refresh only the product-grid section's products list.
+        const nextPages = state.project.pages.map((page, i) => {
+          if (i !== existingIndex) return page;
+          const nextSections = page.sections.map((section) => {
+            if (section.type !== "product-grid") return section;
+            return {
+              ...section,
+              content: {
+                ...(section.content as Record<string, unknown>),
+                products: productCards,
+              },
+            };
+          });
+          return { ...page, sections: nextSections };
+        });
+        return { project: { ...state.project, pages: nextPages }, dirty: true };
+      }
+
+      // No catalog page yet — create one with a hero + full product grid.
+      const heroData = SECTION_DATA["hero"];
+      const gridData = SECTION_DATA["product-grid"];
+      const newPageId = nextPageId();
+      const heroSection: Section = {
+        id: nextSectionId(),
+        type: "hero",
+        variant: "centered",
+        content: {
+          ...(heroData.defaultContent as Record<string, unknown>),
+          eyebrow: "Shop",
+          heading: "All products.",
+          subhead: "Browse the full collection.",
+        },
+        style: {},
+      };
+      const gridSection: Section = {
+        id: nextSectionId(),
+        type: "product-grid",
+        variant: "card",
+        content: {
+          ...(gridData.defaultContent as Record<string, unknown>),
+          eyebrow: "",
+          heading: "",
+          columns: 4,
+          products: productCards,
+        },
+        style: {},
+      };
+      return {
+        project: {
+          ...state.project,
+          pages: [
+            ...state.project.pages,
+            {
+              id: newPageId,
+              slug,
+              title: "Products",
+              seo: { description: "Browse our full product catalog." },
+              sections: [heroSection, gridSection],
+            },
+          ],
+        },
         dirty: true,
       };
     });

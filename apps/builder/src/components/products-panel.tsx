@@ -34,6 +34,7 @@ export function ProductsPanel() {
   const updateProduct = useProductsStore((s) => s.updateProduct);
   const syncLibraryProduct = useProjectStore((s) => s.syncLibraryProduct);
   const upsertProductPage = useProjectStore((s) => s.upsertProductPage);
+  const upsertProductsIndexPage = useProjectStore((s) => s.upsertProductsIndexPage);
   const removeProductPageByHandle = useProjectStore(
     (s) => s.removeProductPageByHandle,
   );
@@ -78,14 +79,17 @@ export function ProductsPanel() {
                 image: { url: "", alt: "" },
                 href: "/products/new-product",
               });
-              // Auto-create its /products/<handle> page so the library
-              // and the site structure stay in sync.
               upsertProductPage({
                 handle: fresh.handle,
                 title: fresh.title,
                 pageSections: buildProductPageSections(fresh),
                 productDetailContent: buildProductDetailContent(fresh),
               });
+              // Keep the catalog page in sync with the full updated library.
+              const allCards = useProductsStore
+                .getState()
+                .products.map(libraryToProductCard);
+              upsertProductsIndexPage(allCards);
             }}
             className="rounded-full border border-current/20 px-3 py-1 text-xs hover:border-current/40"
           >
@@ -109,6 +113,10 @@ export function ProductsPanel() {
                   onRemove={() => {
                     removeProduct(p.id);
                     removeProductPageByHandle(p.handle);
+                    const remainingCards = useProductsStore
+                      .getState()
+                      .products.map(libraryToProductCard);
+                    upsertProductsIndexPage(remainingCards);
                   }}
                 />
               </li>
@@ -142,6 +150,11 @@ export function ProductsPanel() {
               pageSections: buildProductPageSections(nextProduct),
               productDetailContent: buildProductDetailContent(nextProduct),
             });
+            // Refresh the catalog page so the grid card reflects the edits.
+            const updatedCards = useProductsStore
+              .getState()
+              .products.map(libraryToProductCard);
+            upsertProductsIndexPage(updatedCards);
             setEditingId(null);
           }}
         />
