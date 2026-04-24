@@ -14,6 +14,7 @@ import { libraryToProductCard } from "@/lib/product-transform";
 import {
   buildProductDetailContent,
   buildProductPageSections,
+  slugifyHandle,
 } from "@/lib/product-page";
 
 /**
@@ -71,13 +72,24 @@ export function ProductsPanel() {
           </div>
           <button
             onClick={() => {
+              const title = "New product";
+              const base = slugifyHandle(title);
+              const existingHandles = new Set(
+                useProductsStore.getState().products.map((p) => p.handle),
+              );
+              let handle = base;
+              let n = 2;
+              while (existingHandles.has(handle)) {
+                handle = `${base}-${n}`;
+                n++;
+              }
               const fresh = addProduct({
-                title: "New product",
-                handle: "new-product",
+                title,
+                handle,
                 price: "$0",
                 currency: "USD",
                 image: { url: "", alt: "" },
-                href: "/products/new-product",
+                href: `/products/${handle}`,
               });
               upsertProductPage({
                 handle: fresh.handle,
@@ -273,6 +285,7 @@ function EditProductModal({
     imageUrl: product.image.url,
     imageAlt: product.image.alt ?? "",
   });
+  const [handleEdited, setHandleEdited] = useState(false);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -320,12 +333,24 @@ function EditProductModal({
           <TextField
             label="Title"
             value={form.title}
-            onChange={(v) => setForm({ ...form, title: v })}
+            onChange={(v) => {
+              const next: typeof form = { ...form, title: v };
+              if (!handleEdited) {
+                const auto = slugifyHandle(v);
+                next.handle = auto;
+                next.href = `/products/${auto}`;
+              }
+              setForm(next);
+            }}
           />
           <TextField
             label="Handle"
             value={form.handle}
-            onChange={(v) => setForm({ ...form, handle: v })}
+            onChange={(v) => {
+              setHandleEdited(true);
+              setForm({ ...form, handle: v, href: `/products/${v}` });
+            }}
+            hint={`/products/${form.handle}`}
           />
           <div className="grid grid-cols-2 gap-3">
             <TextField
@@ -379,10 +404,12 @@ function TextField({
   label,
   value,
   onChange,
+  hint,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
+  hint?: string;
 }) {
   return (
     <label className="flex flex-col gap-1">
@@ -392,6 +419,9 @@ function TextField({
         onChange={(e) => onChange(e.target.value)}
         className="rounded border border-current/20 bg-transparent px-3 py-2 text-sm focus:border-current/60 focus:outline-none"
       />
+      {hint ? (
+        <span className="font-mono text-[10px] opacity-40">{hint}</span>
+      ) : null}
     </label>
   );
 }

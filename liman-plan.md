@@ -87,6 +87,7 @@ Proves the app's value in 5 seconds.
 - **Services** — uptime, latency, deploys.
 - **AI Vendor** — AI spend and errors, with stage breakdown (Yappaflow-specific: analysis/planning/generation).
 - **Business Snapshot** — project-specific funnel metrics.
+- **Security** — findings from the per-project pen-test engine (DAST, headers/TLS, SCA, secrets). Yappaflow gets one first; other projects opt in.
 
 ## Finance — how income and outcome capture works
 
@@ -197,11 +198,75 @@ Single new GitHub repo named **`liman`**. pnpm workspace with:
 
 **Phase 3 — Business Snapshot + Alerts rules + push notifications + member management UI.** Wire Yappaflow Postgres (RO). Implement anomaly rules. Push notifications on mobile for red alerts. Flesh out Members screen (list members, revoke access, regenerate invite).
 
-**Phase 4 — routines tab.** Fold Yappaflow's scheduled routines into a dedicated tab.
+**Phase 4 — Security panel + routines + service tokens.** Liman becomes a workbench, not just a viewer. Pen-Test Engine (per-project Security panel) ships with a curated ~20-rule built-in ruleset running as `liman-api` scheduled jobs. General routines table + service tokens for external integrations. See "Pen-Test Engine" and "Routines & service tokens" below for details.
 
 **Phase 5 — plug in second project.** Validate the multi-project shell.
 
 **Step zero** (before Phase 2's AI Vendor panel): confirm `apps/yappaflow-mcp` emits `{stage, provider, latency, tokens, cost}` per call. Add if missing.
+
+## Pen-Test Engine (per-project Security panel, Phase 4)
+
+*(Scope, architecture, and UX decided in a separate Liman pen-test planning session. Locked in so we don't re-litigate.)*
+
+Yappaflow's Security panel is the first concrete pen-test surface in Liman. The same pattern applies when other projects opt in.
+
+### Scope — what the engine checks
+
+1. **HTTP/API surface (DAST)** — live requests against staging endpoints: auth bypass, IDOR, path traversal, safe injection payloads, CORS misconfiguration, missing rate limits on login, verbose error messages that leak stack traces.
+2. **Security headers + TLS** — HSTS, CSP, X-Frame-Options, Referrer-Policy, Permissions-Policy, TLS version (≥1.2), cipher strength, cert validity (>30 days), certificate chain trust.
+3. **Dependency vulnerabilities (SCA)** — every `pnpm-lock.yaml` queried against osv.dev; filter to high + critical CVSS; noise-reduced by package usage context.
+4. **Secrets / config leaks** — `gitleaks` across commit history, entropy scans for custom patterns, monitored patterns for specific keys we use (DeepSeek, OpenRouter, Railway, Iyzico / Stripe), flags on any commit introducing `.env*` files.
+
+### Architecture — in-process, real scans, small ruleset
+
+- **Runner:** scheduled jobs inside `liman-api` (Pattern 1). No external Claude routines calling in via service tokens for the core pen-test engine. Simpler ops, simpler debugging, zero token management overhead.
+- **Engine:** real scans with a small curated built-in ruleset (~20 rules for v1). Not mocked. Not a `nuclei`-style wrapper around 10,000 templates. Each rule is high-signal and actionable. Ruleset evolves by adding rules as we learn what's noise; each rule has a stable id (e.g. `dast-idor-001`) so history remains interpretable.
+- **Schedule:** weekly full sweep, daily light sweep (SCA + headers only — they're cheap and change often), on-demand "Run now" from the panel.
+- **Output:** each scan produces a `security_scan_run` with timestamped findings. High / critical findings auto-create entries in the `alerts` table → bubble up to the global Alerts feed → trigger mobile push notifications.
+
+### Tables (added to Phase 4 migration)
+
+- **`security_scans`** — `id`, `project_id`, `name`, `rule_category` (`dast | headers_tls | sca | secrets`), `rule_id`, `enabled`, `config` (JSON — target URLs, repo paths, etc.).
+- **`security_scan_runs`** — `id`, `scan_id`, `started_at`, `finished_at`, `status`, `findings_count_by_severity` (JSON).
+- **`security_findings`** — `id`, `scan_run_id`, `rule_id`, `severity` (`info | low | medium | high | critical`), `title`, `body`, `target`, `remediation`, `acknowledged_at`, `resolved_at`.
+
+### Security panel UX (per project)
+
+- Top: last-scan timestamp, findings count by severity (pill row), overall posture grade.
+- Tabs: Findings (active), Resolved, Rules (list + enable/disable + config), Run History.
+- Each finding card: severity, rule, what / where / remediation, "Acknowledge" / "Mark resolved" actions, "Create Linear issue" (Phase 5+).
+- "Run now" button for on-demand scan.
+- High / critical findings show on the global Alerts feed and trigger push notifications on mobile.
+
+## Routines & service tokens (Phase 4)
+
+Liman is the management surface for all scheduled routines — whether they're Pattern 1 (Liman-backend cron jobs), Pattern 2 (Claude routines running elsewhere that POST results back), or Pattern 3 (pure Claude routines we want to catalog even if they don't write here). One place to see "what's running, when did it last run, what did it find".
+
+### Data model
+
+- **`routines`** — `id`, `name`, `description`, `schedule` (cron expression or `"manual"`), `runner` (`"liman-cron" | "claude-routine" | "github-action" | "external"`), `config` (JSON — hostnames for a scan, thresholds for a budget check, etc.), `enabled`, `created_by_user_id`, `owner_scope` (which project this routine belongs to, nullable for cross-project).
+- **`routine_runs`** — `id`, `routine_id`, `started_at`, `finished_at`, `status` (`"running" | "ok" | "warn" | "fail"`), `output_summary` (short text for the card view), `output_full` (longer text, markdown-ish), `findings` (JSON array — each finding can optionally become an alert).
+- **`service_tokens`** — `id`, `name` (human-readable, e.g. `"claude-routine-perimeter-sweep"`), `hashed_token`, `scopes` (JSON array — which endpoints this token can hit), `last_used_at`, `revoked_at`, `created_by_user_id`.
+
+### Endpoints (Phase 4)
+
+- `GET /routines` / `POST /routines` / `PATCH /routines/:id` / `DELETE /routines/:id` — owner-only.
+- `POST /routines/:id/runs` — start a manual run. Body: `{ trigger: "manual" | "scheduled", ... }`. Returns a run id.
+- `POST /routines/:id/runs/:run_id/results` — the routine itself POSTs its findings here when done. Authed via `service_token`. Body: `{ status, output_summary, output_full, findings: [{ severity, title, body, target? }] }`. Findings with severity `high` or `critical` auto-create entries in the `alerts` table.
+- `GET /routines/:id/runs?limit=20` — run history.
+- `POST /service-tokens` / `DELETE /service-tokens/:id` — owner-only. Token value returned once on creation, never retrievable again.
+
+### Routines screen (Phase 4)
+
+- List of routines with status pill (green / yellow / red based on last run), schedule, last-run-at, one-line output summary.
+- Tap a routine → detail view: full last-run output, run history, config editor, enable/disable toggle, "Run now" button.
+- "Service Tokens" subscreen (owner-only): create, name, scope, revoke. Token value shown once, never retrievable.
+
+### Security notes
+
+- Service tokens never have the same scopes as an owner/admin session. A "results-poster" token can POST `/routines/:id/runs/:run_id/results` and nothing else. A "metrics-reader" token can GET finance aggregates and nothing else. Minimum necessary scope per token.
+- Every token shows `last_used_at` in the UI so stale tokens are visible. Rotation reminder at 90 days.
+- Revoking a token invalidates it instantly on all endpoints.
 
 ## Constraints carried forward
 

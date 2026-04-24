@@ -7,7 +7,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { SectionType } from "@yappaflow/types";
+import type { Page, SectionType } from "@yappaflow/types";
 import { useProjectStore } from "@/lib/store";
 import type { SortableSectionData } from "@/lib/dnd";
 import { InsertPanel } from "./insert-panel";
@@ -81,21 +81,16 @@ export function LeftRail() {
       {panel === "layers" ? (
         <div className="flex flex-1 flex-col overflow-hidden">
           <div className="border-b border-current/10 px-4 py-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-[11px] font-semibold uppercase tracking-[0.2em] opacity-60">
-                Pages
-                <span className="ml-1 opacity-50">· {project.pages.length}</span>
-              </h2>
-              <button
-                onClick={() => setNewPageOpen(true)}
-                className="rounded-full border border-current/20 px-2 py-0.5 text-[11px] hover:border-current/40"
-                title="Add page"
-              >
-                + Page
-              </button>
-            </div>
-            <ul className="mt-2 space-y-0.5">
-              {project.pages.map((p) => {
+            {(() => {
+              const regularPages = project.pages.filter(
+                (p) => !p.slug.startsWith("/products/"),
+              );
+              const productPages = project.pages.filter((p) =>
+                p.slug.startsWith("/products/"),
+              );
+              const totalPages = project.pages.length;
+
+              function PageRow({ p }: { p: Page }) {
                 const isActive = p.id === page.id;
                 return (
                   <li key={p.id}>
@@ -121,7 +116,7 @@ export function LeftRail() {
                           {p.slug}
                         </span>
                       </button>
-                      {project.pages.length > 1 ? (
+                      {totalPages > 1 ? (
                         <button
                           onClick={() => {
                             if (
@@ -141,8 +136,45 @@ export function LeftRail() {
                     </div>
                   </li>
                 );
-              })}
-            </ul>
+              }
+
+              return (
+                <>
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-[11px] font-semibold uppercase tracking-[0.2em] opacity-60">
+                      Pages
+                      <span className="ml-1 opacity-50">· {regularPages.length}</span>
+                    </h2>
+                    <button
+                      onClick={() => setNewPageOpen(true)}
+                      className="rounded-full border border-current/20 px-2 py-0.5 text-[11px] hover:border-current/40"
+                      title="Add page"
+                    >
+                      + Page
+                    </button>
+                  </div>
+                  <ul className="mt-2 space-y-0.5">
+                    {regularPages.map((p) => (
+                      <PageRow key={p.id} p={p} />
+                    ))}
+                  </ul>
+
+                  {productPages.length > 0 ? (
+                    <>
+                      <h2 className="mt-3 text-[11px] font-semibold uppercase tracking-[0.2em] opacity-60">
+                        Product pages
+                        <span className="ml-1 opacity-50">· {productPages.length}</span>
+                      </h2>
+                      <ul className="mt-1 space-y-0.5">
+                        {productPages.map((p) => (
+                          <PageRow key={p.id} p={p} />
+                        ))}
+                      </ul>
+                    </>
+                  ) : null}
+                </>
+              );
+            })()}
           </div>
           <div className="border-b border-current/10 px-4 py-3">
             <h2 className="text-[11px] font-semibold uppercase tracking-[0.2em] opacity-60">

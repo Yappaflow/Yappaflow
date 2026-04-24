@@ -1,5 +1,7 @@
 import type { LibraryProduct } from "./products-store";
 import type { TemplateSectionSpec } from "./page-templates";
+import type { Page, Section } from "@yappaflow/types";
+import { SECTION_DATA } from "@yappaflow/sections/data";
 
 /**
  * Shopify-style product routing — every library product has a page at
@@ -10,6 +12,81 @@ import type { TemplateSectionSpec } from "./page-templates";
 
 export function productPageSlug(handle: string): string {
   return `/products/${handle}`;
+}
+
+export function slugifyHandle(title: string): string {
+  return (
+    title
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "product"
+  );
+}
+
+/**
+ * Build a fully-renderable Page from a library product. Used by
+ * ProjectPageView as a dynamic fallback when no stored page exists for a
+ * product handle — so every product automatically works at /products/<handle>
+ * without requiring an explicit stored page.
+ */
+export function buildDynamicProductPage(
+  product: LibraryProduct,
+  allProducts: LibraryProduct[],
+): Page {
+  const detailData = SECTION_DATA["product-detail"];
+  const gridData = SECTION_DATA["product-grid"];
+
+  const related = allProducts
+    .filter((p) => p.id !== product.id)
+    .slice(0, 3)
+    .map((p) => ({
+      id: p.id,
+      handle: p.handle,
+      title: p.title,
+      price: p.price,
+      currency: p.currency,
+      image: {
+        kind: "image" as const,
+        url: p.image.url,
+        alt: p.image.alt ?? p.title,
+      },
+      href: productPageSlug(p.handle),
+    }));
+
+  const sections: Section[] = [
+    {
+      id: "dyn_detail",
+      type: "product-detail",
+      variant: "gallery-left",
+      content: {
+        ...(detailData.defaultContent as Record<string, unknown>),
+        ...buildProductDetailContent(product),
+      },
+      style: {},
+    },
+    {
+      id: "dyn_related",
+      type: "product-grid",
+      variant: "card",
+      content: {
+        ...(gridData.defaultContent as Record<string, unknown>),
+        eyebrow: "Related",
+        heading: "You might also like",
+        columns: 3,
+        products: related,
+      },
+      style: {},
+    },
+  ];
+
+  return {
+    id: `dyn_${product.id}`,
+    slug: productPageSlug(product.handle),
+    title: product.title,
+    seo: { description: `${product.title} — shop on our store.` },
+    sections,
+  };
 }
 
 /**
