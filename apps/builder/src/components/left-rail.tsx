@@ -12,10 +12,11 @@ import { useProjectStore } from "@/lib/store";
 import type { SortableSectionData } from "@/lib/dnd";
 import { InsertPanel } from "./insert-panel";
 import { ProductsPanel } from "./products-panel";
+import { AnimationPanel } from "./animation-panel";
 import { NewPageModal } from "./new-page-modal";
 import { iconForSection } from "@/lib/section-icons";
 
-type Panel = "layers" | "insert" | "products";
+type Panel = "layers" | "insert" | "products" | "animate";
 
 /**
  * Left rail — two panels switched via a pill-tab bar:
@@ -71,6 +72,9 @@ export function LeftRail() {
         </PanelTab>
         <PanelTab active={panel === "products"} onClick={() => setPanel("products")}>
           Products
+        </PanelTab>
+        <PanelTab active={panel === "animate"} onClick={() => setPanel("animate")}>
+          Animate
         </PanelTab>
       </div>
 
@@ -223,8 +227,10 @@ export function LeftRail() {
         </div>
       ) : panel === "insert" ? (
         <InsertPanel />
-      ) : (
+      ) : panel === "products" ? (
         <ProductsPanel />
+      ) : (
+        <AnimationPanel />
       )}
 
       {newPageOpen ? (
