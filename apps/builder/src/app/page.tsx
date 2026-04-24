@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 /**
@@ -39,13 +38,20 @@ export default function Home() {
           </p>
 
           <div className="mt-10 flex flex-wrap items-center gap-3">
-            <Link
+            {/*
+              Plain <a> rather than next/link — triggers a full-page
+              navigation so even if the client-side router cache is stale
+              (e.g. after a deploy), the button still reaches /p/sample.
+              Minor nav cost over client-side routing; worth the
+              robustness for a dev-entry link that's hit once per session.
+            */}
+            <a
               href="/p/sample"
               className="inline-flex items-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-paper hover:opacity-90 dark:bg-paper dark:text-ink"
             >
               Open sample project
               <span aria-hidden="true">→</span>
-            </Link>
+            </a>
             <span className="text-xs opacity-50">
               Dev entry point — real projects arrive via the studio flow from
               Phase 10.5.
