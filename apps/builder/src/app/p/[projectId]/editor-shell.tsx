@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   DndContext,
@@ -20,7 +20,9 @@ import {
 import type { SectionType } from "@yappaflow/types";
 import { useProjectStore, startAutosave } from "@/lib/store";
 import { useProductsStore } from "@/lib/products-store";
-import { libraryToProductCard } from "@/lib/product-transform";
+import { libraryToProductCard, serverProductToLibrary } from "@/lib/product-transform";
+import { fetchProjectProducts } from "@/lib/server-api";
+import { buildProductDetailContent, buildProductPageSections } from "@/lib/product-page";
 import { buildSampleSiteProject } from "@/fixtures/sample-project";
 import { LoadFromJsonModal } from "@/components/load-from-json";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -59,6 +61,8 @@ export function EditorShell({ projectId }: { projectId: string }) {
   const reorderSections = useProjectStore((s) => s.reorderSections);
   const insertSection = useProjectStore((s) => s.insertSection);
   const appendProductToGrid = useProjectStore((s) => s.appendProductToGrid);
+  const upsertProductPage = useProjectStore((s) => s.upsertProductPage);
+  const upsertProductsIndexPage = useProjectStore((s) => s.upsertProductsIndexPage);
 
   const [loadOpen, setLoadOpen] = useState(false);
   const [activeDrag, setActiveDrag] = useState<ActiveDragData | null>(null);
@@ -76,6 +80,40 @@ export function EditorShell({ projectId }: { projectId: string }) {
   useEffect(() => {
     return startAutosave();
   }, []);
+
+  // Sync products from the server once per project load and auto-create pages.
+  const syncedProjectRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!project || projectId === "sample") return;
+    if (syncedProjectRef.current === projectId) return;
+    syncedProjectRef.current = projectId;
+
+    void (async () => {
+      const serverProds = await fetchProjectProducts(projectId);
+      if (serverProds.length === 0) return;
+
+      useProductsStore.getState().hydrate();
+      const newLibraryProds = useProductsStore
+        .getState()
+        .syncServerProducts(serverProds.map(serverProductToLibrary));
+
+      for (const prod of newLibraryProds) {
+        upsertProductPage({
+          handle: prod.handle,
+          title: prod.title,
+          pageSections: buildProductPageSections(prod),
+          productDetailContent: buildProductDetailContent(prod),
+        });
+      }
+
+      if (newLibraryProds.length > 0) {
+        const allCards = useProductsStore
+          .getState()
+          .products.map(libraryToProductCard);
+        upsertProductsIndexPage(allCards);
+      }
+    })();
+  }, [project, projectId, upsertProductPage, upsertProductsIndexPage]);
 
   useEditorShortcuts();
 

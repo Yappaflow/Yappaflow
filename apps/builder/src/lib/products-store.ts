@@ -38,6 +38,12 @@ interface ProductsState {
   updateProduct(id: string, patch: Partial<LibraryProduct>): void;
   removeProduct(id: string): void;
   replaceAll(products: LibraryProduct[]): void;
+  /**
+   * Merge server-sourced products into the library. Products whose handle
+   * already exists are skipped to preserve any agency edits. Returns only
+   * the products that were newly added so the caller can create pages for them.
+   */
+  syncServerProducts(incoming: Array<Omit<LibraryProduct, "id">>): LibraryProduct[];
 }
 
 /**
@@ -166,5 +172,18 @@ export const useProductsStore = create<ProductsState>()((set, get) => ({
   replaceAll(products) {
     set({ products });
     writeToStorage(products);
+  },
+
+  syncServerProducts(incoming) {
+    const existing = get().products;
+    const existingHandles = new Set(existing.map((p) => p.handle));
+    const added: LibraryProduct[] = incoming
+      .filter((p) => !existingHandles.has(p.handle))
+      .map((p) => ({ ...p, id: makeId() }));
+    if (added.length === 0) return [];
+    const next = [...existing, ...added];
+    set({ products: next });
+    writeToStorage(next);
+    return added;
   },
 }));

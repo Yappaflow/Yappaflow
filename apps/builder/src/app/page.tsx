@@ -52,6 +52,13 @@ export default function Home() {
               Open sample project
               <span aria-hidden="true">→</span>
             </a>
+            <a
+              href="/products"
+              className="inline-flex items-center gap-2 rounded-full border border-current/20 px-5 py-2.5 text-sm font-medium hover:border-current/40 transition-colors"
+            >
+              View products
+              <span aria-hidden="true">→</span>
+            </a>
             <span className="text-xs opacity-50">
               Dev entry point — real projects arrive via the studio flow from
               Phase 10.5.

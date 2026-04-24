@@ -1,4 +1,5 @@
 import type { LibraryProduct } from "./products-store";
+import type { ServerProduct } from "./server-api";
 
 /**
  * Transform a LibraryProduct into the shape a product-grid section expects
@@ -31,5 +32,30 @@ export function libraryToProductCard(
       alt: product.image.alt ?? product.title,
     },
     href: product.href,
+  };
+}
+
+/**
+ * Convert a server-side IProduct (from /deploy/projects/:id/products) into
+ * the LibraryProduct shape the builder uses. The handle is derived from the
+ * product name so it's stable across syncs.
+ */
+export function serverProductToLibrary(
+  product: ServerProduct,
+): Omit<LibraryProduct, "id"> {
+  const handle =
+    product.name
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "product";
+  const symbol = product.currency === "USD" || !product.currency ? "$" : `${product.currency} `;
+  return {
+    title: product.name,
+    handle,
+    price: `${symbol}${product.price}`,
+    currency: product.currency ?? "USD",
+    image: { url: product.images?.[0] ?? "", alt: product.name },
+    href: `/products/${handle}`,
   };
 }
