@@ -7,10 +7,11 @@
   "homepage": "https://ui.yappaflow.com",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yappaflow/yappaflow-ui.git"
+    "url": "git+https://github.com/yappaflow/yappaflow.git",
+    "directory": "packages/yappaflow-ui"
   },
   "bugs": {
-    "url": "https://github.com/yappaflow/yappaflow-ui/issues"
+    "url": "https://github.com/yappaflow/yappaflow/issues"
   },
   "publishConfig": {
     "access": "public",

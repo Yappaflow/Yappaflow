@@ -2,6 +2,16 @@
   "name": "yappaflow",
   "version": "0.1.0",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yappaflow/yappaflow.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yappaflow/yappaflow/issues"
+  },
+  "homepage": "https://yappaflow.com",
+  "author": "Yappaflow",
+  "license": "UNLICENSED",
   "workspaces": [
     "web",
     "server",

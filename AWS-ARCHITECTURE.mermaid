@@ -1,0 +1,113 @@
+graph TB
+    classDef edge fill:#FF9900,stroke:#232F3E,color:#fff,stroke-width:2px
+    classDef compute fill:#ED7100,stroke:#232F3E,color:#fff,stroke-width:2px
+    classDef data fill:#3B48CC,stroke:#232F3E,color:#fff,stroke-width:2px
+    classDef security fill:#DD344C,stroke:#232F3E,color:#fff,stroke-width:2px
+    classDef storage fill:#7AA116,stroke:#232F3E,color:#fff,stroke-width:2px
+    classDef external fill:#555,stroke:#000,color:#fff,stroke-width:2px
+    classDef users fill:#1168bd,stroke:#000,color:#fff,stroke-width:2px
+
+    Users([Users / Agencies / Generated Sites Visitors]):::users
+    External[DeepSeek / OpenRouter<br/>External AI APIs]:::external
+
+    subgraph AWS[" AWS Cloud — eu-central-1 Frankfurt "]
+        direction TB
+
+        Route53[Route 53<br/>DNS + health checks]:::edge
+
+        subgraph EdgeLayer[" Edge / CDN Layer "]
+            direction LR
+            CF[CloudFront<br/>global CDN + TLS termination]:::edge
+            WAF[AWS WAF<br/>OWASP rules + rate limiting<br/>+ geo-block + bot control]:::security
+            Shield[Shield Standard<br/>L3/L4 DDoS — free, always on]:::security
+        end
+
+        subgraph VPC[" VPC — 10.0.0.0/16 "]
+            direction TB
+
+            subgraph PublicSub[" Public Subnets — Multi-AZ "]
+                direction LR
+                ALB[Application Load Balancer<br/>L7 routing + health checks<br/>+ TLS to origins]:::edge
+                NAT[NAT Gateway<br/>egress for private subnets]:::edge
+            end
+
+            subgraph PrivApp[" Private App Subnets — ECS Fargate Cluster "]
+                direction LR
+                Web[web service<br/>Next.js agency dashboard<br/>auto-scaled 2 to N tasks]:::compute
+                Server[server service<br/>Express API<br/>auth, OTP, ingestion]:::compute
+                Builder[apps/builder<br/>Next.js in-house builder<br/>SiteProject editor]:::compute
+                MCP[yappaflow-mcp<br/>reference pipeline +<br/>build_site_project + adapters]:::compute
+            end
+
+            subgraph PrivData[" Private Data Subnets "]
+                direction LR
+                RDS[(RDS Postgres<br/>Multi-AZ + automated backups<br/>+ PITR + KMS-encrypted)]:::data
+                Redis[(ElastiCache Redis<br/>sessions + rate-limit counters<br/>+ build job queue)]:::data
+            end
+        end
+
+        subgraph StorageBlock[" Storage "]
+            direction LR
+            S3Sites[S3 — yappaflow-sites<br/>generated sites + ZIP exports<br/>versioned + lifecycle rules]:::storage
+            S3Static[S3 — yappaflow-static<br/>UI assets + uploaded refs]:::storage
+            ECR[ECR<br/>Docker image registry<br/>4 repos — one per service]:::storage
+        end
+
+        subgraph SecOps[" Security & Operations "]
+            direction LR
+            Secrets[Secrets Manager<br/>DeepSeek key<br/>OpenRouter key<br/>DB credentials<br/>JWT signing keys]:::security
+            CW[CloudWatch<br/>logs + metrics + alarms<br/>+ dashboard]:::security
+            GD[GuardDuty<br/>anomaly + threat detection<br/>compromised IAM, malware]:::security
+            CT[CloudTrail<br/>full API audit log<br/>SOC2-ready]:::security
+            KMS[KMS<br/>encryption keys<br/>RDS, S3, Secrets, EBS]:::security
+        end
+    end
+
+    Users -->|HTTPS| Route53
+    Route53 --> CF
+    Shield -.always protects.-> CF
+    CF -->|inspect| WAF
+    WAF -->|allowed| ALB
+    CF -->|cache + serve| S3Sites
+
+    ALB -->|/dashboard/*| Web
+    ALB -->|/api/*| Server
+    ALB -->|/builder/*| Builder
+    ALB -->|/reference/*| MCP
+
+    Web -->|read/write| RDS
+    Server -->|read/write| RDS
+    Server -->|cache + sessions| Redis
+    Builder -->|read/write| RDS
+    MCP -->|read/write| RDS
+
+    Server -->|put ZIP| S3Sites
+    Builder -->|put site| S3Sites
+    MCP -->|put assets| S3Sites
+
+    MCP -->|outbound| NAT
+    Server -->|outbound| NAT
+    Builder -->|outbound| NAT
+    NAT -->|HTTPS| External
+
+    Web -.IAM role.-> Secrets
+    Server -.IAM role.-> Secrets
+    Builder -.IAM role.-> Secrets
+    MCP -.IAM role.-> Secrets
+
+    Web -.pull image.-> ECR
+    Server -.pull image.-> ECR
+    Builder -.pull image.-> ECR
+    MCP -.pull image.-> ECR
+
+    Web -.logs/metrics.-> CW
+    Server -.logs/metrics.-> CW
+    Builder -.logs/metrics.-> CW
+    MCP -.logs/metrics.-> CW
+
+    KMS -.encrypts.-> RDS
+    KMS -.encrypts.-> S3Sites
+    KMS -.encrypts.-> Secrets
+
+    GD -.monitors.-> VPC
+    CT -.audits all calls.-> AWS

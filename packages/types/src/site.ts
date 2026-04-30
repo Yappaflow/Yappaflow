@@ -89,8 +89,33 @@ export const PageSeoSchema = z.object({
 export type PageSeo = z.infer<typeof PageSeoSchema>;
 
 /**
+ * Page kind — tells CMS adapters how to map this page onto the target's
+ * native model. `content` is the default and lands as a generic CMS page
+ * (Shopify Pages, WordPress pages, Webflow CMS items). `product` carries a
+ * single product detail and gets routed through each platform's native
+ * product API (Shopify Products, IKAS Products, WooCommerce). `product-index`
+ * is the catalog landing page (`/products`) and stays a content page on every
+ * target — the listing comes from native collection logic, not body HTML.
+ *
+ * v1 SiteProjects (no `kind`) are migrated on load: slugs starting with
+ * `/products/` and not equal to `/products` become `product`; `/products`
+ * becomes `product-index`; everything else becomes `content`.
+ */
+export const PAGE_KINDS = ["content", "product", "product-index"] as const;
+export type PageKind = (typeof PAGE_KINDS)[number];
+export const PageKindSchema = z.enum(PAGE_KINDS);
+
+/**
  * A Page is an ordered list of sections with routing + SEO. Slug matches the
  * URL path the adapter will mount it at. `/` is always the home page.
+ *
+ * `kind` is load-bearing for CMS export: adapters must respect it. Defaults
+ * to `content` when absent (handles old fixtures + legacy tests).
+ *
+ * `productHandle` is required when kind === "product" so the adapter knows
+ * which library product this page describes; the field is unused for other
+ * kinds. Validation is enforced by `assertValidPage` rather than a Zod refine
+ * so older content + the migration path don't have to fight the schema.
  */
 export const PageSchema = z.object({
   id: z.string().min(1),
@@ -98,6 +123,8 @@ export const PageSchema = z.object({
   title: z.string().min(1),
   seo: PageSeoSchema.default({ description: "" }),
   sections: z.array(SectionSchema).default([]),
+  kind: PageKindSchema.default("content"),
+  productHandle: z.string().optional(),
 });
 export type Page = z.infer<typeof PageSchema>;
 
@@ -122,7 +149,7 @@ export type SiteGlobals = z.infer<typeof SiteGlobalsSchema>;
  * below so consumers get full autocomplete on DNA internals.
  */
 export const SiteProjectSchema = z.object({
-  schemaVersion: z.literal(1),
+  schemaVersion: z.literal(2),
   brief: BriefSchema,
   dna: z.object({ schemaVersion: z.literal(1) }).passthrough(),
   pages: z.array(PageSchema).min(1),
@@ -138,5 +165,44 @@ export type SiteProject = Omit<z.infer<typeof SiteProjectSchema>, "dna"> & {
   dna: MergedDna;
 };
 
-/** Current SiteProject schema version. Bump + migrate on breaking shape changes. */
-export const SITE_PROJECT_SCHEMA_VERSION = 1 as const;
+/**
+ * Current SiteProject schema version. Bump + migrate on breaking shape changes.
+ *
+ * v1 → v2 (2026-04-27): adds `kind` and optional `productHandle` to Page so
+ * CMS adapters can route each page to the target's native product / page API
+ * instead of dumping everything as a generic content page. Migration is in
+ * apps/builder/src/lib/persistence.ts (slug-prefix inference) and the MCP
+ * assembler stamps the new shape directly.
+ */
+export const SITE_PROJECT_SCHEMA_VERSION = 2 as const;
+
+/**
+ * Infer page kind from slug — single source of truth. Used by:
+ *   - the persistence migration (v1 → v2 stamping on load),
+ *   - the builder's upsertProductPage / upsertProductsIndexPage actions,
+ *   - the MCP assembler when seeding e-commerce briefs.
+ *
+ * Convention: `/products/<handle>` is a product, `/products` exactly is the
+ * catalog index, anything else is content. If we ever change this routing
+ * convention, changing it in one place propagates to every consumer.
+ */
+export function inferPageKind(slug: string): PageKind {
+  const normalized = slug.startsWith("/") ? slug : `/${slug}`;
+  if (normalized === "/products") return "product-index";
+  if (normalized.startsWith("/products/") && normalized.length > "/products/".length) {
+    return "product";
+  }
+  return "content";
+}
+
+/**
+ * Pull the product handle out of a `/products/<handle>` slug, or null if the
+ * slug doesn't fit that shape. Used by the migration to fill in
+ * `productHandle` on legacy v1 pages without re-running the products panel.
+ */
+export function productHandleFromSlug(slug: string): string | null {
+  const normalized = slug.startsWith("/") ? slug : `/${slug}`;
+  if (!normalized.startsWith("/products/")) return null;
+  const handle = normalized.slice("/products/".length).split("/")[0] ?? "";
+  return handle || null;
+}

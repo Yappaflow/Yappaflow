@@ -36,6 +36,7 @@ export function ProductsPanel() {
   const syncLibraryProduct = useProjectStore((s) => s.syncLibraryProduct);
   const upsertProductPage = useProjectStore((s) => s.upsertProductPage);
   const upsertProductsIndexPage = useProjectStore((s) => s.upsertProductsIndexPage);
+  const upsertHomeFeaturedGrid = useProjectStore((s) => s.upsertHomeFeaturedGrid);
   const removeProductPageByHandle = useProjectStore(
     (s) => s.removeProductPageByHandle,
   );
@@ -97,11 +98,15 @@ export function ProductsPanel() {
                 pageSections: buildProductPageSections(fresh),
                 productDetailContent: buildProductDetailContent(fresh),
               });
-              // Keep the catalog page in sync with the full updated library.
+              // Keep the catalog page AND the home featured strip in sync
+              // with the full updated library — so the new product is
+              // visible on the landing page the moment it's added, the way
+              // Shopify / IKAS storefronts behave by default.
               const allCards = useProductsStore
                 .getState()
                 .products.map(libraryToProductCard);
               upsertProductsIndexPage(allCards);
+              upsertHomeFeaturedGrid(allCards);
             }}
             className="rounded-full border border-current/20 px-3 py-1 text-xs hover:border-current/40"
           >
@@ -129,6 +134,7 @@ export function ProductsPanel() {
                       .getState()
                       .products.map(libraryToProductCard);
                     upsertProductsIndexPage(remainingCards);
+                    upsertHomeFeaturedGrid(remainingCards);
                   }}
                 />
               </li>
@@ -162,11 +168,13 @@ export function ProductsPanel() {
               pageSections: buildProductPageSections(nextProduct),
               productDetailContent: buildProductDetailContent(nextProduct),
             });
-            // Refresh the catalog page so the grid card reflects the edits.
+            // Refresh the catalog page AND the home featured strip so the
+            // updated card reflects everywhere the library surfaces it.
             const updatedCards = useProductsStore
               .getState()
               .products.map(libraryToProductCard);
             upsertProductsIndexPage(updatedCards);
+            upsertHomeFeaturedGrid(updatedCards);
             setEditingId(null);
           }}
         />

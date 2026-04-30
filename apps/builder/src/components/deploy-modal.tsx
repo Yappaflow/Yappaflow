@@ -4,7 +4,7 @@ import { useState } from "react";
 import { X, Loader2, ExternalLink, CheckCircle, AlertCircle } from "lucide-react";
 import { useProjectStore } from "@/lib/store";
 
-type CmsId = "shopify" | "webflow" | "wordpress";
+type CmsId = "shopify" | "ikas" | "webflow" | "wordpress";
 type Phase = "select" | "deploying" | "success" | "error";
 
 interface CmsOption {
@@ -13,35 +13,49 @@ interface CmsOption {
   description: string;
   bg: string;
   label: string;
+  /** Marks adapters that do not yet have full implementations. */
+  experimental?: boolean;
 }
 
 const CMS_OPTIONS: CmsOption[] = [
   {
     id: "shopify",
     name: "Shopify",
-    description: "Create pages in your Shopify store via Admin API",
+    description: "Native Products + Pages via Admin API",
     bg: "bg-[#96BF48]",
     label: "S",
   },
   {
+    id: "ikas",
+    name: "IKAS",
+    description: "Skeleton — wire GraphQL ProductSave/PageSave to ship",
+    bg: "bg-[#FF6B35]",
+    label: "I",
+    experimental: true,
+  },
+  {
     id: "webflow",
     name: "Webflow",
-    description: "Publish to a Webflow CMS collection and go live",
+    description: "Pages + products land in CMS collection (no native commerce yet)",
     bg: "bg-[#4353FF]",
     label: "W",
+    experimental: true,
   },
   {
     id: "wordpress",
     name: "WordPress",
-    description: "Publish pages to WordPress via REST API",
+    description: "Pages via REST API (WooCommerce mapping coming)",
     bg: "bg-[#21759B]",
     label: "WP",
+    experimental: true,
   },
 ];
 
 interface DeployResult {
   redirectUrl: string;
   published: number;
+  publishedProducts?: number;
+  publishedPages?: number;
   note?: string;
 }
 
@@ -58,13 +72,13 @@ export function DeployModal({ onClose }: { onClose: () => void }) {
     setPhase("deploying");
 
     try {
-      const { exportPagesForCms } = await import("@/lib/export-html");
-      const pages = exportPagesForCms(project);
+      const { exportForCms } = await import("@/lib/export-html");
+      const bundle = exportForCms(project);
 
       const res = await fetch(`/api/deploy/${cmsId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pages }),
+        body: JSON.stringify(bundle),
       });
 
       const json = (await res.json()) as {
@@ -72,6 +86,8 @@ export function DeployModal({ onClose }: { onClose: () => void }) {
         error?: string;
         redirectUrl?: string;
         published?: number;
+        publishedProducts?: number;
+        publishedPages?: number;
         note?: string;
       };
 
@@ -79,9 +95,16 @@ export function DeployModal({ onClose }: { onClose: () => void }) {
         throw new Error(json.error ?? `Deploy failed (${res.status})`);
       }
 
+      const totalSent =
+        bundle.products.length +
+        bundle.contentPages.length +
+        (bundle.productIndex ? 1 : 0);
+
       setResult({
         redirectUrl: json.redirectUrl ?? "",
-        published: json.published ?? pages.length,
+        published: json.published ?? totalSent,
+        publishedProducts: json.publishedProducts,
+        publishedPages: json.publishedPages,
         note: json.note,
       });
       setPhase("success");
@@ -129,6 +152,7 @@ export function DeployModal({ onClose }: { onClose: () => void }) {
         <div className="p-5">
           {phase === "select" && (
             <div className="flex flex-col gap-2.5">
+              <DeployPreviewCounts />
               {CMS_OPTIONS.map((cms) => (
                 <button
                   key={cms.id}
@@ -140,8 +164,15 @@ export function DeployModal({ onClose }: { onClose: () => void }) {
                   >
                     {cms.label}
                   </span>
-                  <div>
-                    <p className="text-sm font-medium">{cms.name}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="flex items-center gap-2 text-sm font-medium">
+                      {cms.name}
+                      {cms.experimental ? (
+                        <span className="rounded-full bg-current/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider opacity-60">
+                          Beta
+                        </span>
+                      ) : null}
+                    </p>
                     <p className="text-xs opacity-50">{cms.description}</p>
                   </div>
                 </button>
@@ -167,8 +198,11 @@ export function DeployModal({ onClose }: { onClose: () => void }) {
               <CheckCircle className="h-10 w-10 text-emerald-500" />
               <div className="text-center">
                 <p className="text-sm font-semibold">
-                  {result.published} page
-                  {result.published !== 1 ? "s" : ""} published to {cmsName}
+                  {result.publishedProducts !== undefined &&
+                  result.publishedPages !== undefined
+                    ? `${result.publishedProducts} product${result.publishedProducts !== 1 ? "s" : ""} + ${result.publishedPages} page${result.publishedPages !== 1 ? "s" : ""}`
+                    : `${result.published} resource${result.published !== 1 ? "s" : ""}`}
+                  {" "}published to {cmsName}
                 </p>
                 <p className="mt-1 text-xs opacity-50">Your site is now live</p>
                 {result.note && (
@@ -210,6 +244,41 @@ export function DeployModal({ onClose }: { onClose: () => void }) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Pre-deploy summary — shows how the project will be split across native
+ * product API vs. content pages so the user understands what's about to
+ * ship before they pick a CMS. Counts are derived from `Page.kind`.
+ */
+function DeployPreviewCounts() {
+  const project = useProjectStore((s) => s.project);
+  if (!project) return null;
+  let products = 0;
+  let contentPages = 0;
+  let productIndex = 0;
+  for (const page of project.pages) {
+    const kind = page.kind ?? "content";
+    if (kind === "product") products += 1;
+    else if (kind === "product-index") productIndex += 1;
+    else contentPages += 1;
+  }
+  if (products === 0 && contentPages === 0 && productIndex === 0) return null;
+  const parts: string[] = [];
+  if (products > 0) parts.push(`${products} product${products !== 1 ? "s" : ""}`);
+  if (contentPages > 0) parts.push(`${contentPages} page${contentPages !== 1 ? "s" : ""}`);
+  if (productIndex > 0) parts.push(`catalog index`);
+  return (
+    <div className="rounded-lg border border-current/10 bg-current/5 px-3 py-2.5">
+      <p className="text-[10px] font-semibold uppercase tracking-wider opacity-60">
+        Will publish
+      </p>
+      <p className="mt-0.5 text-sm">{parts.join(" · ")}</p>
+      <p className="mt-1 text-[11px] opacity-50">
+        Products route to native CMS product APIs where supported.
+      </p>
     </div>
   );
 }

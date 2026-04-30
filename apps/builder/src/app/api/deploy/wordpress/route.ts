@@ -7,8 +7,32 @@ interface RenderedPage {
   seoDescription?: string;
 }
 
+interface CmsProduct {
+  handle: string;
+  title: string;
+  price: string;
+  compareAtPrice?: string;
+  currency: string;
+  descriptionHtml: string;
+  bodyHtml: string;
+  images: Array<{ url: string; alt?: string }>;
+  variantGroups: Array<{ label: string; options: string[] }>;
+  specs: Array<{ label: string; value: string }>;
+  seoDescription?: string;
+}
+
+/**
+ * Accepts the CMS-aware bundle (contentPages + products + productIndex)
+ * AND the legacy single-stream `pages` shape. Until the WordPress adapter
+ * detects WooCommerce and posts to /wp-json/wc/v3/products, products are
+ * published as standard pages — still online, just not as WooCommerce
+ * products with structured price/variants.
+ */
 interface DeployBody {
-  pages: RenderedPage[];
+  contentPages?: RenderedPage[];
+  products?: CmsProduct[];
+  productIndex?: RenderedPage | null;
+  pages?: RenderedPage[];
 }
 
 interface WpPageResponse {
@@ -33,9 +57,20 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { pages } = (await req.json()) as DeployBody;
+  const body = (await req.json()) as DeployBody;
+  const pages: RenderedPage[] = [
+    ...(body.contentPages ?? []),
+    ...(body.pages ?? []),
+    ...(body.productIndex ? [body.productIndex] : []),
+    ...(body.products ?? []).map((p) => ({
+      slug: `/products/${p.handle}`,
+      title: p.title,
+      bodyHtml: p.bodyHtml,
+      seoDescription: p.seoDescription,
+    })),
+  ];
 
-  if (!Array.isArray(pages) || pages.length === 0) {
+  if (pages.length === 0) {
     return NextResponse.json({ error: "No pages provided" }, { status: 400 });
   }
 

@@ -63,6 +63,7 @@ export function EditorShell({ projectId }: { projectId: string }) {
   const appendProductToGrid = useProjectStore((s) => s.appendProductToGrid);
   const upsertProductPage = useProjectStore((s) => s.upsertProductPage);
   const upsertProductsIndexPage = useProjectStore((s) => s.upsertProductsIndexPage);
+  const upsertHomeFeaturedGrid = useProjectStore((s) => s.upsertHomeFeaturedGrid);
 
   const [loadOpen, setLoadOpen] = useState(false);
   const [activeDrag, setActiveDrag] = useState<ActiveDragData | null>(null);
@@ -111,9 +112,16 @@ export function EditorShell({ projectId }: { projectId: string }) {
           .getState()
           .products.map(libraryToProductCard);
         upsertProductsIndexPage(allCards);
+        upsertHomeFeaturedGrid(allCards);
       }
     })();
-  }, [project, projectId, upsertProductPage, upsertProductsIndexPage]);
+  }, [
+    project,
+    projectId,
+    upsertProductPage,
+    upsertProductsIndexPage,
+    upsertHomeFeaturedGrid,
+  ]);
 
   useEditorShortcuts();
 

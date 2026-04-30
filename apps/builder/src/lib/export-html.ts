@@ -12,6 +12,28 @@ import {
 } from "./export-runtime";
 
 /**
+ * Structured product, as adapters need it to talk to native product APIs
+ * (Shopify Products, IKAS Products, WooCommerce). Independent of the
+ * rendered HTML — adapters that map to native products use these fields;
+ * adapters that fall back to generic pages can render the full body via
+ * `bodyHtml`.
+ */
+export interface CmsProduct {
+  handle: string;
+  title: string;
+  price: string;
+  compareAtPrice?: string;
+  currency: string;
+  descriptionHtml: string;
+  /** Full rendered page (sections only, no globals) — fallback for adapters that don't support native products. */
+  bodyHtml: string;
+  images: Array<{ url: string; alt?: string }>;
+  variantGroups: Array<{ label: string; options: string[] }>;
+  specs: Array<{ label: string; value: string }>;
+  seoDescription?: string;
+}
+
+/**
  * Client-side HTML export.
  *
  * Walks every page in the SiteProject, renders each via React's static
@@ -48,27 +70,154 @@ export interface CmsRenderedPage {
 }
 
 /**
- * Renders each page's sections (no header/footer) into standalone HTML strings
- * suitable for CMS body fields (Shopify body_html, WordPress content, Webflow rich-text).
- * Globals are omitted intentionally: CMS themes supply their own navigation.
+ * CMS-aware export. Splits the project into three streams so each CMS
+ * adapter can route them to the right native API:
+ *
+ *   - `contentPages`: regular content pages (home, about, etc.). Adapter
+ *     POSTs them to the CMS's pages API (Shopify Pages, WP pages,
+ *     Webflow CMS items).
+ *   - `products`: structured product detail. Adapter POSTs them to the
+ *     CMS's native product API (Shopify Products, IKAS Products,
+ *     WooCommerce). `bodyHtml` is provided as a fallback for adapters
+ *     that don't support native products yet.
+ *   - `productIndex`: the catalog landing (`/products`). Stays a content
+ *     page on every target — the listing comes from native collection
+ *     logic, not from this body HTML.
+ *
+ * Routing is driven by `Page.kind` (added in SiteProject schema v2). The
+ * persistence migration stamps it on legacy projects via slug inference.
  */
-export function exportPagesForCms(project: SiteProject): CmsRenderedPage[] {
+export interface CmsExportBundle {
+  contentPages: CmsRenderedPage[];
+  products: CmsProduct[];
+  productIndex: CmsRenderedPage | null;
+}
+
+export function exportForCms(project: SiteProject): CmsExportBundle {
   const slugToFile = new Map<string, string>();
   for (const page of project.pages) {
     slugToFile.set(normalizeSlug(page.slug), slugToFilename(page.slug));
   }
 
-  return project.pages.map((page) => {
-    const children = page.sections.map((s) => renderSection(s, s.id));
-    const markup = renderToStaticMarkup(createElement(Fragment, null, ...children));
-    const bodyHtml = rewriteSlugHrefs(markup, slugToFile);
-    return {
-      slug: normalizeSlug(page.slug),
-      title: page.title,
-      bodyHtml,
-      seoDescription: page.seo.description,
-    };
-  });
+  const contentPages: CmsRenderedPage[] = [];
+  const products: CmsProduct[] = [];
+  let productIndex: CmsRenderedPage | null = null;
+
+  for (const page of project.pages) {
+    const rendered = renderPageBody(page, slugToFile);
+    const kind = page.kind ?? "content";
+    if (kind === "product") {
+      const product = extractProduct(page, rendered.bodyHtml);
+      if (product) {
+        products.push(product);
+      } else {
+        // Couldn't pull structured product data — fall back to a content
+        // page so the page is at least published (with a warning logged
+        // server-side once the adapter consumes the bundle).
+        contentPages.push(rendered);
+      }
+    } else if (kind === "product-index") {
+      productIndex = rendered;
+    } else {
+      contentPages.push(rendered);
+    }
+  }
+
+  return { contentPages, products, productIndex };
+}
+
+/**
+ * Legacy single-stream export. Kept so existing call sites in the deploy
+ * modal don't break — internally rebuilds the flat list adapters used to
+ * receive. New adapters should consume `exportForCms` directly.
+ */
+export function exportPagesForCms(project: SiteProject): CmsRenderedPage[] {
+  const bundle = exportForCms(project);
+  const out: CmsRenderedPage[] = [...bundle.contentPages];
+  // Append products as generic pages with their fully-rendered body — old
+  // adapters publish them somewhere rather than dropping them.
+  for (const product of bundle.products) {
+    out.push({
+      slug: `/products/${product.handle}`,
+      title: product.title,
+      bodyHtml: product.bodyHtml,
+      seoDescription: product.seoDescription,
+    });
+  }
+  if (bundle.productIndex) out.push(bundle.productIndex);
+  return out;
+}
+
+function renderPageBody(
+  page: Page,
+  slugToFile: Map<string, string>,
+): CmsRenderedPage {
+  const children = page.sections.map((s) => renderSection(s, s.id));
+  const markup = renderToStaticMarkup(createElement(Fragment, null, ...children));
+  const bodyHtml = rewriteSlugHrefs(markup, slugToFile);
+  return {
+    slug: normalizeSlug(page.slug),
+    title: page.title,
+    bodyHtml,
+    seoDescription: page.seo.description,
+  };
+}
+
+/**
+ * Pull structured product fields out of a product page's product-detail
+ * section. Returns null if the page has no product-detail section — caller
+ * decides whether to fall back to publishing the page as content.
+ */
+function extractProduct(page: Page, bodyHtml: string): CmsProduct | null {
+  const detail = page.sections.find((s) => s.type === "product-detail");
+  if (!detail) return null;
+  const c = detail.content as {
+    title?: string;
+    price?: string;
+    compareAtPrice?: string;
+    currency?: string;
+    description?: string;
+    images?: Array<{ url?: string; alt?: string }>;
+    variantGroups?: Array<{ label?: string; options?: string[] }>;
+    specs?: Array<{ label?: string; value?: string }>;
+  };
+
+  const handle =
+    page.productHandle ??
+    page.slug.replace(/^\/products\//, "").split("/")[0] ??
+    "";
+  if (!handle) return null;
+
+  // Description in the product-detail content is plain text; wrap as a
+  // single <p> so adapters that expect HTML get well-formed input. If
+  // empty, fall back to the rendered body so something useful ships.
+  const descriptionHtml = c.description
+    ? `<p>${escapeHtml(c.description)}</p>`
+    : bodyHtml;
+
+  return {
+    handle,
+    title: c.title ?? page.title,
+    price: c.price ?? "",
+    ...(c.compareAtPrice ? { compareAtPrice: c.compareAtPrice } : {}),
+    currency: c.currency ?? "USD",
+    descriptionHtml,
+    bodyHtml,
+    images: (c.images ?? [])
+      .filter((img): img is { url: string; alt?: string } => Boolean(img.url))
+      .map((img) => ({ url: img.url, ...(img.alt ? { alt: img.alt } : {}) })),
+    variantGroups: (c.variantGroups ?? [])
+      .filter((g): g is { label: string; options: string[] } =>
+        Boolean(g.label) && Array.isArray(g.options) && g.options.length > 0,
+      )
+      .map((g) => ({ label: g.label, options: g.options })),
+    specs: (c.specs ?? [])
+      .filter((s): s is { label: string; value: string } =>
+        Boolean(s.label) && Boolean(s.value),
+      )
+      .map((s) => ({ label: s.label, value: s.value })),
+    seoDescription: page.seo.description,
+  };
 }
 
 export async function exportSiteAsZip(

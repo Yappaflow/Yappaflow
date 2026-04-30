@@ -167,6 +167,10 @@ export function assembleSiteProject(
             ? `${brief.industry} — ${brief.tone}.`
             : `${brief.industry} site.`,
         },
+        // Home is always content. Adapters that detect commerce briefs and
+        // want to surface a featured product strip should do so via the
+        // product-grid SECTION on this page, not by changing kind.
+        kind: "content",
         sections: homeSections,
       },
     ],

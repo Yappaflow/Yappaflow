@@ -9,8 +9,32 @@ interface RenderedPage {
   seoDescription?: string;
 }
 
+interface CmsProduct {
+  handle: string;
+  title: string;
+  price: string;
+  compareAtPrice?: string;
+  currency: string;
+  descriptionHtml: string;
+  bodyHtml: string;
+  images: Array<{ url: string; alt?: string }>;
+  variantGroups: Array<{ label: string; options: string[] }>;
+  specs: Array<{ label: string; value: string }>;
+  seoDescription?: string;
+}
+
+/**
+ * Accepts the CMS-aware bundle (contentPages + products + productIndex)
+ * AND the legacy single-stream `pages` shape. Until the Webflow adapter
+ * gets a real Products CMS mapping (TODO), products are flattened into
+ * the same RichText collection as content pages — they're still
+ * publishable, just not as native Webflow Ecommerce products.
+ */
 interface DeployBody {
-  pages: RenderedPage[];
+  contentPages?: RenderedPage[];
+  products?: CmsProduct[];
+  productIndex?: RenderedPage | null;
+  pages?: RenderedPage[];
 }
 
 async function wf<T>(
@@ -53,9 +77,23 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { pages } = (await req.json()) as DeployBody;
+  const body = (await req.json()) as DeployBody;
+  // Flatten the bundle: products ride along as RichText items until the
+  // adapter gets a real Webflow Ecommerce mapping. Productindex appears as
+  // a regular page so the catalog landing exists.
+  const pages: RenderedPage[] = [
+    ...(body.contentPages ?? []),
+    ...(body.pages ?? []),
+    ...(body.productIndex ? [body.productIndex] : []),
+    ...(body.products ?? []).map((p) => ({
+      slug: `/products/${p.handle}`,
+      title: p.title,
+      bodyHtml: p.bodyHtml,
+      seoDescription: p.seoDescription,
+    })),
+  ];
 
-  if (!Array.isArray(pages) || pages.length === 0) {
+  if (pages.length === 0) {
     return NextResponse.json({ error: "No pages provided" }, { status: 400 });
   }
 

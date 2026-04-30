@@ -1,0 +1,108 @@
+graph TB
+    classDef edge fill:#FF9900,stroke:#232F3E,color:#fff,stroke-width:2px
+    classDef compute fill:#ED7100,stroke:#232F3E,color:#fff,stroke-width:2px
+    classDef spot fill:#FFB84D,stroke:#232F3E,color:#000,stroke-width:2px,stroke-dasharray: 5 3
+    classDef data fill:#3B48CC,stroke:#232F3E,color:#fff,stroke-width:2px
+    classDef security fill:#DD344C,stroke:#232F3E,color:#fff,stroke-width:2px
+    classDef storage fill:#7AA116,stroke:#232F3E,color:#fff,stroke-width:2px
+    classDef external fill:#555,stroke:#000,color:#fff,stroke-width:2px
+    classDef users fill:#1168bd,stroke:#000,color:#fff,stroke-width:2px
+    classDef cf fill:#F38020,stroke:#000,color:#fff,stroke-width:2px
+
+    Users([Users / Agencies / Generated Sites Visitors]):::users
+    External[DeepSeek / OpenRouter<br/>External AI APIs]:::external
+
+    subgraph CFLayer[" Cloudflare — FREE TIER (~$0/mo) "]
+        direction LR
+        CF_DNS[Cloudflare DNS]:::cf
+        CF_CDN[Global CDN + TLS<br/>edge caching]:::cf
+        CF_WAF[WAF + Bot Management<br/>+ DDoS L3-L7<br/>+ Rate Limiting]:::cf
+    end
+
+    subgraph AWS[" AWS Cloud — eu-central-1 Frankfurt "]
+        direction TB
+
+        CFront[CloudFront<br/>origin shield + cache]:::edge
+
+        subgraph VPC[" VPC — 10.0.0.0/16 "]
+            direction TB
+
+            subgraph PublicSub[" Public Subnet "]
+                direction LR
+                ALB[Application Load Balancer<br/>L7 path-based routing<br/>~$22/mo]:::edge
+                FckNat[fck-nat on t4g.nano<br/>open-source NAT<br/>~$3/mo]:::edge
+            end
+
+            subgraph PrivApp[" Private Subnets — ECS Fargate Cluster "]
+                direction LR
+                Web[web — on-demand<br/>0.25 vCPU / 0.5 GB<br/>1-2 tasks]:::compute
+                Server[server — on-demand<br/>0.25 vCPU / 0.5 GB<br/>1-2 tasks]:::compute
+                Builder[apps/builder — SPOT<br/>0.25 vCPU / 0.5 GB<br/>1 task]:::spot
+                MCP[yappaflow-mcp — SPOT<br/>0.25 vCPU / 0.5 GB<br/>1 task]:::spot
+            end
+
+            RDS[(RDS Postgres<br/>db.t4g.micro<br/>Single-AZ<br/>daily backup + 7d PITR<br/>~$15/mo)]:::data
+        end
+
+        subgraph StorageBlock[" Storage "]
+            direction LR
+            S3Sites[S3 — yappaflow-sites<br/>generated sites + ZIPs<br/>lifecycle to IA at 30d]:::storage
+            ECR[ECR<br/>Docker images<br/>500MB free tier]:::storage
+        end
+
+        subgraph SecOps[" Lean Security & Ops "]
+            direction LR
+            SSM[SSM Parameter Store<br/>DeepSeek + OpenRouter keys<br/>FREE standard tier]:::security
+            SecMgr[Secrets Manager<br/>DB creds only<br/>auto-rotation<br/>~$0.40/secret]:::security
+            CW[CloudWatch<br/>7-day log retention<br/>~$5/mo]:::security
+            KMS[KMS<br/>encryption keys]:::security
+        end
+    end
+
+    Note1[/"DEFERRED until you have customers:<br/>- ElastiCache Redis (use Postgres)<br/>- GuardDuty<br/>- Multi-AZ RDS<br/>- Shield Advanced<br/>- WAF on AWS (Cloudflare covers it)"/]
+
+    Users -->|HTTPS| CF_DNS
+    CF_DNS --> CF_CDN
+    CF_CDN -->|filter| CF_WAF
+    CF_WAF -->|origin: app traffic| CFront
+    CF_WAF -->|origin: site delivery<br/>FREE EGRESS| S3Sites
+    CFront --> ALB
+
+    ALB -->|/dashboard/*| Web
+    ALB -->|/api/*| Server
+    ALB -->|/builder/*| Builder
+    ALB -->|/reference/*| MCP
+
+    Web --> RDS
+    Server --> RDS
+    Builder --> RDS
+    MCP --> RDS
+
+    Server -->|put ZIP| S3Sites
+    Builder -->|put site| S3Sites
+    MCP -->|put assets| S3Sites
+
+    Server --> FckNat
+    Builder --> FckNat
+    MCP --> FckNat
+    FckNat -->|outbound HTTPS| External
+
+    Web -.IAM role.-> SSM
+    Server -.IAM role.-> SSM
+    Builder -.IAM role.-> SSM
+    MCP -.IAM role.-> SSM
+    Server -.IAM role.-> SecMgr
+
+    Web -.pull image.-> ECR
+    Server -.pull image.-> ECR
+    Builder -.pull image.-> ECR
+    MCP -.pull image.-> ECR
+
+    Web -.logs/metrics.-> CW
+    Server -.logs/metrics.-> CW
+    Builder -.logs/metrics.-> CW
+    MCP -.logs/metrics.-> CW
+
+    KMS -.encrypts.-> RDS
+    KMS -.encrypts.-> S3Sites
+    KMS -.encrypts.-> SecMgr

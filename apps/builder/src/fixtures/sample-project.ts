@@ -161,6 +161,8 @@ function buildProductDetailPage(id: string, card: (typeof SAMPLE_PRODUCT_CARDS)[
     slug: `/products/${card.handle}`,
     title: card.title,
     seo: { description: `${card.title} — shop on our store.` },
+    kind: "product",
+    productHandle: card.handle,
     sections: [
       {
         id: `${id}_detail`,
@@ -202,11 +204,33 @@ export function buildSampleSiteProject(): SiteProject {
         seo: {
           description: "Sample site assembled for the builder.",
         },
+        kind: "content",
         sections: [
           defaultSection("sec_hero", "hero", { animation: "slide-up" }),
           defaultSection("sec_fgrid", "feature-grid", {
             animation: "stagger-children",
           }),
+          // Featured products strip — mirrors how Shopify / IKAS surface a
+          // "Latest drops" block on the storefront home by default. The
+          // `featured-grid` id is also the target the builder's
+          // upsertHomeFeaturedGrid action looks for, so adding a product to
+          // the library propagates here automatically.
+          {
+            id: "sec_home_featured",
+            type: "product-grid",
+            variant: "card",
+            content: {
+              ...(SECTION_DATA["product-grid"].defaultContent as Record<string, unknown>),
+              eyebrow: "Shop",
+              heading: "Featured products",
+              subhead: "Hand-picked from the catalog.",
+              columns: 3,
+              products: SAMPLE_PRODUCT_CARDS,
+              ctaAll: { label: "View all products", href: "/products" },
+            },
+            style: {},
+            animation: "stagger-children",
+          },
           defaultSection("sec_frow", "feature-row", { animation: "slide-left" }),
           defaultSection("sec_test", "testimonial", { animation: "fade-in" }),
           defaultSection("sec_cta", "cta-band", { animation: "scale-in" }),
@@ -218,6 +242,7 @@ export function buildSampleSiteProject(): SiteProject {
         slug: "/products",
         title: "Products",
         seo: { description: "Browse our full product catalog." },
+        kind: "product-index",
         sections: [
           {
             id: "sec_products_hero",
@@ -258,3 +283,6 @@ export function buildSampleSiteProject(): SiteProject {
     },
   };
 }
+
+/** Stable id of the home page's featured-products grid. */
+export const HOME_FEATURED_GRID_ID = "sec_home_featured";

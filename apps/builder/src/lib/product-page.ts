@@ -85,6 +85,8 @@ export function buildDynamicProductPage(
     slug: productPageSlug(product.handle),
     title: product.title,
     seo: { description: `${product.title} — shop on our store.` },
+    kind: "product",
+    productHandle: product.handle,
     sections,
   };
 }

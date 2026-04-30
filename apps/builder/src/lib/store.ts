@@ -175,6 +175,19 @@ interface ProjectState {
    */
   upsertProductsIndexPage(productCards: Array<Record<string, unknown>>): void;
 
+  /**
+   * Mirror Shopify / IKAS storefront defaults: the home page surfaces a
+   * featured-products strip that stays in sync with the library. This action
+   * looks for an existing product-grid on the home page (preferring the
+   * stable HOME_FEATURED_GRID_ID, falling back to the first product-grid
+   * found) and replaces its `products` array with the supplied cards. If
+   * the home page has no product-grid yet, one is inserted just below the
+   * hero so new sites get the section out of the box. Pass an empty array
+   * to leave the section in place but emptied (lets the agency curate
+   * manually without losing the slot).
+   */
+  upsertHomeFeaturedGrid(productCards: Array<Record<string, unknown>>): void;
+
   // Manual save (autosave also fires on every mutation — see subscribe below).
   save(): void;
 }
@@ -307,6 +320,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
         slug: slug || "/",
         title: title || "Untitled",
         seo: { description: "" },
+        kind: "content" as const,
         sections: seededSections,
       };
       // Auto-link into the header's nav so new pages immediately surface in
@@ -629,6 +643,8 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
         // reflect the latest library data, and migrate slug/title if the
         // handle changed. Preserve any user edits to OTHER sections on
         // the page (related-products grid, testimonials they added, etc.).
+        // Also stamp kind + handle so legacy pages get upgraded on first
+        // edit even if the persistence migration didn't catch them.
         const nextPages = state.project.pages.map((page, i) => {
           if (i !== existingIndex) return page;
           const nextSections = page.sections.map((section) => {
@@ -645,6 +661,8 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
             ...page,
             slug: newSlug,
             title,
+            kind: "product" as const,
+            productHandle: handle,
             sections: nextSections,
           };
         });
@@ -676,6 +694,8 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
               slug: newSlug,
               title,
               seo: { description: `${title} — shop on our store.` },
+              kind: "product" as const,
+              productHandle: handle,
               sections: seededSections,
             },
           ],
@@ -716,7 +736,8 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
       const existingIndex = state.project.pages.findIndex((p) => p.slug === slug);
 
       if (existingIndex >= 0) {
-        // Refresh only the product-grid section's products list.
+        // Refresh only the product-grid section's products list. Also
+        // backfill kind on the catalog page if it predates the v2 migration.
         const nextPages = state.project.pages.map((page, i) => {
           if (i !== existingIndex) return page;
           const nextSections = page.sections.map((section) => {
@@ -729,7 +750,11 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
               },
             };
           });
-          return { ...page, sections: nextSections };
+          return {
+            ...page,
+            kind: "product-index" as const,
+            sections: nextSections,
+          };
         });
         return { project: { ...state.project, pages: nextPages }, dirty: true };
       }
@@ -773,6 +798,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
               slug,
               title: "Products",
               seo: { description: "Browse our full product catalog." },
+              kind: "product-index" as const,
               sections: [heroSection, gridSection],
             },
           ],
@@ -814,6 +840,76 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
         project: { ...state.project, pages: nextPages },
         dirty: true,
       };
+    });
+  },
+
+  upsertHomeFeaturedGrid(productCards) {
+    set((state) => {
+      if (!state.project) return {};
+      const HOME_FEATURED_ID = "sec_home_featured";
+      // Home is the page mounted at "/". Adapters and templates rely on this
+      // — if a user changed the home slug, we don't try to be clever; bail
+      // out and let them seed the section manually.
+      const homeIndex = state.project.pages.findIndex((p) => p.slug === "/");
+      if (homeIndex < 0) return {};
+      const home = state.project.pages[homeIndex]!;
+
+      // Prefer the stable id (set in fixtures + on first auto-insert) so
+      // re-syncs always hit the same section even if the user added other
+      // product-grids elsewhere on the home page.
+      const existingByStableId = home.sections.find(
+        (s) => s.id === HOME_FEATURED_ID && s.type === "product-grid",
+      );
+      const existing =
+        existingByStableId ??
+        home.sections.find((s) => s.type === "product-grid");
+
+      if (existing) {
+        const nextSections = home.sections.map((section) =>
+          section.id === existing.id
+            ? {
+                ...section,
+                content: {
+                  ...(section.content as Record<string, unknown>),
+                  products: productCards,
+                },
+              }
+            : section,
+        );
+        const nextPages = state.project.pages.map((p, i) =>
+          i === homeIndex ? { ...p, sections: nextSections } : p,
+        );
+        return { project: { ...state.project, pages: nextPages }, dirty: true };
+      }
+
+      // No grid on home yet — drop one in just below the hero (or at the
+      // top if there's no hero). This mirrors how Shopify and IKAS seed
+      // the storefront default with a featured-products section.
+      const gridData = SECTION_DATA["product-grid"];
+      const heroIndex = home.sections.findIndex((s) => s.type === "hero");
+      const insertAt = heroIndex >= 0 ? heroIndex + 1 : 0;
+      const newSection: Section = {
+        id: HOME_FEATURED_ID,
+        type: "product-grid",
+        variant: "card",
+        content: {
+          ...(gridData.defaultContent as Record<string, unknown>),
+          eyebrow: "Shop",
+          heading: "Featured products",
+          subhead: "Hand-picked from the catalog.",
+          columns: 3,
+          products: productCards,
+          ctaAll: { label: "View all products", href: "/products" },
+        },
+        style: {},
+        animation: "stagger-children",
+      };
+      const nextSections = [...home.sections];
+      nextSections.splice(insertAt, 0, newSection);
+      const nextPages = state.project.pages.map((p, i) =>
+        i === homeIndex ? { ...p, sections: nextSections } : p,
+      );
+      return { project: { ...state.project, pages: nextPages }, dirty: true };
     });
   },
 
