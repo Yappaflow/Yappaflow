@@ -37,9 +37,15 @@ export function buildDynamicProductPage(
   const detailData = SECTION_DATA["product-detail"];
   const gridData = SECTION_DATA["product-grid"];
 
-  const related = allProducts
+  // Library-bound related grid: hydrates each id from the live library at
+  // render time. Keeps the embedded copies as a fallback so the section
+  // still has something useful if it ends up rendering outside a Provider.
+  const relatedIds = allProducts
     .filter((p) => p.id !== product.id)
     .slice(0, 3)
+    .map((p) => p.id);
+  const relatedFallback = allProducts
+    .filter((p) => relatedIds.includes(p.id))
     .map((p) => ({
       id: p.id,
       handle: p.handle,
@@ -74,7 +80,9 @@ export function buildDynamicProductPage(
         eyebrow: "Related",
         heading: "You might also like",
         columns: 3,
-        products: related,
+        mode: "library",
+        productIds: relatedIds,
+        products: relatedFallback,
       },
       style: {},
     },
@@ -127,6 +135,12 @@ export function buildProductDetailContent(
   product: LibraryProduct,
 ): Record<string, unknown> {
   return {
+    // Library binding — renderer will pull catalog fields from
+    // SiteProject.productLibrary at render time when the matching record
+    // exists. Inline fields below stay as a fallback (legacy v2 sites,
+    // missing-from-library) and as the source of CTAs/eyebrow which the
+    // library doesn't carry.
+    productId: product.id,
     eyebrow: "Shop",
     title: product.title,
     price: product.price,

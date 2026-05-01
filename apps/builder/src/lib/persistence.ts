@@ -17,6 +17,8 @@ import {
   inferPageKind,
   productHandleFromSlug,
   type Page,
+  type Product,
+  type Section,
   type SiteProject,
 } from "@yappaflow/types";
 
@@ -38,23 +40,148 @@ type PersistedEntry = {
  * v1 → v2: stamps `kind` on every page (slug-based inference) and fills in
  * `productHandle` for `/products/<handle>` pages so the CMS export can route
  * them to product APIs without re-running the products panel.
+ *
+ * v2 → v3: extracts product cards embedded in product-grid sections (legacy
+ * `products[]` arrays) into the new top-level `productLibrary`, dedupes by
+ * id+handle, and rewrites those sections to library mode + productIds. The
+ * legacy `products[]` array stays as a fallback (mode:"manual" alongside),
+ * but only until the next save — by then the library copy is authoritative.
  */
 function migrateProject(project: SiteProject): SiteProject {
   // Cast: incoming localStorage data may legitimately have older schemaVersion.
   // We ignore z.literal at the type level here because we're the migrator.
   const incomingVersion = (project as { schemaVersion?: number }).schemaVersion ?? 1;
-  if (incomingVersion >= SITE_PROJECT_SCHEMA_VERSION) {
-    // Defensive: even at the current version, an older builder could have
-    // written pages without `kind` (e.g. before this migration shipped).
-    // Backfill missing kinds without changing version.
-    const needsBackfill = project.pages.some((p) => p.kind === undefined);
-    if (!needsBackfill) return project;
-    return { ...project, pages: project.pages.map(stampKind) };
+  // Step 1: kind/productHandle backfill (v1 → v2 doctrine, idempotent at v3).
+  let next: SiteProject = project;
+  if (incomingVersion < 2 || project.pages.some((p) => p.kind === undefined)) {
+    next = { ...next, pages: next.pages.map(stampKind) };
+  }
+  // Step 2: productLibrary extraction (v2 → v3). Run when the field is
+  // absent or empty AND there are inline products to harvest. Idempotent:
+  // running on an already-migrated v3 project is a no-op when the library
+  // is already populated.
+  const existingLibrary = (next as { productLibrary?: Product[] }).productLibrary ?? [];
+  if (incomingVersion < 3 || existingLibrary.length === 0) {
+    const harvested = harvestProductLibrary(next.pages, existingLibrary);
+    if (harvested.length > 0) {
+      next = {
+        ...next,
+        pages: next.pages.map((p) => ({
+          ...p,
+          sections: p.sections.map((s) => rewriteGridToLibrary(s, harvested)),
+        })),
+        productLibrary: harvested,
+      };
+    } else if (existingLibrary.length === 0) {
+      // No products anywhere — still need the field present for v3.
+      next = { ...next, productLibrary: [] };
+    }
+  }
+  // Always stamp the version last so partial migrations don't lie about
+  // their state.
+  if (incomingVersion < SITE_PROJECT_SCHEMA_VERSION) {
+    next = { ...next, schemaVersion: SITE_PROJECT_SCHEMA_VERSION };
+  }
+  return next;
+}
+
+/**
+ * Walk every product-grid section in the project and pull inline product
+ * cards into a deduped `Product[]`. Existing library entries are kept
+ * verbatim — they win on id collision, which preserves any agency edits
+ * that didn't make it back into the grid section.
+ *
+ * The projection from ProductCard → Product fills the new fields with
+ * sensible defaults: empty description, empty variantGroups/specs, single
+ * image (the card's hero), tags []. The agency can flesh them out later
+ * via the Products panel.
+ */
+function harvestProductLibrary(
+  pages: readonly Page[],
+  existing: readonly Product[],
+): Product[] {
+  const byId = new Map<string, Product>(existing.map((p) => [p.id, p]));
+  for (const page of pages) {
+    for (const section of page.sections) {
+      if (section.type !== "product-grid") continue;
+      const cards = (section.content as { products?: unknown[] }).products;
+      if (!Array.isArray(cards)) continue;
+      for (const raw of cards) {
+        const card = raw as {
+          id?: unknown;
+          handle?: unknown;
+          title?: unknown;
+          price?: unknown;
+          currency?: unknown;
+          compareAtPrice?: unknown;
+          image?: unknown;
+        };
+        const id = typeof card.id === "string" ? card.id : null;
+        const handle = typeof card.handle === "string" ? card.handle : null;
+        const title = typeof card.title === "string" ? card.title : null;
+        const price = typeof card.price === "string" ? card.price : null;
+        if (!id || !handle || !title || !price) continue;
+        if (byId.has(id)) continue;
+        byId.set(id, {
+          id,
+          handle,
+          title,
+          price,
+          currency: typeof card.currency === "string" ? card.currency : "USD",
+          ...(typeof card.compareAtPrice === "string"
+            ? { compareAtPrice: card.compareAtPrice }
+            : {}),
+          description: "",
+          images:
+            card.image && typeof card.image === "object"
+              ? [card.image as Product["images"][number]]
+              : [{ kind: "image", url: "", alt: title }],
+          variantGroups: [],
+          specs: [],
+          tags: [],
+        });
+      }
+    }
+  }
+  return Array.from(byId.values());
+}
+
+/**
+ * Rewrite a product-grid section to library mode when every embedded card
+ * resolves to a library product. If any card can't be matched (e.g. a
+ * one-off custom card the agency hand-edited), leave the section in manual
+ * mode untouched — better to keep a stale snapshot than silently lose data.
+ */
+function rewriteGridToLibrary(
+  section: Section,
+  library: readonly Product[],
+): Section {
+  if (section.type !== "product-grid") return section;
+  const content = section.content as {
+    mode?: unknown;
+    productIds?: unknown;
+    products?: unknown;
+  };
+  // Already library-bound — leave it alone.
+  if (content.mode === "library") return section;
+  const cards = Array.isArray(content.products) ? content.products : [];
+  if (cards.length === 0) return section;
+  const ids: string[] = [];
+  for (const raw of cards) {
+    const id = (raw as { id?: unknown }).id;
+    if (typeof id !== "string") return section; // bail to manual
+    if (!library.some((p) => p.id === id)) return section; // bail to manual
+    ids.push(id);
   }
   return {
-    ...project,
-    schemaVersion: SITE_PROJECT_SCHEMA_VERSION,
-    pages: project.pages.map(stampKind),
+    ...section,
+    content: {
+      ...(section.content as Record<string, unknown>),
+      mode: "library",
+      productIds: ids,
+      // Keep the cards as a fallback for adapters that haven't migrated yet.
+      // The renderer prefers library hydration when it has both.
+    },
   };
 }
 

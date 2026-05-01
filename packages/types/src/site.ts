@@ -14,6 +14,13 @@
  * for provenance and for render-time token resolution; it is not re-validated
  * here because it already has its own verification path (DNA extractor →
  * merge → SQLite cache).
+ *
+ * v2 → v3 (2026-04-30): adds top-level `productLibrary` so products live in
+ * the SiteProject (not just in localStorage on the builder). Library is the
+ * single source of truth: product-grid sections reference items by id, the
+ * product-detail-on-/products/<handle> pages hydrate from it, and CMS adapters
+ * read it once and decide whether to render static markup or wire up native
+ * CMS Products (Shopify/IKAS/WooCommerce) per page kind.
  */
 
 import { z } from "zod";
@@ -143,17 +150,75 @@ export const SiteGlobalsSchema = z.object({
 export type SiteGlobals = z.infer<typeof SiteGlobalsSchema>;
 
 /**
+ * A canonical product record. Lives in `SiteProject.productLibrary` and is
+ * the single source of truth for every product surface in the site:
+ *   - product-grid sections store `productIds` and hydrate cards from here
+ *   - kind="product" pages reference the matching record via `productHandle`
+ *   - CMS adapters read this once to decide whether to emit a native CMS
+ *     product (Shopify Product / IKAS Product / WooCommerce CPT) or a static
+ *     fallback page
+ *
+ * Shape mirrors how Shopify / WooCommerce / IKAS model products so the
+ * adapters have a clean mapping target. `id` is the internal builder id
+ * (stable across edits); `handle` is the URL/CMS slug. Adapters key off
+ * `handle` when wiring to platform product APIs.
+ *
+ * Pricing is stored as a pre-formatted display string per Phase 7 doctrine
+ * — adapters do not re-format. Currency is carried separately so adapters
+ * targeting non-string-driven price models (Shopify Buy SDK, IKAS GraphQL)
+ * have what they need to reconstruct a numeric price when relevant.
+ */
+export const ProductSchema = z.object({
+  /** Builder-stable id. Persists across slug renames. */
+  id: z.string().min(1),
+  /** URL slug + CMS handle. Drives `/products/<handle>` and platform mapping. */
+  handle: z.string().min(1),
+  title: z.string().min(1),
+  /** Display price as pre-formatted string (e.g. "$42", "€38,00"). */
+  price: z.string().min(1),
+  /** Optional strike-through original price. */
+  compareAtPrice: z.string().optional(),
+  currency: z.string().default("USD"),
+  /** Marketing copy for the product detail page. */
+  description: z.string().default(""),
+  /** Ordered images. First is hero, rest are gallery thumbnails. min(1). */
+  images: z.array(AssetRefSchema).min(1),
+  /** Variant pickers (Size: S/M/L, Color: ...). Agency-edited. */
+  variantGroups: z
+    .array(
+      z.object({
+        label: z.string().min(1),
+        options: z.array(z.string().min(1)).min(1),
+      }),
+    )
+    .default([]),
+  /** Spec table rows on the detail page. */
+  specs: z
+    .array(z.object({ label: z.string().min(1), value: z.string().min(1) }))
+    .default([]),
+  /** Free-form tags used by the builder UI for filtering. */
+  tags: z.array(z.string()).default([]),
+});
+export type Product = z.infer<typeof ProductSchema>;
+
+/**
  * The SiteProject itself. `dna` is validated structurally (must be an object
  * with a schemaVersion field) but not field-by-field — that's MergedDna's job
  * upstream. The TypeScript type narrows `dna` to MergedDna via the re-type
  * below so consumers get full autocomplete on DNA internals.
+ *
+ * `productLibrary` is the catalog of products available in this site. It is
+ * the single source of truth: product-grid sections reference these by id;
+ * adapters read this list once to decide CMS-product mapping. Defaults to
+ * an empty array for non-commerce sites — no product surfaces required.
  */
 export const SiteProjectSchema = z.object({
-  schemaVersion: z.literal(2),
+  schemaVersion: z.literal(3),
   brief: BriefSchema,
   dna: z.object({ schemaVersion: z.literal(1) }).passthrough(),
   pages: z.array(PageSchema).min(1),
   globals: SiteGlobalsSchema,
+  productLibrary: z.array(ProductSchema).default([]),
 });
 
 /**
@@ -173,8 +238,17 @@ export type SiteProject = Omit<z.infer<typeof SiteProjectSchema>, "dna"> & {
  * instead of dumping everything as a generic content page. Migration is in
  * apps/builder/src/lib/persistence.ts (slug-prefix inference) and the MCP
  * assembler stamps the new shape directly.
+ *
+ * v2 → v3 (2026-04-30): adds `productLibrary` at the top level. The library
+ * becomes the single source of truth for product data; product-grid sections
+ * reference items by id rather than embedding copies. Migration extracts any
+ * inline `products[]` arrays from existing product-grid sections into the
+ * library, dedupes by handle, and rewrites those sections to use `productIds`.
+ * Pre-existing localStorage products-store entries (builder-only) are merged
+ * in on first load so no agency loses their catalog. See
+ * apps/builder/src/lib/persistence.ts for the migration code.
  */
-export const SITE_PROJECT_SCHEMA_VERSION = 2 as const;
+export const SITE_PROJECT_SCHEMA_VERSION = 3 as const;
 
 /**
  * Infer page kind from slug — single source of truth. Used by:
@@ -205,4 +279,30 @@ export function productHandleFromSlug(slug: string): string | null {
   if (!normalized.startsWith("/products/")) return null;
   const handle = normalized.slice("/products/".length).split("/")[0] ?? "";
   return handle || null;
+}
+
+/**
+ * Find a product in the library by id. Returns undefined when not found —
+ * callers should render a placeholder rather than crash, because a referenced
+ * product can disappear between persisted state and a fresh library load
+ * (e.g. agency edited the library on another device).
+ */
+export function findProductById(
+  library: readonly Product[],
+  id: string,
+): Product | undefined {
+  return library.find((p) => p.id === id);
+}
+
+/**
+ * Find a product by handle. Used when resolving `/products/<handle>` pages —
+ * the page stores `productHandle`, not `productId`, because handles are the
+ * stable identifier across CMS exports (a Shopify product's id changes per
+ * environment, the handle does not).
+ */
+export function findProductByHandle(
+  library: readonly Product[],
+  handle: string,
+): Product | undefined {
+  return library.find((p) => p.handle === handle);
 }

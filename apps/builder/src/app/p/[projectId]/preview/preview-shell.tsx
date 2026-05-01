@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Lenis from "lenis";
-import { SECTIONS } from "@yappaflow/sections";
+import { ProductLibraryProvider, SECTIONS } from "@yappaflow/sections";
 import type { Page, SiteProject } from "@yappaflow/types";
 import { loadProjectFromStorage } from "@/lib/persistence";
 import { playAllInContainer } from "@/lib/gsap-reveal";
@@ -131,14 +131,20 @@ export function PreviewShell({ projectId }: { projectId: string }) {
   const { announcementBar, header, footer } = project.globals;
 
   return (
-    <div ref={containerRef} className="min-h-dvh bg-white">
-      {announcementBar ? <SectionRenderer section={announcementBar} /> : null}
-      {header ? <SectionRenderer section={header} /> : null}
-      {page.sections.map((s) => (
-        <SectionRenderer key={s.id} section={s} />
-      ))}
-      {footer ? <SectionRenderer section={footer} /> : null}
-    </div>
+    // Provider supplies SiteProject.productLibrary to product-grid +
+    // product-detail renderers. Without it those sections render in their
+    // legacy inline-only mode — fine for v2 fixtures, but they wouldn't
+    // reflect agency edits made through the Products panel after migration.
+    <ProductLibraryProvider value={project.productLibrary ?? []}>
+      <div ref={containerRef} className="min-h-dvh bg-white">
+        {announcementBar ? <SectionRenderer section={announcementBar} /> : null}
+        {header ? <SectionRenderer section={header} /> : null}
+        {page.sections.map((s) => (
+          <SectionRenderer key={s.id} section={s} />
+        ))}
+        {footer ? <SectionRenderer section={footer} /> : null}
+      </div>
+    </ProductLibraryProvider>
   );
 }
 

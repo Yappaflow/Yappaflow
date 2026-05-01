@@ -1,5 +1,39 @@
+import type { Product } from "@yappaflow/types";
 import type { LibraryProduct } from "./products-store";
 import type { ServerProduct } from "./server-api";
+
+/**
+ * Project a LibraryProduct (the localStorage shape used by products-panel)
+ * onto the canonical SiteProject.productLibrary Product shape (v3+). The
+ * conversion is total — every LibraryProduct can be expressed as a Product
+ * with sensible defaults for the fields LibraryProduct doesn't carry
+ * (description, variantGroups, specs).
+ *
+ * Used by products-panel to dual-write: every legacy localStorage write
+ * also pushes into SiteProject.productLibrary so adapters + renderers see
+ * the updated catalog without extra plumbing.
+ */
+export function libraryToProduct(product: LibraryProduct): Product {
+  return {
+    id: product.id,
+    handle: product.handle,
+    title: product.title,
+    price: product.price,
+    ...(product.compareAtPrice ? { compareAtPrice: product.compareAtPrice } : {}),
+    currency: product.currency ?? "USD",
+    description: "",
+    images: [
+      {
+        kind: "image",
+        url: product.image.url,
+        alt: product.image.alt ?? product.title,
+      },
+    ],
+    variantGroups: [],
+    specs: [],
+    tags: product.tags ?? [],
+  };
+}
 
 /**
  * Transform a LibraryProduct into the shape a product-grid section expects

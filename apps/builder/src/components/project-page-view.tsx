@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Lenis from "lenis";
-import { SECTIONS } from "@yappaflow/sections";
+import { ProductLibraryProvider, SECTIONS } from "@yappaflow/sections";
 import type { Page, SiteProject } from "@yappaflow/types";
 import {
   loadProjectFromStorage,
@@ -161,14 +161,20 @@ export function ProjectPageView({
   const { announcementBar, header, footer } = project.globals;
 
   return (
-    <div ref={containerRef} className="min-h-dvh bg-white">
-      {announcementBar ? <SectionRenderer section={announcementBar} /> : null}
-      {header ? <SectionRenderer section={header} /> : null}
-      {page.sections.map((s) => (
-        <SectionRenderer key={s.id} section={s} />
-      ))}
-      {footer ? <SectionRenderer section={footer} /> : null}
-    </div>
+    // ProductLibraryProvider feeds the in-SiteProject library to the
+    // section renderers so library-bound product-grid + product-detail
+    // sections hydrate correctly. Falls back to empty array for non-commerce
+    // sites (renderers gracefully degrade to inline-only mode).
+    <ProductLibraryProvider value={project.productLibrary ?? []}>
+      <div ref={containerRef} className="min-h-dvh bg-white">
+        {announcementBar ? <SectionRenderer section={announcementBar} /> : null}
+        {header ? <SectionRenderer section={header} /> : null}
+        {page.sections.map((s) => (
+          <SectionRenderer key={s.id} section={s} />
+        ))}
+        {footer ? <SectionRenderer section={footer} /> : null}
+      </div>
+    </ProductLibraryProvider>
   );
 }
 

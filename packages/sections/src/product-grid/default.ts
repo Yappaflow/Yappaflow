@@ -5,6 +5,11 @@ export const DEFAULT_PRODUCT_GRID_CONTENT: ProductGridContent = {
   heading: "Latest drops",
   subhead: "",
   columns: 3,
+  // Default to manual mode so the seeded fixture renders standalone (no
+  // library required). The builder migration flips this to "library" when
+  // it extracts these into SiteProject.productLibrary.
+  mode: "manual",
+  productIds: [],
   products: [
     {
       id: "p-001",

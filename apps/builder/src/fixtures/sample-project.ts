@@ -13,6 +13,7 @@ import {
   FIXTURE_BRIEF,
   SITE_PROJECT_SCHEMA_VERSION,
   type MergedDna,
+  type Product,
   type Section,
   type SectionType,
   type SiteProject,
@@ -110,15 +111,27 @@ function defaultSection<T extends SectionType>(
   };
 }
 
-const SAMPLE_PRODUCT_CARDS = [
+/**
+ * Sample product library — the canonical catalog for the fixture site. v3
+ * SiteProjects keep products here; product-grid sections reference items by
+ * id (mode:"library") and product-detail sections reference by productId.
+ *
+ * Ids match `apps/builder/src/lib/products-store.ts` so the localStorage
+ * legacy library and the in-SiteProject library refer to the same products.
+ * That equivalence lets the v2→v3 migration dedupe by id without surprises.
+ */
+const SAMPLE_PRODUCT_LIBRARY: Product[] = [
   {
     id: "p-001",
     handle: "classic-tee",
     title: "Classic tee",
     price: "$42",
     currency: "USD",
-    image: { kind: "image", url: "/images/products/classic-tee.jpg", alt: "Classic tee" },
-    href: "/products/classic-tee",
+    description: "",
+    images: [{ kind: "image", url: "/images/products/classic-tee.jpg", alt: "Classic tee" }],
+    variantGroups: [],
+    specs: [],
+    tags: ["apparel"],
   },
   {
     id: "p-002",
@@ -126,8 +139,11 @@ const SAMPLE_PRODUCT_CARDS = [
     title: "Studio cap",
     price: "$28",
     currency: "USD",
-    image: { kind: "image", url: "/images/products/studio-cap.jpg", alt: "Studio cap" },
-    href: "/products/studio-cap",
+    description: "",
+    images: [{ kind: "image", url: "/images/products/studio-cap.jpg", alt: "Studio cap" }],
+    variantGroups: [],
+    specs: [],
+    tags: ["apparel", "headwear"],
   },
   {
     id: "p-003",
@@ -135,34 +151,38 @@ const SAMPLE_PRODUCT_CARDS = [
     title: "Canvas tote",
     price: "$34",
     currency: "USD",
-    image: { kind: "image", url: "/images/products/canvas-tote.jpg", alt: "Canvas tote" },
-    href: "/products/canvas-tote",
+    description: "",
+    images: [{ kind: "image", url: "/images/products/canvas-tote.jpg", alt: "Canvas tote" }],
+    variantGroups: [],
+    specs: [],
+    tags: ["accessory"],
   },
 ];
 
-function productDetailContent(card: (typeof SAMPLE_PRODUCT_CARDS)[number]) {
-  return {
-    eyebrow: "Shop",
-    title: card.title,
-    price: card.price,
-    currency: card.currency,
-    description: "",
-    images: [{ kind: "image", url: card.image.url, alt: card.image.alt }],
-    variantGroups: [],
-    specs: [],
-    primaryCta: { label: "Add to cart", href: `/cart/add?id=${card.id}` },
-    secondaryCta: { label: "Ask a question", href: "/contact" },
-  };
-}
+/**
+ * Legacy ProductCard projection of the library — kept around because the
+ * fixture's manual-mode fallback sections (related-products grid on detail
+ * pages) still embed them. New library-bound grids reference the library by
+ * id and rely on the runtime hydration path.
+ */
+const SAMPLE_PRODUCT_CARDS = SAMPLE_PRODUCT_LIBRARY.map((p) => ({
+  id: p.id,
+  handle: p.handle,
+  title: p.title,
+  price: p.price,
+  currency: p.currency,
+  image: p.images[0]!,
+  href: `/products/${p.handle}`,
+}));
 
-function buildProductDetailPage(id: string, card: (typeof SAMPLE_PRODUCT_CARDS)[number]): SiteProject["pages"][number] {
+function buildProductDetailPage(id: string, product: Product): SiteProject["pages"][number] {
   return {
     id,
-    slug: `/products/${card.handle}`,
-    title: card.title,
-    seo: { description: `${card.title} — shop on our store.` },
+    slug: `/products/${product.handle}`,
+    title: product.title,
+    seo: { description: `${product.title} — shop on our store.` },
     kind: "product",
-    productHandle: card.handle,
+    productHandle: product.handle,
     sections: [
       {
         id: `${id}_detail`,
@@ -170,7 +190,17 @@ function buildProductDetailPage(id: string, card: (typeof SAMPLE_PRODUCT_CARDS)[
         variant: "gallery-left",
         content: {
           ...(SECTION_DATA["product-detail"].defaultContent as Record<string, unknown>),
-          ...productDetailContent(card),
+          // Library-bound: catalog fields hydrate from SiteProject.productLibrary
+          // at render time via ProductLibraryProvider. Inline content stays as a
+          // safety net + carries the agency-controlled CTAs/eyebrow.
+          productId: product.id,
+          eyebrow: "Shop",
+          title: product.title,
+          price: product.price,
+          currency: product.currency,
+          images: product.images,
+          primaryCta: { label: "Add to cart", href: `/cart/add?id=${product.id}` },
+          secondaryCta: { label: "Ask a question", href: "/contact" },
         },
         style: {},
       },
@@ -183,7 +213,13 @@ function buildProductDetailPage(id: string, card: (typeof SAMPLE_PRODUCT_CARDS)[
           eyebrow: "Related",
           heading: "You might also like",
           columns: 3,
-          products: SAMPLE_PRODUCT_CARDS.filter((p) => p.id !== card.id),
+          // Library-bound, exclude the current product. Renderer hydrates
+          // each id from SiteProject.productLibrary at render time.
+          mode: "library",
+          productIds: SAMPLE_PRODUCT_LIBRARY
+            .filter((p) => p.id !== product.id)
+            .map((p) => p.id),
+          products: [],
         },
         style: {},
       },
@@ -225,7 +261,12 @@ export function buildSampleSiteProject(): SiteProject {
               heading: "Featured products",
               subhead: "Hand-picked from the catalog.",
               columns: 3,
-              products: SAMPLE_PRODUCT_CARDS,
+              // Library-bound — agency edits the library, every grid that
+              // references these ids updates. Empty productIds would mean
+              // "show all" but here we want explicit hand-picked ordering.
+              mode: "library",
+              productIds: SAMPLE_PRODUCT_LIBRARY.map((p) => p.id),
+              products: [],
               ctaAll: { label: "View all products", href: "/products" },
             },
             style: {},
@@ -265,22 +306,33 @@ export function buildSampleSiteProject(): SiteProject {
               eyebrow: "",
               heading: "",
               columns: 4,
-              products: SAMPLE_PRODUCT_CARDS,
+              // Empty productIds + library mode = "show entire library". This
+              // is the contract the auto-managed /products index page uses,
+              // so it always reflects the full catalog without explicit
+              // re-syncing on every product CRUD.
+              mode: "library",
+              productIds: [],
+              products: [],
             },
             style: {},
           },
         ],
       },
-      // Individual product detail pages — one per sample product
-      buildProductDetailPage("pg_prod_001", SAMPLE_PRODUCT_CARDS[0]!),
-      buildProductDetailPage("pg_prod_002", SAMPLE_PRODUCT_CARDS[1]!),
-      buildProductDetailPage("pg_prod_003", SAMPLE_PRODUCT_CARDS[2]!),
+      // Individual product detail pages — one per library product. These
+      // hydrate via productId at render time; deleting a product from the
+      // library makes the page render a placeholder. The builder's
+      // products-panel keeps these in sync (adds page on add, removes on
+      // remove).
+      buildProductDetailPage("pg_prod_001", SAMPLE_PRODUCT_LIBRARY[0]!),
+      buildProductDetailPage("pg_prod_002", SAMPLE_PRODUCT_LIBRARY[1]!),
+      buildProductDetailPage("pg_prod_003", SAMPLE_PRODUCT_LIBRARY[2]!),
     ],
     globals: {
       header: defaultSection("sec_header", "header"),
       footer: defaultSection("sec_footer", "footer"),
       announcementBar: defaultSection("sec_annbar", "announcement-bar"),
     },
+    productLibrary: SAMPLE_PRODUCT_LIBRARY,
   };
 }
 

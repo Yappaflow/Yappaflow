@@ -1,21 +1,61 @@
 import type { Section } from "@yappaflow/types";
 import { PlaceholderSection } from "../internal/placeholder.js";
 import { EditableText } from "../internal/editable-text.js";
-import { ProductDetailContentSchema } from "./schema.js";
+import { useProductLibrary } from "../internal/product-library-context.js";
+import { ProductDetailContentSchema, type ProductDetailContent } from "./schema.js";
 import { DEFAULT_PRODUCT_DETAIL_VARIANT } from "./variants.js";
+
+/**
+ * When `productId` is set and a matching library product is mounted in
+ * context, the catalog fields (title/price/images/...) come from the live
+ * library; everything else (eyebrow, CTAs) stays under the section's inline
+ * control so each merchandising page can have its own voice.
+ *
+ * Library fields override inline ones — the agency edits the product once,
+ * every detail page reflects it. If the agency wants a one-off, they unset
+ * `productId` and the inline fields take over.
+ */
+function hydrateFromLibrary(
+  content: ProductDetailContent,
+  library: readonly { id: string; title: string; price: string; compareAtPrice?: string; currency: string; description: string; images: ProductDetailContent["images"]; variantGroups: ProductDetailContent["variantGroups"]; specs: ProductDetailContent["specs"] }[],
+): ProductDetailContent {
+  if (!content.productId) return content;
+  const product = library.find((p) => p.id === content.productId);
+  if (!product) return content;
+  return {
+    ...content,
+    title: product.title,
+    price: product.price,
+    ...(product.compareAtPrice !== undefined ? { compareAtPrice: product.compareAtPrice } : {}),
+    currency: product.currency,
+    // Description: library wins only if non-empty, so a new product with no
+    // description doesn't blank the page over inline copy.
+    description: product.description || content.description,
+    images: product.images.length > 0 ? product.images : content.images,
+    variantGroups: product.variantGroups.length > 0 ? product.variantGroups : content.variantGroups,
+    specs: product.specs.length > 0 ? product.specs : content.specs,
+  };
+}
 
 export function ProductDetailSection({ section }: { section: Section }) {
   const parsed = ProductDetailContentSchema.safeParse(section.content);
-  const content = parsed.success ? parsed.data : null;
+  const rawContent = parsed.success ? parsed.data : null;
   const variant = section.variant ?? DEFAULT_PRODUCT_DETAIL_VARIANT;
+  const library = useProductLibrary();
 
-  if (!content) {
+  if (!rawContent) {
     return (
       <PlaceholderSection section={section} variant={variant} className="bg-white p-8 text-neutral-500">
         <em>invalid product-detail content</em>
       </PlaceholderSection>
     );
   }
+
+  const content = hydrateFromLibrary(rawContent, library);
+  // When library-bound, the EditableText fields for catalog properties are
+  // disabled — edits would be silently overwritten on the next render. CTAs
+  // and eyebrow stay editable because they're not library-sourced.
+  const libraryBound = Boolean(rawContent.productId && library.find((p) => p.id === rawContent.productId));
 
   const hero = content.images[0]!;
 
@@ -58,26 +98,44 @@ export function ProductDetailSection({ section }: { section: Section }) {
             className="mb-3 text-xs uppercase tracking-[0.2em] text-neutral-500"
           />
         ) : null}
-        <EditableText
-          as="h1"
-          field="title"
-          value={content.title}
-          className="text-3xl font-semibold tracking-tight text-neutral-950 md:text-4xl"
-        />
-        <div className="mt-4 flex items-baseline gap-3">
+        {libraryBound ? (
+          <h1 className="text-3xl font-semibold tracking-tight text-neutral-950 md:text-4xl">
+            {content.title}
+          </h1>
+        ) : (
           <EditableText
-            as="span"
-            field="price"
-            value={content.price}
-            className="text-2xl font-medium text-neutral-900"
+            as="h1"
+            field="title"
+            value={content.title}
+            className="text-3xl font-semibold tracking-tight text-neutral-950 md:text-4xl"
           />
-          {content.compareAtPrice ? (
+        )}
+        <div className="mt-4 flex items-baseline gap-3">
+          {libraryBound ? (
+            <span className="text-2xl font-medium text-neutral-900">
+              {content.price}
+            </span>
+          ) : (
             <EditableText
               as="span"
-              field="compareAtPrice"
-              value={content.compareAtPrice}
-              className="text-lg text-neutral-400 line-through"
+              field="price"
+              value={content.price}
+              className="text-2xl font-medium text-neutral-900"
             />
+          )}
+          {content.compareAtPrice ? (
+            libraryBound ? (
+              <span className="text-lg text-neutral-400 line-through">
+                {content.compareAtPrice}
+              </span>
+            ) : (
+              <EditableText
+                as="span"
+                field="compareAtPrice"
+                value={content.compareAtPrice}
+                className="text-lg text-neutral-400 line-through"
+              />
+            )
           ) : null}
         </div>
       </div>
@@ -105,13 +163,19 @@ export function ProductDetailSection({ section }: { section: Section }) {
         </div>
       ) : null}
 
-      <EditableText
-        as="p"
-        field="description"
-        multiline
-        value={content.description}
-        className="text-base leading-relaxed text-neutral-700"
-      />
+      {libraryBound ? (
+        <p className="whitespace-pre-line text-base leading-relaxed text-neutral-700">
+          {content.description}
+        </p>
+      ) : (
+        <EditableText
+          as="p"
+          field="description"
+          multiline
+          value={content.description}
+          className="text-base leading-relaxed text-neutral-700"
+        />
+      )}
 
       <div className="flex flex-wrap items-center gap-3">
         <a

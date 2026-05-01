@@ -10,7 +10,7 @@ import {
 } from "@/lib/products-store";
 import { libraryProductDraggableId, type LibraryProductData } from "@/lib/dnd";
 import { useProjectStore } from "@/lib/store";
-import { libraryToProductCard } from "@/lib/product-transform";
+import { libraryToProduct, libraryToProductCard } from "@/lib/product-transform";
 import {
   buildProductDetailContent,
   buildProductPageSections,
@@ -40,12 +40,35 @@ export function ProductsPanel() {
   const removeProductPageByHandle = useProjectStore(
     (s) => s.removeProductPageByHandle,
   );
+  // v3+ canonical library actions. Every legacy localStorage write below
+  // also writes here so SiteProject.productLibrary stays the source of
+  // truth for renderers (via ProductLibraryProvider) and CMS adapters.
+  const addProductToLibrary = useProjectStore((s) => s.addProductToLibrary);
+  const updateProductInLibrary = useProjectStore((s) => s.updateProductInLibrary);
+  const removeProductFromLibrary = useProjectStore(
+    (s) => s.removeProductFromLibrary,
+  );
+  const replaceProductLibrary = useProjectStore((s) => s.replaceProductLibrary);
+  const projectLibrary = useProjectStore((s) => s.project?.productLibrary);
 
   const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
     hydrate();
   }, [hydrate]);
+
+  // One-time backfill: when localStorage has products but the SiteProject
+  // library is empty (legacy v2 project that just migrated), push the
+  // localStorage catalog into the project so adapters can see it. Runs
+  // after hydration completes; safe to re-run because it bails when the
+  // project library is non-empty.
+  useEffect(() => {
+    if (!hydrated) return;
+    if (!projectLibrary) return; // project not loaded yet
+    if (projectLibrary.length > 0) return;
+    if (products.length === 0) return;
+    replaceProductLibrary(products.map(libraryToProduct));
+  }, [hydrated, projectLibrary, products, replaceProductLibrary]);
 
   if (!hydrated) {
     return (
@@ -92,6 +115,10 @@ export function ProductsPanel() {
                 image: { url: "", alt: "" },
                 href: `/products/${handle}`,
               });
+              // Dual-write: SiteProject.productLibrary is the source of truth
+              // for adapters + renderers; localStorage stays as a per-agency
+              // cache until Phase 10.5 retires it.
+              addProductToLibrary(libraryToProduct(fresh));
               upsertProductPage({
                 handle: fresh.handle,
                 title: fresh.title,
@@ -129,6 +156,7 @@ export function ProductsPanel() {
                   onEdit={() => setEditingId(p.id)}
                   onRemove={() => {
                     removeProduct(p.id);
+                    removeProductFromLibrary(p.id);
                     removeProductPageByHandle(p.handle);
                     const remainingCards = useProductsStore
                       .getState()
@@ -154,11 +182,13 @@ export function ProductsPanel() {
           onSave={(patch) => {
             updateProduct(editing.id, patch);
             // Broadcast the library change into every product-grid section
-            // so the canvas reflects the edit immediately. SiteProject
-            // remains self-contained — library data is embedded into each
-            // matching product, not referenced by id.
+            // so legacy mode:"manual" grids reflect the edit. Library-mode
+            // grids re-hydrate on the next render via ProductLibraryProvider
+            // — no per-section write needed. Both paths run for the dual-
+            // write transitional period.
             const nextProduct: LibraryProduct = { ...editing, ...patch };
             syncLibraryProduct(editing.id, libraryToProductCard(nextProduct));
+            updateProductInLibrary(editing.id, libraryToProduct(nextProduct));
             // Also sync the Shopify-style `/products/<handle>` page.
             // Handle change migrates the slug too.
             upsertProductPage({

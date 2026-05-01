@@ -3,7 +3,11 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 import { useDroppable, useDndMonitor } from "@dnd-kit/core";
 import { AnimatePresence, motion } from "framer-motion";
-import { SECTIONS, SectionEditContext } from "@yappaflow/sections";
+import {
+  ProductLibraryProvider,
+  SECTIONS,
+  SectionEditContext,
+} from "@yappaflow/sections";
 import type { Section, SiteProject } from "@yappaflow/types";
 import { useProjectStore, type Viewport } from "@/lib/store";
 import {
@@ -138,7 +142,13 @@ export function Canvas() {
     }
   `;
 
+  // Library lookup for hydrating product-grid + product-detail sections.
+  // Re-derived via the project selector so any library edit (add / update /
+  // remove) re-renders every section in one tick — no manual sync.
+  const productLibrary = project?.productLibrary ?? [];
+
   return (
+    <ProductLibraryProvider value={productLibrary}>
     <div className={previewMode ? "flex w-full flex-col items-center" : "flex w-full flex-col items-center p-6"}>
       {previewMode ? null : (
         <div className="mb-3 text-[11px] uppercase tracking-[0.2em] text-neutral-400">
@@ -201,6 +211,7 @@ export function Canvas() {
         ) : null}
       </div>
     </div>
+    </ProductLibraryProvider>
   );
 }
 

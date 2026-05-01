@@ -17,6 +17,7 @@
 import { create } from "zustand";
 import type {
   AnimationPreset,
+  Product,
   Section,
   SectionType,
   SiteProject,
@@ -187,6 +188,33 @@ interface ProjectState {
    * manually without losing the slot).
    */
   upsertHomeFeaturedGrid(productCards: Array<Record<string, unknown>>): void;
+
+  // ─── productLibrary (v3+) ──────────────────────────────────────────────────
+  // Library lives at SiteProject.productLibrary. Sections reference items by
+  // id (mode:"library", productId) and the renderer hydrates from this list
+  // via ProductLibraryProvider. These actions are the canonical CRUD path —
+  // products-panel.tsx calls them in addition to its legacy localStorage
+  // products-store writes (dual-write) until Phase 10.5 retires localStorage.
+
+  /**
+   * Add a product to the SiteProject's library. Idempotent on id collision —
+   * if a product with the same id already exists, falls back to update so
+   * callers don't have to branch.
+   */
+  addProductToLibrary(product: Product): void;
+
+  /** Patch a product in place. No-op if id not found. */
+  updateProductInLibrary(id: string, patch: Partial<Product>): void;
+
+  /**
+   * Remove a product from the library. Does NOT remove the matching
+   * `/products/<handle>` page — call removeProductPageByHandle separately
+   * if that's intended (the products-panel always pairs them).
+   */
+  removeProductFromLibrary(id: string): void;
+
+  /** Replace the entire library wholesale. Used by the localStorage migrator. */
+  replaceProductLibrary(library: Product[]): void;
 
   // Manual save (autosave also fires on every mutation — see subscribe below).
   save(): void;
@@ -929,6 +957,57 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
           };
         }),
       ),
+    );
+  },
+
+  // ─── productLibrary (v3+) implementations ────────────────────────────────
+
+  addProductToLibrary(product) {
+    set((state) =>
+      mutateProject(state, (project) => {
+        const existingIndex = project.productLibrary.findIndex(
+          (p) => p.id === product.id,
+        );
+        if (existingIndex >= 0) {
+          const next = [...project.productLibrary];
+          next[existingIndex] = product;
+          return { ...project, productLibrary: next };
+        }
+        return {
+          ...project,
+          productLibrary: [...project.productLibrary, product],
+        };
+      }),
+    );
+  },
+
+  updateProductInLibrary(id, patch) {
+    set((state) =>
+      mutateProject(state, (project) => {
+        const existingIndex = project.productLibrary.findIndex((p) => p.id === id);
+        if (existingIndex < 0) return project;
+        const next = [...project.productLibrary];
+        next[existingIndex] = { ...next[existingIndex]!, ...patch };
+        return { ...project, productLibrary: next };
+      }),
+    );
+  },
+
+  removeProductFromLibrary(id) {
+    set((state) =>
+      mutateProject(state, (project) => ({
+        ...project,
+        productLibrary: project.productLibrary.filter((p) => p.id !== id),
+      })),
+    );
+  },
+
+  replaceProductLibrary(library) {
+    set((state) =>
+      mutateProject(state, (project) => ({
+        ...project,
+        productLibrary: library,
+      })),
     );
   },
 

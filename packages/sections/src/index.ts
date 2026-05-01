@@ -76,6 +76,12 @@ export {
   SectionEditContext,
   type SectionEditContextValue,
 } from "./internal/edit-context.js";
+export {
+  ProductLibraryContext,
+  ProductLibraryProvider,
+  useProductLibrary,
+  type ProductLibraryProviderProps,
+} from "./internal/product-library-context.js";
 
 // Per-section re-exports.
 export { headerDefinition } from "./header/index.js";

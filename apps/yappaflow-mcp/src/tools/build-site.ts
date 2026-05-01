@@ -179,6 +179,13 @@ export function assembleSiteProject(
       footer,
       announcementBar,
     },
+    // v3+: top-level product catalog. Empty for the MCP assembler today —
+    // Phase 9 (LLM content gen) populates it for commerce briefs and the
+    // assembler will rewrite the inserted product-grid section to library
+    // mode + productIds. For now, the seeded grid stays in manual mode with
+    // its baked default content, which keeps the SiteProject self-contained
+    // until the agency adds real products via the builder's products panel.
+    productLibrary: [],
   };
 
   // Cheap self-check: fail loudly if assembly produced an invalid SiteProject,

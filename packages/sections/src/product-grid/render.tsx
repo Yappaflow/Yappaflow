@@ -1,7 +1,8 @@
-import type { Section } from "@yappaflow/types";
+import type { Product, Section } from "@yappaflow/types";
 import { PlaceholderSection } from "../internal/placeholder.js";
 import { EditableText } from "../internal/editable-text.js";
-import { ProductGridContentSchema } from "./schema.js";
+import { useProductLibrary } from "../internal/product-library-context.js";
+import { ProductCardSchema, ProductGridContentSchema, type ProductCard } from "./schema.js";
 import { DEFAULT_PRODUCT_GRID_VARIANT } from "./variants.js";
 
 const COLUMN_CLASS: Record<2 | 3 | 4, string> = {
@@ -10,10 +11,65 @@ const COLUMN_CLASS: Record<2 | 3 | 4, string> = {
   4: "md:grid-cols-2 lg:grid-cols-4",
 };
 
+/**
+ * Resolve the cards to display.
+ *
+ * mode === "library":
+ *   - If `productIds` is non-empty, hydrate each id from the live library.
+ *   - If `productIds` is empty, show the entire library in library order.
+ *     This is what the auto-managed `/products` index page relies on — it
+ *     ships an empty productIds array and renders "everything we sell".
+ *
+ * mode === "manual":
+ *   - Use the embedded `products` array verbatim. (Legacy + opt-out path.)
+ *
+ * Library-mode falls through to inline `products` if hydration yields zero
+ * cards (e.g. mounted with no Provider, or every referenced id was removed).
+ * That keeps a half-edited SiteProject from rendering blank.
+ */
+function resolveCards(
+  content: ReturnType<typeof ProductGridContentSchema.parse>,
+  library: readonly Product[],
+): ProductCard[] {
+  if (content.mode === "library") {
+    const ids = content.productIds;
+    const source = ids.length > 0
+      ? ids
+          .map((id) => library.find((p) => p.id === id))
+          .filter((p): p is Product => Boolean(p))
+      : library;
+    if (source.length > 0) return source.map(productToCard);
+  }
+  return content.products;
+}
+
+/**
+ * Project a library Product onto the legacy ProductCard shape so the renderer
+ * can stay shape-stable across binding modes. Hero image only — the grid
+ * never shows the gallery thumbnails.
+ */
+function productToCard(product: Product): ProductCard {
+  const hero = product.images[0]!;
+  const candidate = {
+    id: product.id,
+    handle: product.handle,
+    title: product.title,
+    price: product.price,
+    currency: product.currency,
+    image: hero,
+    href: `/products/${product.handle}`,
+    ...(product.compareAtPrice ? { compareAtPrice: product.compareAtPrice } : {}),
+  };
+  // Trust the schema — Product is already validated upstream and the projection
+  // is total. We still parse to apply defaults/normalization.
+  return ProductCardSchema.parse(candidate);
+}
+
 export function ProductGridSection({ section }: { section: Section }) {
   const parsed = ProductGridContentSchema.safeParse(section.content);
   const content = parsed.success ? parsed.data : null;
   const variant = section.variant ?? DEFAULT_PRODUCT_GRID_VARIANT;
+  const library = useProductLibrary();
 
   if (!content) {
     return (
@@ -22,6 +78,8 @@ export function ProductGridSection({ section }: { section: Section }) {
       </PlaceholderSection>
     );
   }
+
+  const cards = resolveCards(content, library);
 
   return (
     <PlaceholderSection section={section} variant={variant} className="bg-white">
@@ -62,49 +120,84 @@ export function ProductGridSection({ section }: { section: Section }) {
             </a>
           ) : null}
         </header>
-        <div
-          className={`mt-10 grid grid-cols-2 gap-6 md:mt-14 md:gap-8 ${COLUMN_CLASS[content.columns]}`}
-        >
-          {content.products.map((p, i) => (
-            <a
-              key={p.id}
-              href={p.href}
-              className="group flex flex-col gap-3 text-neutral-900"
-            >
-              <div className="relative aspect-[4/5] overflow-hidden rounded-xl bg-gradient-to-br from-neutral-100 to-neutral-200">
-                <img
-                  src={p.image.url}
-                  alt={p.image.alt ?? p.title}
-                  className="absolute inset-0 h-full w-full object-cover transition group-hover:scale-[1.02]"
-                />
-              </div>
-              <div className="flex items-start justify-between gap-4">
-                <EditableText
-                  field={`products.${i}.title`}
-                  value={p.title}
-                  className={
-                    variant === "minimal"
-                      ? "text-sm font-medium"
-                      : "text-base font-medium"
-                  }
-                />
-                <div className="text-right text-sm">
-                  {p.compareAtPrice ? (
-                    <EditableText
-                      field={`products.${i}.compareAtPrice`}
-                      value={p.compareAtPrice}
-                      className="mr-2 text-neutral-400 line-through"
-                    />
-                  ) : null}
-                  <EditableText
-                    field={`products.${i}.price`}
-                    value={p.price}
+        {cards.length === 0 ? (
+          <div className="mt-10 rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-10 text-center text-sm text-neutral-500">
+            No products yet. Add one in the Products panel — it'll appear
+            here automatically.
+          </div>
+        ) : (
+          <div
+            className={`mt-10 grid grid-cols-2 gap-6 md:mt-14 md:gap-8 ${COLUMN_CLASS[content.columns]}`}
+          >
+            {cards.map((p, i) => (
+              <a
+                key={p.id}
+                href={p.href}
+                className="group flex flex-col gap-3 text-neutral-900"
+              >
+                <div className="relative aspect-[4/5] overflow-hidden rounded-xl bg-gradient-to-br from-neutral-100 to-neutral-200">
+                  <img
+                    src={p.image.url}
+                    alt={p.image.alt ?? p.title}
+                    className="absolute inset-0 h-full w-full object-cover transition group-hover:scale-[1.02]"
                   />
                 </div>
-              </div>
-            </a>
-          ))}
-        </div>
+                <div className="flex items-start justify-between gap-4">
+                  {/*
+                    Inline editing is only available on the manual-mode `products`
+                    array — library-mode cards are read-only here, the agency
+                    edits them in the Products panel. Show a static label rather
+                    than an EditableText to avoid silently dropping edits.
+                  */}
+                  {content.mode === "manual" ? (
+                    <EditableText
+                      field={`products.${i}.title`}
+                      value={p.title}
+                      className={
+                        variant === "minimal"
+                          ? "text-sm font-medium"
+                          : "text-base font-medium"
+                      }
+                    />
+                  ) : (
+                    <span
+                      className={
+                        variant === "minimal"
+                          ? "text-sm font-medium"
+                          : "text-base font-medium"
+                      }
+                    >
+                      {p.title}
+                    </span>
+                  )}
+                  <div className="text-right text-sm">
+                    {p.compareAtPrice ? (
+                      content.mode === "manual" ? (
+                        <EditableText
+                          field={`products.${i}.compareAtPrice`}
+                          value={p.compareAtPrice}
+                          className="mr-2 text-neutral-400 line-through"
+                        />
+                      ) : (
+                        <span className="mr-2 text-neutral-400 line-through">
+                          {p.compareAtPrice}
+                        </span>
+                      )
+                    ) : null}
+                    {content.mode === "manual" ? (
+                      <EditableText
+                        field={`products.${i}.price`}
+                        value={p.price}
+                      />
+                    ) : (
+                      <span>{p.price}</span>
+                    )}
+                  </div>
+                </div>
+              </a>
+            ))}
+          </div>
+        )}
       </div>
     </PlaceholderSection>
   );
