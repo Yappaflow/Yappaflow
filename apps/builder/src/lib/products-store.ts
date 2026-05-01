@@ -150,8 +150,30 @@ export const useProductsStore = create<ProductsState>()((set, get) => ({
   },
 
   addProduct(product) {
-    const full: LibraryProduct = { ...product, id: makeId() };
-    const next = [...get().products, full];
+    // Dedupe handle inside the action so callers can't lose to a race —
+    // two rapid +New clicks from products-panel previously both saw an
+    // empty existingHandles set and produced two products with the same
+    // handle (`new-product`) until this guard moved into the store.
+    const existing = get().products;
+    const taken = new Set(existing.map((p) => p.handle));
+    let handle = product.handle;
+    if (taken.has(handle)) {
+      const base = handle;
+      let n = 2;
+      while (taken.has(`${base}-${n}`)) n++;
+      handle = `${base}-${n}`;
+    }
+    const full: LibraryProduct = {
+      ...product,
+      handle,
+      // Keep href in sync with the (possibly suffixed) handle so deep links
+      // resolve correctly.
+      href: product.href.startsWith("/products/")
+        ? `/products/${handle}`
+        : product.href,
+      id: makeId(),
+    };
+    const next = [...existing, full];
     set({ products: next });
     writeToStorage(next);
     return full;

@@ -51,6 +51,16 @@ interface ProjectState {
   /** Monotonic counter — incrementing forces canvas to replay animations. */
   animationEpoch: number;
 
+  /**
+   * When set, the editor shell renders a ProductPickerModal targeted at the
+   * given product-grid section. Set by `insertSection` for product-grid
+   * inserts (so the picker pops up automatically) and by the right-rail
+   * inspector's "Pick products" button. Cleared on confirm/cancel.
+   */
+  productPickerSectionId: string | null;
+  openProductPicker(sectionId: string): void;
+  closeProductPicker(): void;
+
   // Lifecycle
   hydrate(projectId: string, fallback: SiteProject | null): void;
   replaceProject(project: SiteProject): void;
@@ -279,6 +289,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
   dirty: false,
   lastSavedAt: null,
   animationEpoch: 0,
+  productPickerSectionId: null,
 
   hydrate(projectId, fallback) {
     const fromStorage = loadProjectFromStorage(projectId);
@@ -553,11 +564,32 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
 
   insertSection(pageId, type, atIndex) {
     const data = SECTION_DATA[type];
+    // For product-grid, default new sections to library mode + show-all so
+    // they immediately reflect the catalog. The agency can refine via the
+    // post-insert ProductPickerModal (opens automatically — see canvas
+    // wiring) or the right-rail inspector. Without this override the seeded
+    // default contains stale fixture cards (Classic tee / Studio cap / ...)
+    // that don't match the user's library — the exact drift bug reported
+    // 2026-05-01.
+    const baseContent = { ...(data.defaultContent as Record<string, unknown>) };
+    const content =
+      type === "product-grid"
+        ? {
+            ...baseContent,
+            mode: "library",
+            productIds: [],
+            // Drop the seeded inline cards so the renderer doesn't fall back
+            // to them when the library is empty for a brand-new project.
+            // The placeholder ("No products yet") is friendlier than stale
+            // sample data that looks like real content.
+            products: [],
+          }
+        : baseContent;
     const newSection: Section = {
       id: nextSectionId(),
       type,
       variant: data.defaultVariant,
-      content: { ...(data.defaultContent as Record<string, unknown>) },
+      content,
       style: {},
     };
     set((state) =>
@@ -571,8 +603,25 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
       ),
     );
     // Select the just-inserted section so the right rail opens on it.
-    set({ selection: { pageId, sectionId: newSection.id } });
+    // For product-grid, also pop the product picker — agencies asked for an
+    // in-page modal to curate which products appear in a freshly-inserted
+    // grid (rather than the seeded sample cards). The modal renders from
+    // editor-shell.tsx via `productPickerSectionId`.
+    set({
+      selection: { pageId, sectionId: newSection.id },
+      ...(type === "product-grid"
+        ? { productPickerSectionId: newSection.id }
+        : {}),
+    });
     return newSection.id;
+  },
+
+  openProductPicker(sectionId) {
+    set({ productPickerSectionId: sectionId });
+  },
+
+  closeProductPicker() {
+    set({ productPickerSectionId: null });
   },
 
   duplicateSection(pageId, sectionId) {
@@ -764,8 +813,10 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
       const existingIndex = state.project.pages.findIndex((p) => p.slug === slug);
 
       if (existingIndex >= 0) {
-        // Refresh only the product-grid section's products list. Also
-        // backfill kind on the catalog page if it predates the v2 migration.
+        // Library-bound, "show all": empty productIds means "render the
+        // entire SiteProject.productLibrary". The renderer falls back to
+        // the inline `products` array if the library is empty (e.g. legacy
+        // SiteProjects that haven't been hydrated yet).
         const nextPages = state.project.pages.map((page, i) => {
           if (i !== existingIndex) return page;
           const nextSections = page.sections.map((section) => {
@@ -774,6 +825,8 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
               ...section,
               content: {
                 ...(section.content as Record<string, unknown>),
+                mode: "library",
+                productIds: [],
                 products: productCards,
               },
             };
@@ -812,6 +865,11 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
           eyebrow: "",
           heading: "",
           columns: 4,
+          mode: "library",
+          // Empty productIds + library mode = "render the entire library".
+          // Adding/removing products in the panel automatically updates this
+          // page on the next render — no per-action sync needed.
+          productIds: [],
           products: productCards,
         },
         style: {},
@@ -899,6 +957,13 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
                 ...section,
                 content: {
                   ...(section.content as Record<string, unknown>),
+                  // Library-bound with explicit ids — preserves the agency's
+                  // curation order. Inline products kept as a fallback for
+                  // adapters / non-Provider render paths.
+                  mode: "library",
+                  productIds: productCards.map((c) =>
+                    String((c as { id: string }).id),
+                  ),
                   products: productCards,
                 },
               }
@@ -926,6 +991,8 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
           heading: "Featured products",
           subhead: "Hand-picked from the catalog.",
           columns: 3,
+          mode: "library",
+          productIds: productCards.map((c) => String((c as { id: string }).id)),
           products: productCards,
           ctaAll: { label: "View all products", href: "/products" },
         },

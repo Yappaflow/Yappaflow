@@ -25,6 +25,7 @@ import { fetchProjectProducts } from "@/lib/server-api";
 import { buildProductDetailContent, buildProductPageSections } from "@/lib/product-page";
 import { buildSampleSiteProject } from "@/fixtures/sample-project";
 import { LoadFromJsonModal } from "@/components/load-from-json";
+import { ProductPickerModal } from "@/components/product-picker-modal";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { TopBar } from "@/components/top-bar";
 import { LeftRail } from "@/components/left-rail";
@@ -234,6 +235,13 @@ export function EditorShell({ projectId }: { projectId: string }) {
             }}
           />
         ) : null}
+        {/*
+          ProductPickerModal renders nothing when productPickerSectionId is
+          null. Mounted at the editor-shell level so it overlays the canvas
+          + rails — the user reported that the picker must NOT open in a new
+          window/tab. Same-page modal satisfies that constraint.
+        */}
+        <ProductPickerModal />
       </div>
 
       <DragOverlay dropAnimation={null}>

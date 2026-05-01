@@ -57,18 +57,114 @@ export function ProductsPanel() {
     hydrate();
   }, [hydrate]);
 
-  // One-time backfill: when localStorage has products but the SiteProject
-  // library is empty (legacy v2 project that just migrated), push the
-  // localStorage catalog into the project so adapters can see it. Runs
-  // after hydration completes; safe to re-run because it bails when the
-  // project library is non-empty.
+  // Reconciliation pass — runs once after both stores hydrate. localStorage
+  // products-store is the source of truth here (it's where the agency
+  // edits products via the panel); SiteProject.productLibrary catches up.
+  //
+  // Three things happen, all idempotent:
+  //
+  //   1. Empty-library backfill — fresh v3 projects ship with productLibrary
+  //      = [] but a returning agency has products in localStorage. Move them
+  //      in.
+  //
+  //   2. Per-id sync — when both stores have the same id but different
+  //      content (typical right after a v2 → v3 migration: the migration
+  //      pulled OLD card data from the grid section while localStorage
+  //      had newer agency edits), localStorage wins. Without this, the
+  //      canvas displays the migration's stale snapshot until the agency
+  //      manually re-saves each product.
+  //
+  //   3. Missing-page reconciliation — every library product should have
+  //      a /products/<handle> page. If any are missing (older project,
+  //      backfilled product, etc.), create them so the catalog UX stays
+  //      coherent.
   useEffect(() => {
     if (!hydrated) return;
     if (!projectLibrary) return; // project not loaded yet
-    if (projectLibrary.length > 0) return;
-    if (products.length === 0) return;
-    replaceProductLibrary(products.map(libraryToProduct));
-  }, [hydrated, projectLibrary, products, replaceProductLibrary]);
+
+    const projectIds = new Set(projectLibrary.map((p) => p.id));
+    const projectByHandle = new Map(projectLibrary.map((p) => [p.handle, p]));
+    const storeProducts = products;
+
+    // Step 1 + 2: build the next library array. Start from project library,
+    // then for each store product, add or overwrite by id.
+    let needsLibraryWrite = false;
+    const merged: typeof projectLibrary = [...projectLibrary];
+    for (const sp of storeProducts) {
+      const projected = libraryToProduct(sp);
+      const existingIdx = merged.findIndex((p) => p.id === sp.id);
+      if (existingIdx < 0) {
+        merged.push(projected);
+        needsLibraryWrite = true;
+        continue;
+      }
+      const cur = merged[existingIdx]!;
+      // Cheap diff — title / handle / price / compareAtPrice / image are
+      // the agency-edited fields. Library extras (description, variantGroups,
+      // specs) come from elsewhere and we shouldn't clobber them with
+      // localStorage's empty defaults.
+      if (
+        cur.title !== projected.title ||
+        cur.handle !== projected.handle ||
+        cur.price !== projected.price ||
+        cur.compareAtPrice !== projected.compareAtPrice ||
+        cur.images[0]?.url !== projected.images[0]?.url
+      ) {
+        merged[existingIdx] = {
+          ...cur,
+          title: projected.title,
+          handle: projected.handle,
+          price: projected.price,
+          ...(projected.compareAtPrice !== undefined
+            ? { compareAtPrice: projected.compareAtPrice }
+            : {}),
+          images: projected.images,
+        };
+        needsLibraryWrite = true;
+      }
+    }
+    if (needsLibraryWrite) {
+      replaceProductLibrary(merged);
+    }
+
+    // Step 3: ensure every store product has a matching /products/<handle>
+    // page. This handles the case the user reported — 5 products in the
+    // panel but only 1 product page in the layers tree — by creating any
+    // missing pages from the library data.
+    if (storeProducts.length > 0) {
+      for (const sp of storeProducts) {
+        const projected =
+          merged.find((p) => p.id === sp.id) ?? libraryToProduct(sp);
+        const hasPage = projectByHandle.has(sp.handle);
+        if (hasPage) continue;
+        // upsertProductPage is idempotent — safe even if the page exists
+        // under a different (legacy) handle slug.
+        upsertProductPage({
+          handle: sp.handle,
+          title: sp.title,
+          pageSections: buildProductPageSections(sp),
+          productDetailContent: buildProductDetailContent(sp),
+        });
+        // Cache so we don't re-create on the next iteration if two store
+        // products share a handle (defensive — addProduct dedupe should
+        // prevent this, but reconciliation guards against legacy data).
+        projectIds.add(projected.id);
+        projectByHandle.set(sp.handle, projected);
+      }
+      // Refresh catalog + featured grid in one pass after backfill.
+      const allCards = storeProducts.map(libraryToProductCard);
+      upsertProductsIndexPage(allCards);
+      upsertHomeFeaturedGrid(allCards);
+    }
+  }, [
+    hydrated,
+    projectLibrary,
+    products,
+    replaceProductLibrary,
+    upsertProductPage,
+    upsertProductsIndexPage,
+    upsertHomeFeaturedGrid,
+  ]);
 
   if (!hydrated) {
     return (
