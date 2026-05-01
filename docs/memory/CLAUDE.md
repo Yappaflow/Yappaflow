@@ -24,4 +24,4 @@ first place to look**.
 - Don't ADD new topical docs here. New rules go in the workspace `CLAUDE.md` they apply
   to, or in the root file if they are global.
 - Don't trust `memory/init` or `memory/model` about **pipeline/architecture** — they
-  describe the pre-pivot world. `BUILDER-PIVOT.md` at the repo root is the current truth.
+  describe the pre-pivot world. `docs/pivot/BUILDER-PIVOT.md` is the current truth.

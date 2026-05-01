@@ -3,7 +3,7 @@
  * site. Output of the AI generation stage, input of the in-house builder,
  * input of every CMS adapter-v2.
  *
- * Shape chosen 2026-04-23 (see BUILDER-PIVOT.md): "Option C hybrid". Sections
+ * Shape chosen 2026-04-23 (see docs/pivot/BUILDER-PIVOT.md): "Option C hybrid". Sections
  * are typed blocks drawn from the MVP library (packages/sections), and their
  * content is schema-constrained per section type — rigid enough to map
  * deterministically to Liquid / PHP / TSX, loose enough that the AI can still

@@ -13,7 +13,7 @@ nearest workspace-level `CLAUDE.md` for local rules.
 
 Yappaflow turns agency conversations into shippable websites.
 **As of 2026-04-23 we are in the Builder-First Pivot** — see
-[`BUILDER-PIVOT.md`](./BUILDER-PIVOT.md) for the full brief. One-line version:
+[`BUILDER-PIVOT.md`](./docs/pivot/BUILDER-PIVOT.md) for the full brief. One-line version:
 
 ```
 signal → AI → SiteProject (canonical JSON) → in-house builder → deterministic CMS conversion → ZIP/push
@@ -23,7 +23,7 @@ The creative work stays in the AI. The CMS translation becomes a mechanical tran
 `SiteProject` to Shopify / Webflow / WordPress / IKAS via per-section mappers.
 
 Active phase: **Phase 7 (done)** → **Phase 8 `apps/builder` MVP (in progress)**. Keep
-[`PHASES.md`](./PHASES.md) as the live status board.
+[`PHASES.md`](./docs/pivot/PHASES.md) as the live status board.
 
 ---
 
@@ -70,7 +70,7 @@ These come from prior incidents — don't relitigate.
 7. **yappaflow-mcp calls an LLM in three stages** — *analysis*, *planning*, *generation*.
    Call sites ask for the **stage**, not the model. Models map via env overrides; see
    `apps/yappaflow-mcp/CLAUDE.md`.
-8. **Builder-pivot scope discipline.** If a task isn't in the BUILDER-PIVOT.md Phase 7–13 list,
+8. **Builder-pivot scope discipline.** If a task isn't in the docs/pivot/BUILDER-PIVOT.md Phase 7–13 list,
    flag it as "out-of-pivot" before doing the work. Ship the pivot first.
 
 ---
@@ -111,8 +111,12 @@ workspaces and bare `yappaflow-ui` for the publishable library.
 
 ## 6. Where to look when stuck
 
-- Product direction: `BUILDER-PIVOT.md`, `PHASES.md`.
+- Product direction: `docs/pivot/BUILDER-PIVOT.md`, `docs/pivot/PHASES.md`.
 - Legacy / deep dives: `memory/{init,data,model,LLM,UILibrary}/CLAUDE.md`.
-- Parallel project kickoffs (not daily context): `liman-plan.md`,
-  `yappaflow-console-plan.md` — only open if the task mentions them.
-- Runtime testing without a real Anthropic key: `TESTING-WITHOUT-ANTHROPIC-KEY.md`.
+- Parallel project kickoffs (not daily context): `docs/projects/liman-plan.md`,
+  `docs/projects/yappaflow-console-plan.md` — only open if the task mentions them.
+- Runtime testing without a real Anthropic key: `docs/setup/TESTING-WITHOUT-ANTHROPIC-KEY.md`.
+- AWS architecture diagrams: `docs/architecture/AWS-ARCHITECTURE.mermaid` (+ `-LEAN`).
+- Onboarding handoff for fresh Claude sessions: `docs/onboarding/ONBOARDING-CLAUDE.md`.
+- AWS / GitHub setup notes: `docs/setup/LINUX-AWS-SETUP.md`, `docs/setup/GITHUB-ORG-SETUP.md`.
+- Outreach data (xlsx): `data/outreach/`.

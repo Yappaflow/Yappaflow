@@ -1,36 +1,69 @@
 # Monorepo-root Dockerfile for the Yappaflow MCP server.
-# Used when Railway cannot scope a service to apps/yappaflow-mcp via a
-# Root Directory / Source Path setting — we build from repo root and copy
-# only the MCP app into the image.
+# Build context = repo root.
 #
-# Pick this as the Dockerfile path in Railway:
-#   Settings → Build → Dockerfile Path: Dockerfile.mcp
+# Strategy: install only the workspaces the MCP service actually depends on
+# (packages/types, packages/sections, apps/yappaflow-mcp). The full monorepo
+# install pulls ~2GB of unrelated deps (web, app, builder, ui-docs, ui) and
+# blows up Docker's disk. We override the workspaces field at build time
+# to slim it down.
 #
 # Keep the Playwright image tag in sync with the resolved `playwright`
-# version in package-lock.json (grep -A1 '"node_modules/playwright"').
+# version in package-lock.json. Mismatch causes runtime crashes about
+# missing libglib-2.0.so.0 etc.
 FROM mcr.microsoft.com/playwright:v1.59.1-jammy
 
 WORKDIR /app
 
-# Copy just the MCP app's package.json so deps install from its manifest
-# without pulling every workspace's node_modules into the image.
-COPY apps/yappaflow-mcp/package.json ./package.json
+# better-sqlite3 is native code. If prebuilt binaries aren't available,
+# npm falls back to compiling — which needs python3 + a C++ toolchain.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 make g++ \
+    && rm -rf /var/lib/apt/lists/*
 
+# === Step 1: copy only the manifests we need ===
+# Dependency chain: @yappaflow/mcp -> @yappaflow/sections -> yappaflow-ui
+#                                  -> @yappaflow/types
+# yappaflow-ui is needed because sections/render.tsx files import from it,
+# and tsc type-checks all files in the project even if MCP itself only
+# uses @yappaflow/sections/data at runtime.
+COPY package.json package-lock.json* turbo.json* ./
+COPY packages/types/package.json ./packages/types/package.json
+COPY packages/sections/package.json ./packages/sections/package.json
+COPY packages/yappaflow-ui/package.json ./packages/yappaflow-ui/package.json
+COPY apps/yappaflow-mcp/package.json ./apps/yappaflow-mcp/package.json
+
+# Rewrite the root package.json's "workspaces" field to only include
+# what the MCP service's dependency chain actually needs. Skips web,
+# app, server, builder, ui-docs, tunnel, shared.
+RUN node -e "const p=require('./package.json'); p.workspaces=['packages/types','packages/sections','packages/yappaflow-ui','apps/yappaflow-mcp']; require('fs').writeFileSync('./package.json', JSON.stringify(p,null,2));"
+
+# === Step 2: install only the slim workspace set ===
 RUN npm install --no-audit --no-fund
 
-# Version-drift safety net: install the exact Chromium + OS libs the
-# resolved Playwright version expects. `--with-deps` runs apt as root
-# inside the build layer, which is allowed.
+# === Step 3: copy source for the workspaces we actually build ===
+COPY packages/types ./packages/types
+COPY packages/sections ./packages/sections
+COPY packages/yappaflow-ui ./packages/yappaflow-ui
+COPY apps/yappaflow-mcp ./apps/yappaflow-mcp
+
+# === Step 4: Playwright version-drift safety net ===
 RUN npx playwright install --with-deps chromium
 
-# Now copy the app source.
-COPY apps/yappaflow-mcp/ ./
-
-RUN npm run build
+# === Step 5: build in dependency order ===
+# types -> yappaflow-ui -> sections -> mcp
+# yappaflow-ui has tsup quirks (cross-layer externals + "use client" banners
+# re-attached in onSuccess) — those are baked into tsup.config.ts; just
+# don't touch that config without re-reading the package's CLAUDE.md.
+RUN npm run build --workspace=@yappaflow/types
+RUN npm run build --workspace=yappaflow-ui
+RUN npm run build --workspace=@yappaflow/sections
+RUN npm run build --workspace=@yappaflow/mcp
 
 ENV NODE_ENV=production \
-    HOST=0.0.0.0
+    HOST=0.0.0.0 \
+    PORT=3000 \
+    SQLITE_PATH=/tmp/dna-cache.db
 
+WORKDIR /app/apps/yappaflow-mcp
 EXPOSE 3000
-
 CMD ["npm", "start"]

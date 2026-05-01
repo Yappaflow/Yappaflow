@@ -6,7 +6,7 @@
 
 - `Brief` — the structured client intake (input to generation).
 - `DesignDna` / `MergedDna` — design tokens: colors, typography, spacing, motion.
-- `SiteProject` — canonical output (see `BUILDER-PIVOT.md` §"The canonical format").
+- `SiteProject` — canonical output (see `docs/pivot/BUILDER-PIVOT.md` §"The canonical format").
 - `Page`, `Section`, `SectionType`, `AnimationPreset`, token types.
 
 ## The load-bearing rule
@@ -23,7 +23,7 @@ Procedure:
 1. Bump `SiteProject.schemaVersion` (currently `1`).
 2. Update types here.
 3. Update every consumer in the same PR.
-4. Add a migration note to `BUILDER-PIVOT.md` or a CHANGELOG.
+4. Add a migration note to `docs/pivot/BUILDER-PIVOT.md` or a CHANGELOG.
 5. If backward compatibility matters, add a migration util in `src/migrate/`.
 
 ## Build

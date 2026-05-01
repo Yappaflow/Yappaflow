@@ -1,7 +1,7 @@
 # apps/builder — CLAUDE context
 
 You are working inside the **in-house site builder** — the middle of the Builder-First Pivot
-(see `../../BUILDER-PIVOT.md`). This is Phase 8, the biggest single phase of the pivot.
+(see `../../docs/pivot/BUILDER-PIVOT.md`). This is Phase 8, the biggest single phase of the pivot.
 
 ## What this app is
 

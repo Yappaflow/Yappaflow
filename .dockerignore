@@ -1,0 +1,47 @@
+# Dependencies (rebuilt fresh inside the container)
+**/node_modules
+
+# Build outputs (rebuilt inside the container)
+**/dist
+**/.next
+**/.turbo
+**/.cache
+**/build
+**/coverage
+**/.expo
+
+# Git history (not needed in image)
+.git
+.gitignore
+.gitattributes
+
+# Environment files (secrets injected via Parameter Store / env at runtime)
+.env
+.env.*
+**/.env
+**/.env.*
+
+# Logs
+*.log
+**/*.log
+.npm
+.yarn
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# IDE / editor config
+.vscode
+.idea
+.cursor
+
+# Generated/static output folders
+yf-out
+sites
+marketing/dist
+
+# Documentation and outreach data don't need to ship in the image
+docs
+data
+*.mermaid
