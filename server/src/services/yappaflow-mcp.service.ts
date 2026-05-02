@@ -120,6 +120,18 @@ export async function buildSiteRpc(params: {
   return callTool("build_site", params);
 }
 
+export async function buildSiteProjectRpc(params: {
+  brief: unknown;
+  mergedDna: unknown;
+  overrides?: { siteTitle?: string; logoText?: string };
+}): Promise<{
+  siteProject: unknown;
+  summary: string;
+  nextSteps: string[];
+}> {
+  return callTool("build_site_project", params);
+}
+
 export async function mergeDnaRpc(params: {
   structure_from: unknown;
   typography_from: unknown;

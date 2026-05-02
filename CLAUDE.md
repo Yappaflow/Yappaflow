@@ -112,11 +112,16 @@ workspaces and bare `yappaflow-ui` for the publishable library.
 ## 6. Where to look when stuck
 
 - Product direction: `docs/pivot/BUILDER-PIVOT.md`, `docs/pivot/PHASES.md`.
-- Legacy / deep dives: `memory/{init,data,model,LLM,UILibrary}/CLAUDE.md`.
+- **Bridge connection (Phase 8.5–8.9)**: `docs/pivot/BUILDER-CONNECTION.md` is the
+  full plan; `docs/pivot/BUILDER-CONNECTION-TODO.md` is the day-by-day checklist.
+- Live design / aesthetic: `docs/memory/design/top-design/` (read at runtime by
+  `server/src/ai/design-system.ts`) and `docs/memory/UILibrary/` (manifesto for
+  `packages/yappaflow-ui`).
+- Historical / pre-pivot: `docs/memory/_archive/` — nothing in there is load-bearing.
 - Parallel project kickoffs (not daily context): `docs/projects/liman-plan.md`,
   `docs/projects/yappaflow-console-plan.md` — only open if the task mentions them.
 - Runtime testing without a real Anthropic key: `docs/setup/TESTING-WITHOUT-ANTHROPIC-KEY.md`.
 - AWS architecture diagrams: `docs/architecture/AWS-ARCHITECTURE.mermaid` (+ `-LEAN`).
 - Onboarding handoff for fresh Claude sessions: `docs/onboarding/ONBOARDING-CLAUDE.md`.
 - AWS / GitHub setup notes: `docs/setup/LINUX-AWS-SETUP.md`, `docs/setup/GITHUB-ORG-SETUP.md`.
-- Outreach data (xlsx): `data/outreach/`.
+- Outreach data (xlsx): `docs/marketing/data/outreach/`.

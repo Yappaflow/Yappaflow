@@ -170,9 +170,13 @@ export interface IProject extends Document {
   buildStartedAt?:  Date;
   buildAttempt?:    number;   // which retry attempt we're on (1..N)
   buildAttemptMax?: number;   // how many attempts the generator will try in total
-  downloadedAt?:    Date;
-  createdAt:        Date;
-  updatedAt:        Date;
+  downloadedAt?:             Date;
+  siteProject?:              unknown;
+  siteProjectVersion?:       number;
+  siteProjectUpdatedAt?:     Date;
+  siteProjectGeneratedAt?:   Date;
+  createdAt:                 Date;
+  updatedAt:                 Date;
 }
 
 const ProductVariantSchema = new Schema<IProductVariant>(
@@ -262,7 +266,11 @@ const ProjectSchema = new Schema<IProject>(
     buildStartedAt:  { type: Date },
     buildAttempt:    { type: Number },
     buildAttemptMax: { type: Number },
-    downloadedAt:    { type: Date },
+    downloadedAt:             { type: Date },
+    siteProject:              { type: Schema.Types.Mixed },
+    siteProjectVersion:       { type: Number, default: 0 },
+    siteProjectUpdatedAt:     { type: Date },
+    siteProjectGeneratedAt:   { type: Date },
   },
   { timestamps: true }
 );
